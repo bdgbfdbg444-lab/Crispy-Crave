@@ -4,25 +4,25 @@ import { motion } from 'framer-motion';
 const pageVariants = {
   initial: {
     opacity: 0,
-    y: 20,
-    filter: 'blur(10px)',
+    y: 10,
+    filter: 'blur(15px)',
   },
   in: {
     opacity: 1,
     y: 0,
     filter: 'blur(0px)',
     transition: {
-      duration: 0.6,
-      ease: [0.22, 1, 0.36, 1], // Custom "Bucksauce" style ease (Apple-like smooth ease out)
+      duration: 1.2,
+      ease: [0.25, 0.1, 0.25, 1], // Smooth elegant ease
     }
   },
   out: {
     opacity: 0,
-    y: -20,
-    filter: 'blur(10px)',
+    y: -10,
+    filter: 'blur(15px)',
     transition: {
-      duration: 0.4,
-      ease: [0.22, 1, 0.36, 1],
+      duration: 0.8,
+      ease: [0.25, 0.1, 0.25, 1],
     }
   }
 };

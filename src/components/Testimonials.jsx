@@ -1,9 +1,11 @@
+import { useLanguage } from '../context/LanguageContext';
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Star, MessageSquareQuote } from 'lucide-react';
 import { APP_CONFIG } from '../config/appConfig';
 
 export default function Testimonials() {
+  const { lang } = useLanguage();
   const [reviews, setReviews] = useState([]);
 
   useEffect(() => {
@@ -36,14 +38,14 @@ export default function Testimonials() {
   ];
 
   return (
-    <section className="py-24 bg-dark text-white relative overflow-hidden">
+    <section className="py-24 bg-black-primary text-text-light relative overflow-hidden">
       <div className="container mx-auto px-6 mb-16">
         <div className="text-center">
           <motion.div 
             initial={{ opacity: 0, scale: 0.8 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
-            className="flex justify-center items-center gap-2 text-primary mb-4"
+            className="flex justify-center items-center gap-2 text-neon-amber mb-4"
           >
             <MessageSquareQuote size={24} />
             <span className="font-bold tracking-wider text-sm uppercase">Customer Reviews</span>
@@ -54,15 +56,15 @@ export default function Testimonials() {
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-4xl md:text-5xl font-display font-black text-white mb-4"
+            className="text-4xl md:text-5xl font-display font-black text-text-light mb-4"
           >
-            رأي الأكيلة
+            {lang === 'en' ? 'Foodies\' Opinions' : 'رأي الأكيلة'}
           </motion.h2>
           <motion.div 
             initial={{ opacity: 0, width: 0 }}
             whileInView={{ opacity: 1, width: "80px" }}
             viewport={{ once: true }}
-            className="h-1 bg-primary mx-auto rounded-full"
+            className="h-1 bg-wood mx-auto rounded-full"
           ></motion.div>
         </div>
       </div>
@@ -70,8 +72,8 @@ export default function Testimonials() {
       {/* Auto-scrolling Marquee */}
       <div className="relative w-full overflow-hidden flex">
         {/* Left/Right fading gradients to blend the marquee */}
-        <div className="absolute top-0 left-0 w-16 md:w-64 h-full bg-gradient-to-r from-dark to-transparent z-10 pointer-events-none"></div>
-        <div className="absolute top-0 right-0 w-16 md:w-64 h-full bg-gradient-to-l from-dark to-transparent z-10 pointer-events-none"></div>
+        <div className="absolute top-0 left-0 w-16 md:w-64 h-full bg-gradient-to-r from-black-primary to-transparent z-10 pointer-events-none"></div>
+        <div className="absolute top-0 right-0 w-16 md:w-64 h-full bg-gradient-to-l from-black-primary to-transparent z-10 pointer-events-none"></div>
 
         <motion.div 
           className="flex gap-6 w-max py-4 px-4"
@@ -85,37 +87,47 @@ export default function Testimonials() {
           {[...displayReviews, ...displayReviews].map((review, index) => (
             <div 
               key={index}
-              className="bg-gray-800 rounded-2xl border border-gray-700 shadow-xl relative w-[280px] md:w-[380px] flex-shrink-0 flex flex-col overflow-hidden"
+              className="bg-black-surface rounded-3xl border border-wood-dark/30 shadow-2xl hover:shadow-neon-amber/10 relative w-[300px] md:w-[400px] flex-shrink-0 flex flex-col overflow-hidden group transition-all duration-500"
             >
               {review.imageUrl && (
-                <div className="w-full h-40 md:h-48 shrink-0 bg-dark">
-                  <img src={review.imageUrl} alt="Customer Order" className="w-full h-full object-cover" loading="lazy" />
+                <div className="w-full h-48 md:h-56 shrink-0 bg-black-primary relative overflow-hidden">
+                  {/* Subtle gradient overlay to blend harsh image edges */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black-surface via-transparent to-transparent z-10"></div>
+                  <img 
+                    src={review.imageUrl} 
+                    alt="Customer Order" 
+                    className="w-full h-full object-cover opacity-90 group-hover:scale-110 transition-transform duration-700" 
+                    loading="lazy" 
+                  />
                 </div>
               )}
               
-              <div className="p-6 md:p-8 flex-grow flex flex-col relative">
-                <MessageSquareQuote size={40} className="absolute top-4 right-4 text-gray-700/30 -z-0 md:w-16 md:h-16" />
+              <div className="p-6 md:p-8 flex-grow flex flex-col relative z-20">
+                {/* Large faint watermark quote icon in the background, shifted left for RTL */}
+                <MessageSquareQuote className="absolute -top-4 -left-6 text-wood-dark/10 w-40 h-40 -z-10 transform -rotate-6" />
                 
-                <div className="relative z-10 flex flex-col h-full">
-                  <div className="flex gap-1 text-primary mb-4">
-                    {[...Array(5)].map((_, i) => (
-                      <Star 
-                        key={i} 
-                        size={18} 
-                        fill={i < (review.rating || 5) ? "currentColor" : "none"} 
-                        className={i >= (review.rating || 5) ? "text-gray-500" : ""}
-                      />
-                    ))}
+                <div className="flex gap-1 text-neon-amber mb-6 drop-shadow-md">
+                  {[...Array(5)].map((_, i) => (
+                    <Star 
+                      key={i} 
+                      size={20} 
+                      fill={i < (review.rating || 5) ? "currentColor" : "none"} 
+                      className={i >= (review.rating || 5) ? "text-wood-dark/40" : ""}
+                    />
+                  ))}
+                </div>
+                
+                <p className="text-text-light text-lg md:text-xl leading-relaxed mb-8 whitespace-normal font-medium flex-grow">
+                  "{review.comment}"
+                </p>
+                
+                <div className="mt-auto border-t border-wood-dark/20 pt-4 flex items-center justify-between">
+                  <div>
+                    <h4 className="font-bold text-neon-amber truncate text-base md:text-lg">{review.customerName || "{lang === 'en' ? 'Special Customer' : 'عميل مميز'}"}</h4>
+                    <span className="text-xs md:text-sm text-text-muted">Verified Buyer</span>
                   </div>
-                  
-                  <p className="text-gray-300 text-base md:text-lg leading-relaxed mb-6 whitespace-normal">
-                    "{review.comment}"
-                  </p>
-                  
-                  <div className="mt-auto">
-                    <h4 className="font-bold text-white truncate text-sm md:text-base">{review.customerName || "عميل مميز"}</h4>
-                    <span className="text-xs md:text-sm text-gray-400">Verified Buyer</span>
-                  </div>
+                  {/* Small clean quote icon at the bottom for aesthetic */}
+                  <MessageSquareQuote size={20} className="text-wood-dark/50" />
                 </div>
               </div>
             </div>

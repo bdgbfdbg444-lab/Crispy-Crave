@@ -1,3 +1,4 @@
+import { useLanguage } from '../../context/LanguageContext';
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -5,6 +6,7 @@ import { ShoppingBag, X, Plus, Minus, Trash2, ArrowLeft } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 
 export default function CartSidebar() {
+  const { lang } = useLanguage();
   const { cartItems, isCartOpen, setIsCartOpen, removeFromCart, updateQuantity, cartTotal } = useCart();
   const navigate = useNavigate();
 
@@ -28,7 +30,7 @@ export default function CartSidebar() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsCartOpen(false)}
-            className="fixed inset-0 bg-dark/60 backdrop-blur-sm z-[100]"
+            className="fixed inset-0 bg-black-primary/60 backdrop-blur-sm z-[100]"
           />
 
           {/* Sidebar */}
@@ -37,36 +39,36 @@ export default function CartSidebar() {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed top-0 right-0 h-full w-full sm:w-96 bg-white shadow-2xl z-[101] flex flex-col"
+            className="fixed top-0 right-0 h-full w-full sm:w-96 bg-black-surface shadow-2xl z-[101] flex flex-col"
           >
             {/* Header */}
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-white shrink-0">
-              <div className="flex items-center gap-3 text-dark">
-                <ShoppingBag size={24} className="text-primary" />
-                <h2 className="text-2xl font-display font-black pt-1">سلة الطلبات</h2>
-                <span className="bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-full text-sm">
+            <div className="p-6 border-b border-wood-dark/30 flex items-center justify-between bg-black-surface shrink-0">
+              <div className="flex items-center gap-3 text-text-light">
+                <ShoppingBag size={24} className="text-neon-amber" />
+                <h2 className="text-2xl font-display font-black pt-1">{lang === 'en' ? 'Cart' : 'سلة الطلبات'}</h2>
+                <span className="bg-wood/10 text-neon-amber font-bold px-2 py-0.5 rounded-full text-sm">
                   {cartItems.reduce((acc, item) => acc + item.quantity, 0)}
                 </span>
               </div>
               <button 
                 onClick={() => setIsCartOpen(false)}
-                className="w-10 h-10 rounded-full bg-light hover:bg-gray-200 flex items-center justify-center text-gray-500 transition-colors"
+                className="w-10 h-10 rounded-full bg-black-surface hover:bg-black-surface flex items-center justify-center text-text-muted transition-colors"
               >
                 <X size={20} />
               </button>
             </div>
 
             {/* Cart Items */}
-            <div className="flex-grow overflow-y-auto p-6 bg-gray-50 custom-scrollbar">
+            <div className="flex-grow overflow-y-auto p-6 bg-black-primary custom-scrollbar">
               {cartItems.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-gray-400 space-y-4">
+                <div className="h-full flex flex-col items-center justify-center text-text-muted space-y-4">
                   <ShoppingBag size={64} className="opacity-20" />
-                  <p className="text-lg">السلة فارغة حالياً</p>
+                  <p className="text-lg">{lang === 'en' ? 'Cart is empty' : 'السلة فارغة حالياً'}</p>
                   <button 
-                    onClick={() => setIsCartOpen(false)}
-                    className="mt-4 px-6 py-2 bg-white text-primary font-bold rounded-full shadow-sm border border-gray-200"
+                    onClick={() => { navigate('/menu'); setIsCartOpen(false); }}
+                    className="mt-4 px-6 py-2 bg-black-surface text-neon-amber font-bold rounded-full shadow-sm border border-wood-dark/30"
                   >
-                    تصفح المنيو
+                    {lang === 'en' ? 'Browse Menu' : 'تصفح المنيو'}
                   </button>
                 </div>
               ) : (
@@ -79,37 +81,37 @@ export default function CartSidebar() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9 }}
-                        className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 relative group"
+                        className="bg-black-surface p-4 rounded-2xl shadow-sm border border-wood-dark/30 relative group"
                       >
                         <button 
                           onClick={() => removeFromCart(index)}
-                          className="absolute top-4 left-4 text-gray-400 hover:text-red-500 transition-colors"
+                          className="absolute top-4 left-4 text-text-muted hover:text-red-500 transition-colors"
                         >
                           <Trash2 size={18} />
                         </button>
                         
                         <div className="flex gap-4">
                           {/* Item Image */}
-                          <div className="w-20 h-20 bg-gray-100 rounded-xl overflow-hidden shrink-0">
+                          <div className="w-20 h-20 bg-black-primary rounded-xl overflow-hidden shrink-0">
                             {item.product.imagePath ? (
                               <img src={item.product.imagePath} alt={item.product.name} className="w-full h-full object-cover" />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-gray-400">بدون صورة</div>
+                              <div className="w-full h-full flex items-center justify-center text-text-muted">{lang === 'en' ? 'No Image' : 'بدون صورة'}</div>
                             )}
                           </div>
                           
                           {/* Item Details */}
                           <div className="flex-grow flex flex-col">
-                            <h3 className="font-bold text-dark text-lg leading-tight mb-1 pr-6">{item.product.name}</h3>
+                            <h3 className="font-bold text-text-light text-lg leading-tight mb-1 pe-">{item.product.name}</h3>
                             
                             {item.product.isSoldByWeight && (
-                              <span className="text-sm text-gray-500 mb-1">الوزن: {item.product.selectedWeight} جرام</span>
+                              <span className="text-sm text-text-muted mb-1">الوزن: {item.product.selectedWeight} جرام</span>
                             )}
                             
                             {item.product.selectedModifiers?.length > 0 && (
-                              <div className="text-xs text-gray-500 mb-2">
+                              <div className="text-xs text-text-muted mb-2">
                                 {item.product.selectedModifiers.map((mod, i) => (
-                                  <span key={i} className="inline-block bg-gray-100 px-2 py-0.5 rounded-md mr-1 mb-1">
+                                  <span key={i} className="inline-block bg-black-primary px-2 py-0.5 rounded-md me- mb-1">
                                     {mod.name} {mod.chargedPrice > 0 && `(+${mod.chargedPrice})`}
                                   </span>
                                 ))}
@@ -117,22 +119,22 @@ export default function CartSidebar() {
                             )}
 
                             <div className="mt-auto flex items-center justify-between">
-                              <span className="font-bold text-primary">
-                                {(item.product.calculatedPrice || item.product.sellingPrice) + (item.product.finalModifiersPrice || 0)} ج.م
+                              <span className="font-bold text-neon-amber">
+                                {(item.product.calculatedPrice || item.product.sellingPrice) + (item.product.finalModifiersPrice || 0)} {lang === 'en' ? 'EGP' : 'ج.م'}
                               </span>
                               
                               {/* Quantity Controls */}
-                              <div className="flex items-center gap-2 bg-light rounded-lg p-1">
+                              <div className="flex items-center gap-2 bg-black-surface rounded-lg p-1">
                                 <button 
                                   onClick={() => updateQuantity(index, -1)}
-                                  className="w-7 h-7 bg-white rounded shadow-sm flex items-center justify-center hover:bg-gray-50"
+                                  className="w-7 h-7 bg-black-surface rounded shadow-sm flex items-center justify-center hover:bg-black-primary"
                                 >
                                   <Minus size={14} />
                                 </button>
                                 <span className="font-bold w-4 text-center text-sm">{item.quantity}</span>
                                 <button 
                                   onClick={() => updateQuantity(index, 1)}
-                                  className="w-7 h-7 bg-white rounded shadow-sm flex items-center justify-center hover:bg-gray-50"
+                                  className="w-7 h-7 bg-black-surface rounded shadow-sm flex items-center justify-center hover:bg-black-primary"
                                 >
                                   <Plus size={14} />
                                 </button>
@@ -149,19 +151,19 @@ export default function CartSidebar() {
 
             {/* Footer / Checkout */}
             {cartItems.length > 0 && (
-              <div className="p-6 bg-white border-t border-gray-100 shrink-0 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)]">
+              <div className="p-6 bg-black-surface border-t border-wood-dark/30 shrink-0 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)]">
                 <div className="flex justify-between items-center mb-6 text-lg">
-                  <span className="font-bold text-gray-600">الإجمالي:</span>
-                  <span className="font-black text-2xl text-dark">{cartTotal} ج.م</span>
+                  <span className="font-bold text-text-muted">الإجمالي:</span>
+                  <span className="font-black text-2xl text-text-light">{cartTotal} {lang === 'en' ? 'EGP' : 'ج.م'}</span>
                 </div>
                 <button 
                   onClick={() => {
                     setIsCartOpen(false);
                     navigate('/checkout');
                   }}
-                  className="w-full py-4 bg-primary text-white font-bold rounded-xl text-lg flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors shadow-lg shadow-primary/30"
+                  className="w-full py-4 bg-wood text-text-light font-bold rounded-xl text-lg flex items-center justify-center gap-2 hover:bg-wood-dark transition-colors shadow-lg shadow-neon-amber/30"
                 >
-                  <span>إتمام الطلب</span>
+                  <span>{lang === 'en' ? 'Checkout' : 'إتمام الطلب'}</span>
                   <ArrowLeft size={20} />
                 </button>
               </div>

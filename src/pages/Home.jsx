@@ -19,7 +19,7 @@ export default function Home({ websiteData, menuData }) {
       <OurStory websiteData={websiteData} />
       <Gallery websiteData={websiteData} />
       <Testimonials />
-      <FaqSection />
+      <FaqSection websiteData={websiteData} />
       <SocialFeed websiteData={websiteData} />
       <LocationSection websiteData={websiteData} />
       <Footer websiteData={websiteData} />

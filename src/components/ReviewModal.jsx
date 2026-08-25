@@ -1,9 +1,11 @@
+import { useLanguage } from '../context/LanguageContext';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Star, Upload, Loader2, CheckCircle2 } from 'lucide-react';
 import { APP_CONFIG } from '../config/appConfig';
 
 export default function ReviewModal({ isOpen, onClose }) {
+  const { lang } = useLanguage();
   const [formData, setFormData] = useState({
     customerName: '',
     rating: 5,
@@ -118,7 +120,7 @@ export default function ReviewModal({ isOpen, onClose }) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={handleClose}
-          className="absolute inset-0 bg-dark/90 backdrop-blur-sm"
+          className="absolute inset-0 bg-black-primary/90 backdrop-blur-sm"
         />
 
         {/* Modal */}
@@ -126,18 +128,18 @@ export default function ReviewModal({ isOpen, onClose }) {
           initial={{ opacity: 0, y: 50, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 50, scale: 0.95 }}
-          className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+          className="relative w-full max-w-lg bg-black-surface rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
         >
           {/* Header */}
-          <div className="bg-dark text-white p-6 relative">
+          <div className="bg-black-primary text-text-light p-6 relative">
             <button 
               onClick={handleClose}
-              className="absolute top-6 left-6 text-gray-400 hover:text-white transition-colors"
+              className="absolute top-6 left-6 text-text-muted hover:text-text-light transition-colors"
             >
               <X size={24} />
             </button>
-            <h2 className="text-2xl font-display font-black mb-1 text-primary">شاركنا رأيك</h2>
-            <p className="text-sm text-gray-300">تقييمك يهمنا ويساعدنا على تقديم الأفضل دائماً.</p>
+            <h2 className="text-2xl font-display font-black mb-1 text-neon-amber">{lang === 'en' ? 'Share Your Opinion' : 'شاركنا رأيك'}</h2>
+            <p className="text-sm text-gray-300">{lang === 'en' ? 'Your feedback helps us serve you better.' : 'تقييمك يهمنا ويساعدنا على تقديم الأفضل دائماً.'}</p>
           </div>
 
           {/* Body */}
@@ -147,21 +149,21 @@ export default function ReviewModal({ isOpen, onClose }) {
                 <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-6">
                   <CheckCircle2 size={48} />
                 </div>
-                <h3 className="text-2xl font-black text-dark mb-2">تم استلام تقييمك بنجاح!</h3>
-                <p className="text-gray-500">شكراً لمشاركتك. سيتم مراجعة التقييم ونشره قريباً.</p>
+                <h3 className="text-2xl font-black text-text-light mb-2">تم استلام تقييمك بنجاح!</h3>
+                <p className="text-text-muted">شكراً لمشاركتك. سيتم مراجعة التقييم ونشره قريباً.</p>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="flex flex-col gap-5">
                 
                 {submitStatus === 'error' && (
                   <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm font-bold border border-red-200">
-                    حدث خطأ أثناء إرسال التقييم. يرجى التأكد من الاتصال بالإنترنت والمحاولة مرة أخرى.
+                    حدث خطأ أثناء {lang === 'en' ? 'Submit Review' : 'إرسال التقييم'}. يرجى التأكد من الاتصال بالإنترنت والمحاولة مرة أخرى.
                   </div>
                 )}
 
                 {/* Rating Stars */}
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">تقييمك العام <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-bold text-text-light mb-2">{lang === 'en' ? 'Overall Rating' : 'تقييمك العام'} <span className="text-red-500">*</span></label>
                   <div className="flex gap-2" dir="ltr">
                     {[1, 2, 3, 4, 5].map((star) => (
                       <button
@@ -173,7 +175,7 @@ export default function ReviewModal({ isOpen, onClose }) {
                         <Star 
                           size={32} 
                           fill={star <= formData.rating ? "#F97316" : "none"} // Primary Color
-                          className={star <= formData.rating ? "text-primary" : "text-gray-300"}
+                          className={star <= formData.rating ? "text-neon-amber" : "text-gray-300"}
                         />
                       </button>
                     ))}
@@ -182,37 +184,37 @@ export default function ReviewModal({ isOpen, onClose }) {
 
                 {/* Name */}
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">الاسم (اختياري)</label>
+                  <label className="block text-sm font-bold text-text-light mb-2">{lang === 'en' ? 'Name (Optional)' : 'الاسم (اختياري)'}</label>
                   <input 
                     type="text"
-                    placeholder="اكتب اسمك هنا"
+                    placeholder={lang === 'en' ? 'Enter your name here' : 'اكتب اسمك هنا'}
                     value={formData.customerName}
                     onChange={(e) => setFormData({...formData, customerName: e.target.value})}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                    className="w-full bg-black-primary border border-wood-dark/30 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-neon-amber focus:border-transparent transition-all"
                   />
                 </div>
 
                 {/* Comment */}
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">رأيك بالتفصيل <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-bold text-text-light mb-2">{lang === 'en' ? 'Detailed Feedback' : 'رأيك بالتفصيل'} <span className="text-red-500">*</span></label>
                   <textarea 
                     required
                     rows={4}
-                    placeholder="ما رأيك في الأكل والخدمة؟"
+                    placeholder={lang === 'en' ? 'What do you think about the food and service?' : 'ما رأيك في الأكل والخدمة؟'}
                     value={formData.comment}
                     onChange={(e) => setFormData({...formData, comment: e.target.value})}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all resize-none"
+                    className="w-full bg-black-primary border border-wood-dark/30 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-neon-amber focus:border-transparent transition-all resize-none"
                   />
                 </div>
 
                 {/* Image Upload */}
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">صورة الطلب (اختياري)</label>
+                  <label className="block text-sm font-bold text-text-light mb-2">{lang === 'en' ? 'Order Photo (Optional)' : 'صورة الطلب (اختياري)'}</label>
                   
                   <div className="bg-blue-50 border border-blue-100 p-3 rounded-xl mb-3 flex items-start gap-3">
                     <span className="text-blue-500 mt-0.5">ℹ️</span>
                     <p className="text-xs text-blue-700 leading-relaxed">
-                      الصورة التي ترفعها <strong>ستظهر للعامة</strong> مع تقييمك على الموقع للعملاء الآخرين. يرجى رفع صورة واضحة للوجبة فقط.
+                      {lang === 'en' ? <>The photo you upload will be <strong>publicly visible</strong> with your review to other customers. Please upload a clear photo of the meal only.</> : <>الصورة التي ترفعها <strong>ستظهر للعامة</strong> مع تقييمك على الموقع للعملاء الآخرين. يرجى رفع صورة واضحة للوجبة فقط.</>}
                     </p>
                   </div>
 
@@ -223,19 +225,19 @@ export default function ReviewModal({ isOpen, onClose }) {
                       onChange={handleFileChange}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                     />
-                    <div className={`w-full border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center transition-colors ${previewUrl ? 'border-primary bg-primary/5' : 'border-gray-300 hover:border-gray-400 bg-gray-50'}`}>
+                    <div className={`w-full border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center transition-colors ${previewUrl ? 'border-neon-amber bg-wood/5' : 'border-wood-dark/50 hover:border-gray-400 bg-black-primary'}`}>
                       {previewUrl ? (
                         <div className="relative w-full h-40 rounded-lg overflow-hidden">
                           <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
                           <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                            <span className="text-white font-bold flex items-center gap-2"><Upload size={18} /> تغيير الصورة</span>
+                            <span className="text-text-light font-bold flex items-center gap-2"><Upload size={18} /> {lang === 'en' ? 'Change Photo' : 'تغيير الصورة'}</span>
                           </div>
                         </div>
                       ) : (
                         <>
-                          <Upload size={32} className="text-gray-400 mb-2" />
-                          <span className="text-sm font-bold text-gray-600">اضغط هنا لرفع صورة</span>
-                          <span className="text-xs text-gray-400 mt-1">PNG, JPG حتى 5MB</span>
+                          <Upload size={32} className="text-text-muted mb-2" />
+                          <span className="text-sm font-bold text-text-muted">{lang === 'en' ? 'Click here to upload' : 'اضغط هنا لرفع صورة'}</span>
+                          <span className="text-xs text-text-muted mt-1">{lang === 'en' ? 'PNG, JPG up to 5MB' : 'PNG, JPG حتى 5MB'}</span>
                         </>
                       )}
                     </div>
@@ -246,15 +248,15 @@ export default function ReviewModal({ isOpen, onClose }) {
                 <button
                   type="submit"
                   disabled={isSubmitting || !formData.comment.trim()}
-                  className="w-full bg-primary hover:bg-primary/90 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg shadow-primary/30 flex items-center justify-center mt-2"
+                  className="w-full bg-wood hover:bg-wood-dark disabled:bg-gray-300 disabled:cursor-not-allowed text-text-light font-bold py-4 px-6 rounded-xl transition-all shadow-lg shadow-neon-amber/30 flex items-center justify-center mt-2"
                 >
                   {isSubmitting ? (
                     <span className="flex items-center gap-2">
                       <Loader2 size={20} className="animate-spin" />
-                      جاري الإرسال...
+                      {lang === 'en' ? 'Sending...' : 'جاري الإرسال...'}
                     </span>
                   ) : (
-                    "إرسال التقييم"
+                    lang === 'en' ? 'Submit Review' : 'إرسال التقييم'
                   )}
                 </button>
                 

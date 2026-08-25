@@ -1,8 +1,10 @@
+import { useLanguage } from '../context/LanguageContext';
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Camera } from 'lucide-react';
 
 export default function Gallery({ websiteData }) {
+  const { lang } = useLanguage();
   // Parse gallery images or use placeholders
   let images = [];
   
@@ -28,14 +30,14 @@ export default function Gallery({ websiteData }) {
   const displayImages = images.slice(0, 4);
 
   return (
-    <section className="py-24 bg-light relative">
+    <section className="py-24 bg-black-surface relative">
       <div className="container mx-auto px-6">
         <div className="text-center mb-16">
           <motion.div 
             initial={{ opacity: 0, scale: 0.8 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
-            className="flex justify-center items-center gap-2 text-primary mb-4"
+            className="flex justify-center items-center gap-2 text-neon-amber mb-4"
           >
             <Camera size={24} />
             <span className="font-bold tracking-wider text-sm uppercase">Behind The Smoke</span>
@@ -46,15 +48,15 @@ export default function Gallery({ websiteData }) {
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-4xl md:text-5xl font-display font-black text-dark mb-4"
+            className="text-4xl md:text-5xl font-display font-black text-text-light mb-4"
           >
-            من قلب المطعم
+            {lang === 'en' ? 'From the Heart of the Restaurant' : 'من قلب المطعم'}
           </motion.h2>
           <motion.div 
             initial={{ opacity: 0, width: 0 }}
             whileInView={{ opacity: 1, width: "80px" }}
             viewport={{ once: true }}
-            className="h-1 bg-primary mx-auto rounded-full"
+            className="h-1 bg-wood mx-auto rounded-full"
           ></motion.div>
         </div>
 
@@ -73,7 +75,7 @@ export default function Gallery({ websiteData }) {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1, duration: 0.6 }}
-                className={`relative rounded-2xl overflow-hidden group bg-dark w-full h-full ${spanClass}`}
+                className={`relative rounded-2xl overflow-hidden group bg-black-primary w-full h-full ${spanClass}`}
               >
                 <img 
                   src={img} 
@@ -81,7 +83,7 @@ export default function Gallery({ websiteData }) {
                   className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700 ease-in-out"
                   loading="lazy"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-dark/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-black-primary/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </motion.div>
             );
           })}

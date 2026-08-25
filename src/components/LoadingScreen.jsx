@@ -5,7 +5,7 @@ import { APP_CONFIG } from '../config/appConfig';
 
 export default function LoadingScreen() {
   return (
-    <div className="fixed inset-0 z-[100] bg-dark flex flex-col items-center justify-center">
+    <div className="fixed inset-0 z-[100] bg-black-primary flex flex-col items-center justify-center">
       <motion.div
         animate={{ 
           scale: [1, 1.2, 1],
@@ -16,7 +16,7 @@ export default function LoadingScreen() {
           repeat: Infinity,
           ease: "easeInOut"
         }}
-        className="text-primary mb-6"
+        className="text-neon-amber mb-6"
       >
         <Flame size={64} className="fill-primary" />
       </motion.div>
@@ -25,7 +25,7 @@ export default function LoadingScreen() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="text-3xl md:text-4xl font-display font-black text-white tracking-widest uppercase mb-4 text-center px-4"
+        className="text-3xl md:text-4xl font-display font-black text-text-light tracking-widest uppercase mb-4 text-center px-4"
       >
         {APP_CONFIG.restaurantName}
       </motion.h1>

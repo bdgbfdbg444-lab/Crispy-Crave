@@ -1,3 +1,4 @@
+import { useLanguage } from '../context/LanguageContext';
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
@@ -5,13 +6,14 @@ import { APP_CONFIG } from '../config/appConfig';
 import { ChevronDown, Utensils } from 'lucide-react';
 
 export default function Hero({ websiteData }) {
+  const { lang } = useLanguage();
   // Use data from Firebase or fallback to empty strings
-  const headline = websiteData?.heroHeadline || `أهلاً بك في ${APP_CONFIG.restaurantName}`;
-  const subtitle = websiteData?.heroSubtitle || "استمتع بأفضل بريسكت وسماش برجر وناشفيل تشيكن";
+  const headline = (lang === 'en' && websiteData?.heroHeadlineEn ? websiteData?.heroHeadlineEn : websiteData?.heroHeadline) || `THE BLACK BOX`;
+  const subtitle = (lang === 'en' && websiteData?.heroSubtitleEn ? websiteData?.heroSubtitleEn : websiteData?.heroSubtitle) || "SMOKED BRISKET & GOURMET BURGERS • ELITE STREET FOOD\nبرجر ولحم بريسكيت مدخن • مأكولات الشارع الراقية";
   const bgVideo = websiteData?.heroMediaUrl;
 
   return (
-    <section className="relative w-full h-screen overflow-hidden bg-dark text-white flex flex-col justify-center items-center">
+    <section className="relative w-full h-screen overflow-hidden bg-black-primary text-text-light flex flex-col justify-center items-center">
       {/* Background Media */}
       {bgVideo && (
         <video 
@@ -19,64 +21,73 @@ export default function Hero({ websiteData }) {
           loop 
           muted 
           playsInline 
-          className="absolute inset-0 w-full h-full object-cover opacity-60 mix-blend-overlay"
+          className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-overlay"
         >
           <source src={bgVideo} type="video/mp4" />
         </video>
       )}
       
-      {/* Dark Overlay - Adjusted to be darker behind the text (right side in RTL) and lighter on the left */}
-      <div className="absolute inset-0 bg-gradient-to-l from-dark/95 via-dark/60 to-transparent"></div>
+      {/* Dark Overlay - Centered gradient to focus on the middle */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black-primary/90 via-black-primary/50 to-black-primary/90"></div>
+      <div className="absolute inset-0 bg-black-primary/30"></div>
 
-      {/* Content Container - Responsive (Desktop vs Mobile) */}
-      <div className="relative z-10 container mx-auto px-6 h-full flex flex-col justify-center items-center md:items-start text-center md:text-right">
+      {/* Content Container - Fully Centered */}
+      <div className="relative z-10 container mx-auto px-6 h-full flex flex-col justify-center items-center text-center">
         
-        {/* Desktop Layout gets wider, Mobile is centered */}
-        <div className="max-w-xl md:max-w-3xl">
+        <div className="max-w-4xl flex flex-col items-center">
+          
+          {/* Main Neon Title - Crisp outline glow like the image */}
           <motion.h1 
-            initial={{ opacity: 0, y: -30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-            className="text-6xl md:text-8xl lg:text-9xl font-display font-black text-white mb-6 leading-tight drop-shadow-2xl uppercase"
-            style={{ letterSpacing: '2px' }}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1.2, ease: "easeOut" }}
+            className="text-6xl md:text-8xl lg:text-[9rem] font-normal mb-2 leading-none uppercase tracking-normal whitespace-nowrap neon-hover-effect"
+            style={{ 
+              fontFamily: "'Bebas Neue', sans-serif",
+            }}
           >
             {headline}
           </motion.h1>
 
+          {/* Subtitle - Clean, readable, non-glowing text with white space pre-line for the line break */}
           <motion.p 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4, duration: 0.8 }}
-            className="text-lg md:text-3xl text-light/95 mb-10 font-bold drop-shadow-md"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.8, duration: 1 }}
+            className="text-sm md:text-xl lg:text-2xl text-text-light/90 mb-10 font-bold tracking-wide drop-shadow-lg whitespace-pre-line leading-relaxed"
           >
             {subtitle}
           </motion.p>
 
+          {/* Single Action Button - Centered */}
           <motion.div 
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8, duration: 0.6 }}
-            className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start"
+            transition={{ delay: 1.2, duration: 0.8 }}
+            className="flex justify-center w-full"
           >
-            <Link to="/menu" className="bg-primary hover:bg-primary/90 text-white font-bold py-4 px-8 rounded-lg shadow-lg hover:shadow-primary/50 transition-all duration-300 flex items-center justify-center gap-2 text-lg">
-              <Utensils size={20} />
-              المنيو والطلب
+            <Link to="/menu" className="bg-wood hover:bg-wood-dark text-text-light font-bold py-4 px-12 rounded-lg shadow-lg hover:shadow-neon-amber/40 transition-all duration-300 flex items-center justify-center gap-3 text-lg md:text-xl border border-wood-light/20">
+              {lang === 'en' ? 'Order Now' : 'اطلب الآن'} ORDER NOW
             </Link>
-            <a href="#our-story" className="bg-transparent border-2 border-white hover:bg-primary hover:border-primary text-white font-bold py-4 px-8 rounded-lg shadow-lg hover:shadow-primary/50 transition-all duration-300 text-lg flex items-center justify-center">
-              اعرف قصتنا
-            </a>
           </motion.div>
         </div>
       </div>
 
-      {/* Scroll Down Indicator - Enhanced Bounce */}
+      {/* Decorative Bottom Elements */}
       <motion.div 
         initial={{ opacity: 0 }}
-        animate={{ opacity: 1, y: [0, 20, 0] }}
-        transition={{ delay: 1.5, duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-10"
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1.5, duration: 1.5 }}
+        className="absolute bottom-10 left-1/2 transform -translate-x-1/2 z-10 flex flex-col items-center gap-2"
       >
-        <ChevronDown size={48} className="text-white drop-shadow-md" />
+        
+        <span className="text-xs uppercase tracking-[0.2em] text-text-muted font-bold">{lang === 'en' ? 'SCROLL DOWN' : 'انزل للأسفل'}</span>
+        <motion.div
+           animate={{ y: [0, 8, 0] }}
+           transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+        >
+          <ChevronDown size={24} className="text-text-muted" />
+        </motion.div>
       </motion.div>
     </section>
   );

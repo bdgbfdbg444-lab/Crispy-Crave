@@ -7,12 +7,21 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: '#ef4444', // Nashville Hot Red/Orange
-        dark: '#1f2937', // Charcoal Black
-        light: '#f9fafb', // Warm beige/cream
+        'black-primary': '#0D0D0D',
+        'black-surface': '#1A1815',
+        'neon-amber': '#F5A94E',
+        'wood': '#A8622F',
+        'wood-dark': '#7A4620',
+        'text-light': '#F2EDE4',
+        'text-muted': '#9C9691',
+        
+        // Aliases to avoid breaking current components immediately
+        primary: '#A8622F', 
+        dark: '#0D0D0D', 
+        light: '#1A1815', // 'light' is now a dark surface in this theme to override bg-light
       },
       fontFamily: {
-        sans: ['Cairo', 'system-ui', 'sans-serif'],
+        sans: ['Poppins', 'Cairo', 'system-ui', 'sans-serif'],
         display: ['Ultra', 'Changa', 'system-ui', 'serif'],
       }
     },
