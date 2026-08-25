@@ -1,0 +1,1 @@
+const fs = require('fs'); let code = fs.readFileSync('src/pages/CheckoutPage.jsx', 'utf8'); code = code.replace(/\x24\{cartTotal\}/g, '\x24{finalTotal}'); code = code.replace(/\{cartTotal\}/g, '{finalTotal}'); fs.writeFileSync('src/pages/CheckoutPage.jsx', code);

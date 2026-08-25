@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingBag, Flame, Menu as MenuIcon, X } from 'lucide-react';
+import { ShoppingBag, Flame } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useLanguage } from '../context/LanguageContext';
 import { APP_CONFIG } from '../config/appConfig';
-import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Header() {
   const { cartItems, setIsCartOpen } = useCart();
@@ -12,23 +11,11 @@ export default function Header() {
   const location = useLocation();
   const navigate = useNavigate();
   const cartItemsCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
-  const [isNavOpen, setIsNavOpen] = useState(false);
-
-  // Prevent background scrolling when nav overlay is open
-  useEffect(() => {
-    if (isNavOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-    return () => { document.body.style.overflow = 'unset'; };
-  }, [isNavOpen]);
 
   // Handle Hash Navigation properly when on different pages
   const handleNavClick = (e, path) => {
     if (path.startsWith('/#')) {
       e.preventDefault();
-      setIsNavOpen(false);
       const targetId = path.substring(2); // extract 'our-story'
       
       if (location.pathname !== '/') {
@@ -43,7 +30,6 @@ export default function Header() {
         if (element) element.scrollIntoView({ behavior: 'smooth' });
       }
     } else {
-      setIsNavOpen(false);
       if (path === '/' && location.pathname === '/') {
         e.preventDefault();
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -158,55 +144,15 @@ export default function Header() {
             </button>
           </div>
 
-          {/* Mobile Hamburger */}
-          <button 
-            onClick={() => setIsNavOpen(true)}
-            className="md:hidden flex hover:text-neon-amber transition-colors focus:outline-none"
-          >
-            <MenuIcon size={28} />
-          </button>
+          {/* Mobile Language Toggle + Cart */}
+          <div className="md:hidden flex items-center gap-3">
+            <button onClick={toggleLanguage} className="font-bold text-sm border-2 border-wood hover:bg-wood px-3 py-1.5 rounded-md transition-colors text-text-light">
+              {lang === 'ar' ? 'EN' : 'عربي'}
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* Mobile Popover Navigation */}
-      <AnimatePresence>
-        {isNavOpen && (
-          <motion.div 
-            initial={{ opacity: 0, x: '100%' }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: '100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed top-0 right-0 h-full w-full sm:w-80 z-[100] bg-black-primary border-l border-black-surface shadow-2xl p-8 flex flex-col"
-          >
-            {/* Close Button */}
-            <button 
-              onClick={() => setIsNavOpen(false)}
-              className="absolute top-6 right-6 text-text-muted hover:text-text-light p-2"
-            >
-              <X size={24} />
-            </button>
-
-            {/* Navigation Links */}
-            <nav className="flex flex-col gap-8 mt-12 flex-grow">
-              {navLinks.map((link) => {
-                const isActive = isLinkActive(link);
-                return (
-                  <Link 
-                    key={link.name}
-                    to={link.path} 
-                    onClick={(e) => handleNavClick(e, link.path)}
-                    className={`inline-block font-display font-black text-3xl uppercase transition-all hover:text-neon-amber hover:translate-x-[-8px] ${
-                      isActive ? 'text-neon-amber' : 'text-text-light'
-                    }`}
-                  >
-                    {link.name}
-                  </Link>
-                );
-              })}
-            </nav>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </>
   );
 }
