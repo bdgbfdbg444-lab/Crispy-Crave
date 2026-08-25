@@ -98,7 +98,7 @@ export default function Header() {
           
           {/* Logo */}
           <div className="flex items-center">
-            <a href="/" className="flex items-center gap-2 group">
+            <Link to="/" className="flex items-center gap-2 group">
               <Flame size={24} className="icon-nav-hover group-hover:scale-110 transition-transform" />
               <span className="font-display font-black text-xl md:text-2xl tracking-widest uppercase nav-logo-hover">
                 {APP_CONFIG.restaurantName}
