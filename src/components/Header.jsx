@@ -103,7 +103,7 @@ export default function Header() {
               <span className="font-display font-black text-xl md:text-2xl tracking-widest uppercase nav-logo-hover">
                 {APP_CONFIG.restaurantName}
               </span>
-            </a>
+            </Link>
           </div>
 
           {/* Desktop Navigation Links */}
