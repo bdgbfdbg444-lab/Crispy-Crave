@@ -37,7 +37,7 @@ export default function Gallery({ websiteData }) {
             initial={{ opacity: 0, scale: 0.8 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
-            className="flex justify-center items-center gap-2 text-neon-amber mb-4"
+            className="flex justify-center items-center gap-2 text-brand-red mb-4"
           >
             <Camera size={24} />
             <span className="font-bold tracking-wider text-sm uppercase">Behind The Smoke</span>
@@ -56,7 +56,7 @@ export default function Gallery({ websiteData }) {
             initial={{ opacity: 0, width: 0 }}
             whileInView={{ opacity: 1, width: "80px" }}
             viewport={{ once: true }}
-            className="h-1 bg-wood mx-auto rounded-full"
+            className="h-1 bg-brand-red mx-auto rounded-full"
           ></motion.div>
         </div>
 

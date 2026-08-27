@@ -72,11 +72,11 @@ const DashboardView = ({ customerData, onLogout }) => {
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-8">
-        <div className="bg-black-primary border border-neon-amber/30 rounded-xl p-4 text-center">
-          <p className="text-sm text-neon-amber font-medium mb-1">{lang === 'en' ? 'Current Points' : 'نقاطك الحالية'}</p>
-          <p className="text-3xl font-bold text-neon-amber">{customerData.Points || 0}</p>
+        <div className="bg-black-primary border border-brand-red/30 rounded-xl p-4 text-center">
+          <p className="text-sm text-brand-red font-medium mb-1">{lang === 'en' ? 'Current Points' : 'نقاطك الحالية'}</p>
+          <p className="text-3xl font-bold text-brand-red">{customerData.Points || 0}</p>
         </div>
-        <div className="bg-black-primary border border-wood-dark/30 rounded-xl p-4 text-center">
+        <div className="bg-black-primary border border-brand-red-dark/30 rounded-xl p-4 text-center">
           <p className="text-sm text-text-light font-medium mb-1">{lang === 'en' ? 'Total Orders' : 'إجمالي طلباتك'}</p>
           <p className="text-3xl font-bold text-text-light">{customerData.TotalOrders || 0}</p>
         </div>
@@ -107,7 +107,7 @@ const DashboardView = ({ customerData, onLogout }) => {
           <div className="flex flex-col gap-2">
             <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} className="border p-2 rounded" placeholder="أدخل {lang === 'en' ? 'Email Address' : 'البريد الإلكتروني'}" />
             <div className="flex gap-2">
-              <button onClick={handleSaveEmail} disabled={savingEmail} className="bg-wood text-text-light px-4 py-2 rounded text-sm disabled:opacity-50">
+              <button onClick={handleSaveEmail} disabled={savingEmail} className="bg-brand-red text-text-light px-4 py-2 rounded text-sm disabled:opacity-50">
                 {savingEmail ? 'جاري الحفظ...' : 'حفظ'}
               </button>
               <button onClick={() => {setEditingEmail(false); setNewEmail(customerData.Email || '');}} className="bg-black-surface text-text-light px-4 py-2 rounded text-sm">
@@ -128,11 +128,11 @@ const DashboardView = ({ customerData, onLogout }) => {
           </h3>
           <div className="space-y-4">
             {activeOrders.map((order, i) => (
-              <div key={i} className="border-2 border-neon-amber/50 bg-black-primary p-4 rounded-xl shadow-sm">
+              <div key={i} className="border-2 border-brand-red/50 bg-black-primary p-4 rounded-xl shadow-sm">
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <p className="font-bold text-lg text-text-light">{lang === 'en' ? 'Order' : 'طلب'} {order.OrderNumber}</p>
-                    <p className="text-sm text-neon-amber font-semibold mt-1">
+                    <p className="text-sm text-brand-red font-semibold mt-1">
                       الحالة: {translateStatus(order.Status)}
                     </p>
                   </div>
@@ -144,7 +144,7 @@ const DashboardView = ({ customerData, onLogout }) => {
                 
                 <button 
                   onClick={() => navigate('/track/' + encodeURIComponent(order.OrderNumber))}
-                  className="w-full bg-wood hover:bg-wood-dark text-text-light font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors"
+                  className="w-full bg-brand-red hover:bg-brand-red-dark text-text-light font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors"
                 >
                   <Navigation size={18} />
                   تتبع ال{lang === 'en' ? 'Order' : 'طلب'} لايف
@@ -162,7 +162,7 @@ const DashboardView = ({ customerData, onLogout }) => {
             {pastOrders.map((order, i) => {
               const isExpanded = expandedOrder === order.OrderNumber;
               return (
-                <div key={i} className="border border-wood-dark/30 bg-black-surface rounded-xl shadow-sm overflow-hidden transition-all duration-200">
+                <div key={i} className="border border-brand-red-dark/30 bg-black-surface rounded-xl shadow-sm overflow-hidden transition-all duration-200">
                   <div 
                     className="p-4 cursor-pointer hover:bg-black-primary flex justify-between items-center"
                     onClick={() => setExpandedOrder(isExpanded ? null : order.OrderNumber)}
@@ -188,10 +188,10 @@ const DashboardView = ({ customerData, onLogout }) => {
                   </div>
                   
                   {isExpanded && (
-                    <div className="border-t border-wood-dark/30 bg-black-primary p-4">
+                    <div className="border-t border-brand-red-dark/30 bg-black-primary p-4">
                       <h5 className="font-bold text-text-light mb-2">التفاصيل:</h5>
                       {order.Items && order.Items.map((item, idx) => (
-                        <div key={idx} className="flex justify-between items-center py-1 text-sm border-b border-wood-dark/30 last:border-0">
+                        <div key={idx} className="flex justify-between items-center py-1 text-sm border-b border-brand-red-dark/30 last:border-0">
                           <span className="text-text-muted">{item.Quantity}x {item.Name}</span>
                           <span className="font-medium text-text-light">{item.Price * item.Quantity} ج.م</span>
                         </div>
@@ -469,7 +469,7 @@ export default function MyAccountPage() {
               <label className="block text-text-light mb-2">رقم الموبايل</label>
               <input type="tel" className="w-full border p-3 rounded" value={phone} onChange={e => setPhone(e.target.value)} placeholder="01012345678" />
             </div>
-            <button type="submit" disabled={loading} className="w-full bg-wood text-text-light p-3 rounded hover:bg-wood-dark disabled:opacity-50">
+            <button type="submit" disabled={loading} className="w-full bg-brand-red text-text-light p-3 rounded hover:bg-brand-red-dark disabled:opacity-50">
               {loading ? 'جاري التحقق...' : 'متابعة'}
             </button>
           </form>
@@ -480,7 +480,7 @@ export default function MyAccountPage() {
             <div className="h-px bg-black-surface flex-1"></div>
           </div>
           
-          <button onClick={handleGoogleLogin} type="button" className="mt-6 w-full flex items-center justify-center gap-3 bg-black-surface border border-wood-dark/50 text-text-light p-3 rounded hover:bg-black-primary transition-colors">
+          <button onClick={handleGoogleLogin} type="button" className="mt-6 w-full flex items-center justify-center gap-3 bg-black-surface border border-brand-red-dark/50 text-text-light p-3 rounded hover:bg-black-primary transition-colors">
             <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
             تسجيل الدخول باستخدام Google
           </button>
@@ -496,13 +496,13 @@ export default function MyAccountPage() {
             <label className="block text-text-light mb-2">كلمة المرور</label>
             <input type="password" className="w-full border p-3 rounded" value={password} onChange={e => setPassword(e.target.value)} />
           </div>
-          <button type="submit" disabled={loading} className="w-full bg-wood text-text-light p-3 rounded hover:bg-wood-dark disabled:opacity-50 mb-3">
+          <button type="submit" disabled={loading} className="w-full bg-brand-red text-text-light p-3 rounded hover:bg-brand-red-dark disabled:opacity-50 mb-3">
             {loading ? 'جاري الدخول...' : 'تسجيل الدخول'}
           </button>
           <button type="button" onClick={handleForgotPassword} className="w-full text-center text-sm text-blue-400 hover:text-blue-800 transition-colors mb-3">
             هل نسيت كلمة المرور؟
           </button>
-          <button type="button" onClick={() => {setStep('phone'); setPassword('');}} className="w-full text-center text-sm text-text-muted hover:text-neon-amber transition-colors">
+          <button type="button" onClick={() => {setStep('phone'); setPassword('');}} className="w-full text-center text-sm text-text-muted hover:text-brand-red transition-colors">
             تغيير رقم الموبايل
           </button>
         </form>
@@ -511,10 +511,10 @@ export default function MyAccountPage() {
             {step === 'reset_options' && (
         <div className="text-center">
           <p className="text-text-muted mb-4">اختر طريقة استعادة كلمة المرور:</p>
-          <button onClick={() => setStep('reset_via_code')} className="w-full bg-wood text-text-light font-bold p-3 rounded-lg hover:bg-wood-dark transition-colors mb-3">
+          <button onClick={() => setStep('reset_via_code')} className="w-full bg-brand-red text-text-light font-bold p-3 rounded-lg hover:bg-brand-red-dark transition-colors mb-3">
             لدي كود تفعيل من الكاشير
           </button>
-          <button onClick={handleSendResetLink} disabled={loading} className="w-full bg-wood text-text-light font-bold p-3 rounded-lg hover:bg-wood-dark disabled:opacity-50 transition-colors mb-3">
+          <button onClick={handleSendResetLink} disabled={loading} className="w-full bg-brand-red text-text-light font-bold p-3 rounded-lg hover:bg-brand-red-dark disabled:opacity-50 transition-colors mb-3">
             إرسال رابط عبر {lang === 'en' ? 'Email Address' : 'البريد الإلكتروني'} (إن وجد)
           </button>
           <button onClick={() => setStep('login')} className="w-full text-text-muted font-medium p-3 rounded-lg hover:bg-black-primary transition-colors">
@@ -537,7 +537,7 @@ export default function MyAccountPage() {
             <label className="block text-text-light mb-2">كلمة المرور الجديدة</label>
             <input type="password" className="w-full border p-3 rounded" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
           </div>
-          <button type="submit" disabled={loading} className="w-full bg-wood text-text-light font-bold p-3 rounded-lg hover:bg-wood-dark disabled:opacity-50 transition-colors mt-2">
+          <button type="submit" disabled={loading} className="w-full bg-brand-red text-text-light font-bold p-3 rounded-lg hover:bg-brand-red-dark disabled:opacity-50 transition-colors mt-2">
             {loading ? 'جاري التحديث...' : 'تحديث كلمة المرور'}
           </button>
           <button type="button" onClick={() => setStep('reset_options')} className="w-full text-text-muted font-medium p-3 rounded-lg hover:bg-black-primary transition-colors mt-2">
@@ -567,10 +567,10 @@ export default function MyAccountPage() {
             <label className="block text-text-light mb-2">كلمة المرور (6 أحرف على الأقل)</label>
             <input type="password" className="w-full border p-3 rounded" value={password} onChange={e => setPassword(e.target.value)} />
           </div>
-          <button type="submit" disabled={loading} className="w-full bg-wood text-text-light p-3 rounded hover:bg-wood-dark disabled:opacity-50 mb-3">
+          <button type="submit" disabled={loading} className="w-full bg-brand-red text-text-light p-3 rounded hover:bg-brand-red-dark disabled:opacity-50 mb-3">
             {loading ? 'جاري التسجيل...' : 'إنشاء حساب'}
           </button>
-          <button type="button" onClick={() => {setStep('phone'); setPassword(''); setName('');}} className="w-full text-center text-sm text-text-muted hover:text-neon-amber transition-colors">
+          <button type="button" onClick={() => {setStep('phone'); setPassword(''); setName('');}} className="w-full text-center text-sm text-text-muted hover:text-brand-red transition-colors">
             رجوع
           </button>
         </form>
@@ -589,7 +589,7 @@ export default function MyAccountPage() {
             <label className="block text-text-light mb-2">العنوان (اختياري لتسهيل ال{lang === 'en' ? 'Order' : 'طلب'})</label>
             <input type="text" className="w-full border p-3 rounded" value={address} onChange={e => setAddress(e.target.value)} />
           </div>
-          <button type="submit" disabled={loading} className="w-full bg-wood text-text-light p-3 rounded hover:bg-wood-dark disabled:opacity-50 mb-3">
+          <button type="submit" disabled={loading} className="w-full bg-brand-red text-text-light p-3 rounded hover:bg-brand-red-dark disabled:opacity-50 mb-3">
             {loading ? 'جاري الربط...' : 'ربط وإكمال'}
           </button>
         </form>

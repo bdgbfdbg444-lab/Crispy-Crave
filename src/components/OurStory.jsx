@@ -28,7 +28,7 @@ export default function OurStory({ websiteData }) {
             <h2 className="text-4xl md:text-5xl font-display font-black text-text-light mb-6">
               {lang === 'en' ? (websiteData?.ourStoryTitleEn || 'Our Story & Passion') : (websiteData?.ourStoryTitle || 'قصتنا وشغفنا')}
             </h2>
-            <div className="h-1 bg-wood w-16 mx-auto lg:mx-0 mb-8 rounded-full"></div>
+            <div className="h-1 bg-brand-red w-16 mx-auto lg:mx-0 mb-8 rounded-full"></div>
             
             <p className="text-lg md:text-xl text-gray-300 leading-relaxed mb-8">
               {storyText}
@@ -37,11 +37,11 @@ export default function OurStory({ websiteData }) {
             {/* Highlights/Features */}
             <div className="grid grid-cols-2 gap-6 text-center lg:text-right border-t border-gray-700 pt-8 mt-8">
               <div>
-                <h4 className="text-3xl font-display font-black text-neon-amber mb-2">16</h4>
+                <h4 className="text-3xl font-display font-black text-brand-red mb-2">16</h4>
                 <p className="text-text-muted font-bold">{lang === 'en' ? 'Hours Slow Smoking' : 'ساعة تدخين بطيء'}</p>
               </div>
               <div>
-                <h4 className="text-3xl font-display font-black text-neon-amber mb-2">100%</h4>
+                <h4 className="text-3xl font-display font-black text-brand-red mb-2">100%</h4>
                 <p className="text-text-muted font-bold">{lang === 'en' ? 'Natural Oak Wood' : 'حطب طبيعي'}</p>
               </div>
             </div>
@@ -73,14 +73,14 @@ export default function OurStory({ websiteData }) {
               
               {/* Overlay Play Button (decorative) */}
               <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                <div className="w-16 h-16 bg-wood-dark rounded-full flex items-center justify-center text-text-light shadow-lg backdrop-blur-sm cursor-pointer hover:scale-110 transition-transform">
+                <div className="w-16 h-16 bg-brand-red-dark rounded-full flex items-center justify-center text-text-light shadow-lg backdrop-blur-sm cursor-pointer hover:scale-110 transition-transform">
                   <Play size={24} className="ms-" fill="currentColor" />
                 </div>
               </div>
             </div>
             
             {/* Floating Element Decor */}
-            <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-wood/20 rounded-full blur-2xl -z-10"></div>
+            <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-brand-red/20 rounded-full blur-2xl -z-10"></div>
           </motion.div>
 
         </div>

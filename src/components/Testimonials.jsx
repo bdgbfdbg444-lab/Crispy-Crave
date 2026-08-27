@@ -45,7 +45,7 @@ export default function Testimonials() {
             initial={{ opacity: 0, scale: 0.8 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
-            className="flex justify-center items-center gap-2 text-neon-amber mb-4"
+            className="flex justify-center items-center gap-2 text-brand-red mb-4"
           >
             <MessageSquareQuote size={24} />
             <span className="font-bold tracking-wider text-sm uppercase">Customer Reviews</span>
@@ -64,7 +64,7 @@ export default function Testimonials() {
             initial={{ opacity: 0, width: 0 }}
             whileInView={{ opacity: 1, width: "80px" }}
             viewport={{ once: true }}
-            className="h-1 bg-wood mx-auto rounded-full"
+            className="h-1 bg-brand-red mx-auto rounded-full"
           ></motion.div>
         </div>
       </div>
@@ -87,7 +87,7 @@ export default function Testimonials() {
           {[...displayReviews, ...displayReviews].map((review, index) => (
             <div 
               key={index}
-              className="bg-black-surface rounded-3xl border border-wood-dark/30 shadow-2xl hover:shadow-neon-amber/10 relative w-[300px] md:w-[400px] flex-shrink-0 flex flex-col overflow-hidden group transition-all duration-500"
+              className="bg-black-surface rounded-3xl border border-brand-red-dark/30 shadow-2xl hover:shadow-brand-red/10 relative w-[300px] md:w-[400px] flex-shrink-0 flex flex-col overflow-hidden group transition-all duration-500"
             >
               {review.imageUrl && (
                 <div className="w-full h-48 md:h-56 shrink-0 bg-black-primary relative overflow-hidden">
@@ -104,15 +104,15 @@ export default function Testimonials() {
               
               <div className="p-6 md:p-8 flex-grow flex flex-col relative z-20">
                 {/* Large faint watermark quote icon in the background, shifted left for RTL */}
-                <MessageSquareQuote className="absolute -top-4 -left-6 text-wood-dark/10 w-40 h-40 -z-10 transform -rotate-6" />
+                <MessageSquareQuote className="absolute -top-4 -left-6 text-brand-red-dark/10 w-40 h-40 -z-10 transform -rotate-6" />
                 
-                <div className="flex gap-1 text-neon-amber mb-6 drop-shadow-md">
+                <div className="flex gap-1 text-brand-red mb-6 drop-shadow-md">
                   {[...Array(5)].map((_, i) => (
                     <Star 
                       key={i} 
                       size={20} 
                       fill={i < (review.rating || 5) ? "currentColor" : "none"} 
-                      className={i >= (review.rating || 5) ? "text-wood-dark/40" : ""}
+                      className={i >= (review.rating || 5) ? "text-brand-red-dark/40" : ""}
                     />
                   ))}
                 </div>
@@ -121,13 +121,13 @@ export default function Testimonials() {
                   "{review.comment}"
                 </p>
                 
-                <div className="mt-auto border-t border-wood-dark/20 pt-4 flex items-center justify-between">
+                <div className="mt-auto border-t border-brand-red-dark/20 pt-4 flex items-center justify-between">
                   <div>
-                    <h4 className="font-bold text-neon-amber truncate text-base md:text-lg">{review.customerName || "{lang === 'en' ? 'Special Customer' : 'عميل مميز'}"}</h4>
+                    <h4 className="font-bold text-brand-red truncate text-base md:text-lg">{review.customerName || "{lang === 'en' ? 'Special Customer' : 'عميل مميز'}"}</h4>
                     <span className="text-xs md:text-sm text-text-muted">Verified Buyer</span>
                   </div>
                   {/* Small clean quote icon at the bottom for aesthetic */}
-                  <MessageSquareQuote size={20} className="text-wood-dark/50" />
+                  <MessageSquareQuote size={20} className="text-brand-red-dark/50" />
                 </div>
               </div>
             </div>

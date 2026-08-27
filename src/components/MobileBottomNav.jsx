@@ -17,7 +17,7 @@ export default function MobileBottomNav() {
         {/* Home Tab */}
         <Link 
           to="/" 
-          className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${location.pathname === '/' ? 'text-neon-amber' : 'text-text-muted hover:text-gray-300'}`}
+          className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${location.pathname === '/' ? 'text-brand-red' : 'text-text-muted hover:text-gray-300'}`}
         >
           <Home size={22} strokeWidth={location.pathname === '/' ? 2.5 : 2} />
           <span className="text-[10px] font-bold">الرئيسية</span>
@@ -26,7 +26,7 @@ export default function MobileBottomNav() {
         {/* Account Tab */}
         <Link 
           to="/account" 
-          className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${location.pathname === '/account' ? 'text-neon-amber' : 'text-text-muted hover:text-gray-300'}`}
+          className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${location.pathname === '/account' ? 'text-brand-red' : 'text-text-muted hover:text-gray-300'}`}
         >
           <User size={22} strokeWidth={location.pathname === '/account' ? 2.5 : 2} />
           <span className="text-[10px] font-bold">حسابي</span>
@@ -35,7 +35,7 @@ export default function MobileBottomNav() {
         {/* Menu Tab */}
         <Link 
           to="/menu" 
-          className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${location.pathname === '/menu' ? 'text-neon-amber' : 'text-text-muted hover:text-gray-300'}`}
+          className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${location.pathname === '/menu' ? 'text-brand-red' : 'text-text-muted hover:text-gray-300'}`}
         >
           <MenuSquare size={22} strokeWidth={location.pathname === '/menu' ? 2.5 : 2} />
           <span className="text-[10px] font-bold">{lang === 'en' ? 'Menu' : 'المنيو'}</span>
@@ -49,7 +49,7 @@ export default function MobileBottomNav() {
           <div className="relative">
             <ShoppingBag size={22} strokeWidth={2} />
             {cartItemsCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 bg-wood text-text-light text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full border border-dark">
+              <span className="absolute -top-1.5 -right-1.5 bg-brand-red text-text-light text-[9px] font-bold w-4 h-4 flex items-center justify-center rounded-full border border-dark">
                 {cartItemsCount}
               </span>
             )}

@@ -16,7 +16,7 @@ export default function ProductCard({ product, onClick }) {
       exit={{ opacity: 0, scale: 0.9 }}
       whileHover={{ y: -5 }}
       onClick={onClick}
-      className="bg-black-surface rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-wood-dark/30 cursor-pointer flex flex-col group h-full"
+      className="bg-black-surface rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-brand-red-dark/30 cursor-pointer flex flex-col group h-full"
     >
       {/* Image Container */}
       <div className="relative h-48 w-full bg-black-primary overflow-hidden flex-shrink-0">
@@ -36,7 +36,7 @@ export default function ProductCard({ product, onClick }) {
         {/* Badges */}
         <div className="absolute top-3 right-3 flex flex-col gap-2">
           {product.isHotItem && (
-            <div className="bg-wood text-text-light text-xs font-bold px-2 py-1 rounded-md shadow-md flex items-center gap-1">
+            <div className="bg-brand-red text-text-light text-xs font-bold px-2 py-1 rounded-md shadow-md flex items-center gap-1">
               <Flame size={12} fill="currentColor" />
               {lang === 'en' ? 'Best Seller' : 'الأكثر مبيعاً'}
             </div>
@@ -55,7 +55,7 @@ export default function ProductCard({ product, onClick }) {
           <h3 className="font-bold text-xl text-text-light line-clamp-2 leading-tight">
             {lang === 'en' && product.nameEn ? product.nameEn : product.name}
           </h3>
-          <span className="font-bold text-neon-amber whitespace-nowrap text-lg">
+          <span className="font-bold text-brand-red whitespace-nowrap text-lg">
             {product.sellingPrice} <span className="text-sm">{lang === 'en' ? 'EGP' : 'ج.م'}</span>
             {product.isSoldByWeight && <span className="text-xs text-text-muted block">{lang === 'en' ? '/ 1 kg' : '/ 1 كجم'}</span>}
           </span>
@@ -68,13 +68,13 @@ export default function ProductCard({ product, onClick }) {
         )}
 
         {/* Add Button */}
-        <div className="mt-auto pt-4 border-t border-wood-dark/30">
+        <div className="mt-auto pt-4 border-t border-brand-red-dark/30">
           <button 
             disabled={product.isSoldOut}
             className={`w-full py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors ${
               product.isSoldOut 
                 ? 'bg-black-primary text-text-muted cursor-not-allowed' 
-                : 'bg-black-surface text-neon-amber hover:bg-wood hover:text-text-light'
+                : 'bg-black-surface text-brand-red hover:bg-brand-red hover:text-text-light'
             }`}
           >
             {product.isSoldOut ? (

@@ -19,7 +19,7 @@ export default function Footer({ websiteData }) {
           
           {/* Brand & Copyright */}
           <div className="flex flex-col items-center md:items-start text-center md:text-right gap-2">
-            <div className="text-3xl font-display font-black tracking-widest uppercase text-neon-amber mb-2">
+            <div className="text-3xl font-display font-black tracking-widest uppercase text-brand-red mb-2">
               {APP_CONFIG.restaurantName}
             </div>
             <p className="text-text-muted text-sm">
@@ -33,15 +33,15 @@ export default function Footer({ websiteData }) {
           <div className="flex flex-col items-center md:items-end gap-6">
             {/* Social Media Links */}
             <div className="flex items-center gap-4">
-              <a href={facebookLink} target="_blank" rel="noopener noreferrer" className="w-12 h-12 bg-gray-800 hover:bg-wood text-text-muted hover:text-text-light rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110">
+              <a href={facebookLink} target="_blank" rel="noopener noreferrer" className="w-12 h-12 bg-gray-800 hover:bg-[#1877F2] text-text-muted hover:text-text-light rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
               </a>
               
-              <a href={instagramLink} target="_blank" rel="noopener noreferrer" className="w-12 h-12 bg-gray-800 hover:bg-wood text-text-muted hover:text-text-light rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110">
+              <a href={instagramLink} target="_blank" rel="noopener noreferrer" className="w-12 h-12 bg-gray-800 hover:bg-[#E4405F] text-text-muted hover:text-text-light rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
               </a>
               
-              <a href={tikTokLink} target="_blank" rel="noopener noreferrer" className="w-12 h-12 bg-gray-800 hover:bg-wood text-text-muted hover:text-text-light rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110">
+              <a href={tikTokLink} target="_blank" rel="noopener noreferrer" className="w-12 h-12 bg-gray-800 hover:bg-[#FE2C55] text-text-muted hover:text-text-light rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"></path></svg>
               </a>
               
@@ -53,7 +53,7 @@ export default function Footer({ websiteData }) {
             {/* Review Button */}
             <button 
               onClick={() => setIsReviewModalOpen(true)}
-              className="flex items-center gap-2 bg-gray-800 hover:bg-wood text-text-light py-2 px-6 rounded-full text-sm font-bold transition-colors border border-gray-700 hover:border-neon-amber"
+              className="flex items-center gap-2 bg-gray-800 hover:bg-brand-red text-text-light py-2 px-6 rounded-full text-sm font-bold transition-colors border border-gray-700 hover:border-brand-red"
             >
               <Star size={16} className="fill-current" />
               شاركنا رأيك

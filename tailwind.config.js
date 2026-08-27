@@ -9,9 +9,9 @@ export default {
       colors: {
         'black-primary': '#0D0D0D',
         'black-surface': '#1A1815',
-        'neon-amber': '#F5A94E',
+        'brand-red': '#E63946',
         'wood': '#A8622F',
-        'wood-dark': '#7A4620',
+        'brand-red-dark': '#9A1F28',
         'text-light': '#F2EDE4',
         'text-muted': '#9C9691',
         

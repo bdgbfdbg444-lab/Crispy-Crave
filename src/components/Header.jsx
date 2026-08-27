@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ShoppingBag, Flame } from 'lucide-react';
+import Logo from './Logo';
 import { useCart } from '../context/CartContext';
 import { useLanguage } from '../context/LanguageContext';
 import { APP_CONFIG } from '../config/appConfig';
@@ -99,10 +100,8 @@ export default function Header() {
           {/* Logo */}
           <div className="flex items-center">
             <Link to="/" className="flex items-center gap-2 group">
-              <Flame size={24} className="icon-nav-hover group-hover:scale-110 transition-transform" />
-              <span className="font-display font-black text-xl md:text-2xl tracking-widest uppercase nav-logo-hover">
-                {APP_CONFIG.restaurantName}
-              </span>
+              
+              <Logo className="text-xl md:text-3xl" />
             </Link>
           </div>
 
@@ -116,8 +115,8 @@ export default function Header() {
                     key={link.name}
                     to={link.path.startsWith('/#') ? link.path : link.path}
                     onClick={(e) => handleNavClick(e, link.path)}
-                    className={`font-bold text-sm lg:text-base uppercase transition-colors hover:text-neon-amber ${
-                      isActive ? 'text-neon-amber' : 'text-text-light'
+                    className={`font-bold text-sm lg:text-base uppercase transition-colors hover:text-brand-red ${
+                      isActive ? 'text-brand-red' : 'text-text-light'
                     }`}
                   >
                     {link.name}
@@ -126,18 +125,18 @@ export default function Header() {
               })}
             </nav>
 
-            <div className="h-6 w-px bg-wood-dark/50"></div>
+            <div className="h-6 w-px bg-brand-red-dark/50"></div>
 
-            <button onClick={toggleLanguage} className="font-bold text-sm border-2 border-transparent hover:border-wood px-3 py-1 rounded-md transition-colors text-text-light mx-2">
+            <button onClick={toggleLanguage} className="font-bold text-sm border-2 border-transparent hover:border-brand-red px-3 py-1 rounded-md transition-colors text-text-light mx-2">
 {lang === 'ar' ? 'EN' : 'عربي'}
 </button>
 <button onClick={() => setIsCartOpen(true)}
-              className="flex items-center gap-2 border-2 border-wood hover:bg-wood px-6 py-2 rounded-lg transition-colors relative group"
+              className="flex items-center gap-2 border-2 border-brand-red hover:bg-brand-red px-6 py-2 rounded-lg transition-colors relative group"
             >
-              <ShoppingBag size={18} className="text-neon-amber group-hover:text-text-light transition-colors" />
-              <span className="font-bold text-neon-amber group-hover:text-text-light transition-colors">{t('cart')}</span>
+              <ShoppingBag size={18} className="text-brand-red group-hover:text-text-light transition-colors" />
+              <span className="font-bold text-brand-red group-hover:text-text-light transition-colors">{t('cart')}</span>
               {cartItemsCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-neon-amber text-black-primary text-xs font-black w-6 h-6 flex items-center justify-center rounded-full shadow-lg">
+                <span className="absolute -top-2 -right-2 bg-brand-red text-black-primary text-xs font-black w-6 h-6 flex items-center justify-center rounded-full shadow-lg">
                   {cartItemsCount}
                 </span>
               )}
@@ -146,7 +145,7 @@ export default function Header() {
 
           {/* Mobile Language Toggle + Cart */}
           <div className="md:hidden flex items-center gap-3">
-            <button onClick={toggleLanguage} className="font-bold text-sm border-2 border-wood hover:bg-wood px-3 py-1.5 rounded-md transition-colors text-text-light">
+            <button onClick={toggleLanguage} className="font-bold text-sm border-2 border-brand-red hover:bg-brand-red px-3 py-1.5 rounded-md transition-colors text-text-light">
               {lang === 'ar' ? 'EN' : 'عربي'}
             </button>
           </div>

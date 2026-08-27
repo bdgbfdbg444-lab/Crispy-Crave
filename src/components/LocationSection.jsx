@@ -18,7 +18,7 @@ export default function LocationSection({ websiteData }) {
             initial={{ opacity: 0, scale: 0.8 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
-            className="flex justify-center items-center gap-2 text-neon-amber mb-4"
+            className="flex justify-center items-center gap-2 text-brand-red mb-4"
           >
             <MapPin size={24} />
             <span className="font-bold tracking-wider text-sm uppercase">Visit Us</span>
@@ -37,11 +37,11 @@ export default function LocationSection({ websiteData }) {
             initial={{ opacity: 0, width: 0 }}
             whileInView={{ opacity: 1, width: "80px" }}
             viewport={{ once: true }}
-            className="h-1 bg-wood mx-auto rounded-full"
+            className="h-1 bg-brand-red mx-auto rounded-full"
           ></motion.div>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-0 lg:gap-12 items-center bg-black-surface rounded-3xl shadow-xl overflow-hidden border border-wood-dark/30">
+        <div className="flex flex-col lg:flex-row gap-0 lg:gap-12 items-center bg-black-surface rounded-3xl shadow-xl overflow-hidden border border-brand-red-dark/30">
           
           {/* Info Side */}
           <motion.div 
@@ -54,7 +54,7 @@ export default function LocationSection({ websiteData }) {
               <h3 className="text-3xl font-black font-display text-text-light mb-8">{APP_CONFIG.restaurantName}</h3>
               
               <div className="flex items-start justify-center lg:justify-start gap-4 mb-6 text-right">
-                <div className="bg-wood/10 text-neon-amber p-3 rounded-full shrink-0">
+                <div className="bg-brand-red/10 text-brand-red p-3 rounded-full shrink-0">
                   <MapPin size={24} />
                 </div>
                 <div>
@@ -64,7 +64,7 @@ export default function LocationSection({ websiteData }) {
               </div>
 
               <div className="flex items-start justify-center lg:justify-start gap-4 mb-8 text-right">
-                <div className="bg-wood/10 text-neon-amber p-3 rounded-full shrink-0">
+                <div className="bg-brand-red/10 text-brand-red p-3 rounded-full shrink-0">
                   <Clock size={24} />
                 </div>
                 <div>
@@ -98,7 +98,7 @@ export default function LocationSection({ websiteData }) {
             ) : mapIframe.includes('google.com/maps/embed') ? (
               <iframe src={mapIframe} width="100%" height="100%" style={{ border: 0 }} allowFullScreen="" loading="lazy" referrerPolicy="no-referrer-when-downgrade"></iframe>
             ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center bg-black-primary text-center p-6 border-4 border-dashed border-wood-dark/50">
+              <div className="w-full h-full flex flex-col items-center justify-center bg-black-primary text-center p-6 border-4 border-dashed border-brand-red-dark/50">
                 <MapPin size={48} className="text-text-muted mb-4" />
                 <h4 className="text-xl font-bold text-text-light mb-2">تعذر تضمين الخريطة</h4>
                 <p className="text-text-muted mb-6 max-w-md">

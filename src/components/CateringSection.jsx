@@ -78,7 +78,7 @@ export default function CateringSection({ websiteData }) {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black-primary/80 via-transparent to-transparent"></div>
               
-              <div className="absolute bottom-6 right-6 bg-wood text-text-light p-4 rounded-2xl shadow-xl backdrop-blur-sm border border-white/10">
+              <div className="absolute bottom-6 right-6 bg-brand-red text-text-light p-4 rounded-2xl shadow-xl backdrop-blur-sm border border-white/10">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-black-surface/20 rounded-full flex items-center justify-center">
                     <Users size={24} />
@@ -91,7 +91,7 @@ export default function CateringSection({ websiteData }) {
               </div>
             </div>
             
-            <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-wood/20 rounded-full blur-3xl -z-10"></div>
+            <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-brand-red/20 rounded-full blur-3xl -z-10"></div>
           </motion.div>
 
           {/* Text/Form Side */}
@@ -101,12 +101,12 @@ export default function CateringSection({ websiteData }) {
             viewport={{ once: true }}
             className="w-full lg:w-1/2 text-center lg:text-right"
           >
-            <div className="inline-flex items-center gap-2 bg-black-surface/5 border border-white/10 rounded-full px-4 py-2 mb-6 text-neon-amber">
+            <div className="inline-flex items-center gap-2 bg-black-surface/5 border border-white/10 rounded-full px-4 py-2 mb-6 text-brand-red">
               <Users size={18} />
               <span className="text-sm font-bold tracking-wide">{lang === 'en' ? 'Events & Gatherings' : 'عزومات وحفلات'}</span>
             </div>
             
-            <h2 className="text-4xl md:text-5xl font-display font-black text-text-light mb-6 leading-tight" dangerouslySetInnerHTML={{ __html: (lang === 'en' && websiteData?.cateringTitleEn ? websiteData?.cateringTitleEn : websiteData?.cateringTitle) || 'اجعل تجمعاتك <span class="text-neon-amber">أكثر متعة</span>' }} />
+            <h2 className="text-4xl md:text-5xl font-display font-black text-text-light mb-6 leading-tight" dangerouslySetInnerHTML={{ __html: (lang === 'en' && websiteData?.cateringTitleEn ? websiteData?.cateringTitleEn : websiteData?.cateringTitle) || 'اجعل تجمعاتك <span class="text-brand-red">أكثر متعة</span>' }} />
             
             <AnimatePresence mode="wait">
               {!showForm ? (
@@ -121,7 +121,7 @@ export default function CateringSection({ websiteData }) {
                   </p>
                   <button 
                     onClick={() => setShowForm(true)}
-                    className="bg-wood hover:bg-wood-dark text-text-light font-bold py-4 px-8 rounded-xl transition-all shadow-lg shadow-neon-amber/30 flex items-center justify-center gap-2 w-full sm:w-auto outline-none group mx-auto lg:mx-0"
+                    className="bg-brand-red hover:bg-brand-red-dark text-text-light font-bold py-4 px-8 rounded-xl transition-all shadow-lg shadow-brand-red/30 flex items-center justify-center gap-2 w-full sm:w-auto outline-none group mx-auto lg:mx-0"
                   >
                     <span>{lang === 'en' ? (websiteData?.cateringButtonTextEn || 'Book Now For Events') : (websiteData?.cateringButtonText || 'احجز الآن للحفلات')}</span>
                     <ArrowLeft size={20} className="transform group-hover:-translate-x-1 transition-transform" />
@@ -152,30 +152,30 @@ export default function CateringSection({ websiteData }) {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm text-gray-400 mb-1">{lang === 'en' ? 'Name' : 'الاسم'}</label>
-                      <input required type="text" name="name" value={formData.name} onChange={handleInputChange} className="w-full bg-black-surface border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-wood outline-none transition-colors" />
+                      <input required type="text" name="name" value={formData.name} onChange={handleInputChange} className="w-full bg-black-surface border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-brand-red outline-none transition-colors" />
                     </div>
                     <div>
                       <label className="block text-sm text-gray-400 mb-1">{lang === 'en' ? 'Phone Number' : 'رقم الهاتف'}</label>
-                      <input required type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className="w-full bg-black-surface border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-wood outline-none transition-colors" dir="ltr" />
+                      <input required type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className="w-full bg-black-surface border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-brand-red outline-none transition-colors" dir="ltr" />
                     </div>
                     <div>
                       <label className="block text-sm text-gray-400 mb-1">{lang === 'en' ? 'Number of People' : 'عدد الأشخاص'}</label>
-                      <input required type="number" name="guests" value={formData.guests} onChange={handleInputChange} className="w-full bg-black-surface border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-wood outline-none transition-colors" />
+                      <input required type="number" name="guests" value={formData.guests} onChange={handleInputChange} className="w-full bg-black-surface border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-brand-red outline-none transition-colors" />
                     </div>
                     <div>
                       <label className="block text-sm text-gray-400 mb-1">{lang === 'en' ? 'Event Date' : 'تاريخ المناسبة'}</label>
-                      <input required type="date" name="date" value={formData.date} onChange={handleInputChange} className="w-full bg-black-surface border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-wood outline-none transition-colors" />
+                      <input required type="date" name="date" value={formData.date} onChange={handleInputChange} className="w-full bg-black-surface border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-brand-red outline-none transition-colors" />
                     </div>
                   </div>
                   <div>
                     <label className="block text-sm text-gray-400 mb-1">{lang === 'en' ? 'Additional Details (Optional)' : 'تفاصيل إضافية (اختياري)'}</label>
-                    <textarea name="notes" value={formData.notes} onChange={handleInputChange} rows="3" className="w-full bg-black-surface border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-wood outline-none transition-colors resize-none"></textarea>
+                    <textarea name="notes" value={formData.notes} onChange={handleInputChange} rows="3" className="w-full bg-black-surface border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-brand-red outline-none transition-colors resize-none"></textarea>
                   </div>
                   <div className="flex gap-4 pt-2">
                     <button 
                       type="submit" 
                       disabled={isSubmitting}
-                      className="flex-1 bg-wood hover:bg-wood-dark disabled:opacity-70 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors"
+                      className="flex-1 bg-brand-red hover:bg-brand-red-dark disabled:opacity-70 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors"
                     >
                       {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : <><Send size={18} /> <span>{lang === 'en' ? 'Submit Request' : 'إرسال الطلب'}</span></>}
                     </button>

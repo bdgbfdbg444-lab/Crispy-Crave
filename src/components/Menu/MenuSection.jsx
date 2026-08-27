@@ -72,7 +72,7 @@ export default function MenuSection({ menuData, onProductClick }) {
               placeholder="ابحث عن وجبتك المفضلة..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-black-surface border border-wood-dark/30 rounded-full py-3 px-12 focus:outline-none focus:border-neon-amber focus:ring-1 focus:ring-neon-amber transition-all text-text-light placeholder-gray-400"
+              className="w-full bg-black-surface border border-brand-red-dark/30 rounded-full py-3 px-12 focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all text-text-light placeholder-gray-400"
             />
             <Search className="absolute right-4 top-1/2 transform -translate-y-1/2 text-text-muted" size={20} />
           </div>
@@ -90,7 +90,7 @@ export default function MenuSection({ menuData, onProductClick }) {
               <div 
                 key={category.id} 
                 onClick={() => { setActiveCategory(category.id); setViewMode('products'); }}
-                className="bg-black-surface rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 border border-wood-dark/30 cursor-pointer flex flex-col group h-48 relative"
+                className="bg-black-surface rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 border border-brand-red-dark/30 cursor-pointer flex flex-col group h-48 relative"
               >
                 {category.imagePath ? (
                    <img src={category.imagePath} alt={lang === 'en' && category.nameEn ? category.nameEn : category.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
@@ -103,7 +103,7 @@ export default function MenuSection({ menuData, onProductClick }) {
                    <h3 className="text-2xl md:text-3xl font-display font-black text-text-light uppercase drop-shadow-md transform transition-transform duration-300 group-hover:translate-x-2">
                      {lang === 'en' && category.nameEn ? category.nameEn : category.name}
                    </h3>
-                   <p className="text-neon-amber font-bold mt-1 bg-black-surface/10 w-max px-3 py-1 rounded-full text-sm backdrop-blur-sm">
+                   <p className="text-brand-red font-bold mt-1 bg-black-surface/10 w-max px-3 py-1 rounded-full text-sm backdrop-blur-sm">
                      {category.products ? Object.keys(category.products).length : 0} منتجات
                    </p>
                 </div>
@@ -114,7 +114,7 @@ export default function MenuSection({ menuData, onProductClick }) {
 
         {/* Category Tabs - Sticky on Mobile (Stage 1) - Only visible in products view */}
         {searchQuery.trim() === '' && viewMode === 'products' && (
-          <div className="sticky top-0 z-30 bg-black-surface/95 backdrop-blur-md pt-4 pb-4 mb-8 -mx-6 px-6 md:mx-0 md:px-0 border-b border-wood-dark/30 flex overflow-x-auto hide-scrollbar gap-4 items-center">
+          <div className="sticky top-0 z-30 bg-black-surface/95 backdrop-blur-md pt-4 pb-4 mb-8 -mx-6 px-6 md:mx-0 md:px-0 border-b border-brand-red-dark/30 flex overflow-x-auto hide-scrollbar gap-4 items-center">
             {categories.map(category => (
               <button
                 key={category.id}
@@ -168,7 +168,7 @@ export default function MenuSection({ menuData, onProductClick }) {
         {/* Search Results Title */}
         {searchQuery.trim() !== '' && (
           <div className="mb-8 font-bold text-text-muted">
-            نتائج البحث عن: <span className="text-neon-amber">{searchQuery}</span>
+            نتائج البحث عن: <span className="text-brand-red">{searchQuery}</span>
           </div>
         )}
 

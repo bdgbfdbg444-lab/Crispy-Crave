@@ -42,11 +42,11 @@ export default function CartSidebar() {
             className="fixed top-0 right-0 h-full w-full sm:w-96 bg-black-surface shadow-2xl z-[101] flex flex-col"
           >
             {/* Header */}
-            <div className="p-6 border-b border-wood-dark/30 flex items-center justify-between bg-black-surface shrink-0">
+            <div className="p-6 border-b border-brand-red-dark/30 flex items-center justify-between bg-black-surface shrink-0">
               <div className="flex items-center gap-3 text-text-light">
-                <ShoppingBag size={24} className="text-neon-amber" />
+                <ShoppingBag size={24} className="text-brand-red" />
                 <h2 className="text-2xl font-display font-black pt-1">{lang === 'en' ? 'Cart' : 'سلة الطلبات'}</h2>
-                <span className="bg-wood/10 text-neon-amber font-bold px-2 py-0.5 rounded-full text-sm">
+                <span className="bg-brand-red/10 text-brand-red font-bold px-2 py-0.5 rounded-full text-sm">
                   {cartItems.reduce((acc, item) => acc + item.quantity, 0)}
                 </span>
               </div>
@@ -66,7 +66,7 @@ export default function CartSidebar() {
                   <p className="text-lg">{lang === 'en' ? 'Cart is empty' : 'السلة فارغة حالياً'}</p>
                   <button 
                     onClick={() => { navigate('/menu'); setIsCartOpen(false); }}
-                    className="mt-4 px-6 py-2 bg-black-surface text-neon-amber font-bold rounded-full shadow-sm border border-wood-dark/30"
+                    className="mt-4 px-6 py-2 bg-black-surface text-brand-red font-bold rounded-full shadow-sm border border-brand-red-dark/30"
                   >
                     {lang === 'en' ? 'Browse Menu' : 'تصفح المنيو'}
                   </button>
@@ -81,7 +81,7 @@ export default function CartSidebar() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.9 }}
-                        className="bg-black-surface p-4 rounded-2xl shadow-sm border border-wood-dark/30 relative group"
+                        className="bg-black-surface p-4 rounded-2xl shadow-sm border border-brand-red-dark/30 relative group"
                       >
                         <button 
                           onClick={() => removeFromCart(index)}
@@ -119,7 +119,7 @@ export default function CartSidebar() {
                             )}
 
                             <div className="mt-auto flex items-center justify-between">
-                              <span className="font-bold text-neon-amber">
+                              <span className="font-bold text-brand-red">
                                 {(item.product.calculatedPrice || item.product.sellingPrice) + (item.product.finalModifiersPrice || 0)} {lang === 'en' ? 'EGP' : 'ج.م'}
                               </span>
                               
@@ -151,7 +151,7 @@ export default function CartSidebar() {
 
             {/* Footer / Checkout */}
             {cartItems.length > 0 && (
-              <div className="p-6 bg-black-surface border-t border-wood-dark/30 shrink-0 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)]">
+              <div className="p-6 bg-black-surface border-t border-brand-red-dark/30 shrink-0 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)]">
                 <div className="flex justify-between items-center mb-6 text-lg">
                   <span className="font-bold text-text-muted">الإجمالي:</span>
                   <span className="font-black text-2xl text-text-light">{cartTotal} {lang === 'en' ? 'EGP' : 'ج.م'}</span>
@@ -161,7 +161,7 @@ export default function CartSidebar() {
                     setIsCartOpen(false);
                     navigate('/checkout');
                   }}
-                  className="w-full py-4 bg-wood text-text-light font-bold rounded-xl text-lg flex items-center justify-center gap-2 hover:bg-wood-dark transition-colors shadow-lg shadow-neon-amber/30"
+                  className="w-full py-4 bg-brand-red text-text-light font-bold rounded-xl text-lg flex items-center justify-center gap-2 hover:bg-brand-red-dark transition-colors shadow-lg shadow-brand-red/30"
                 >
                   <span>{lang === 'en' ? 'Checkout' : 'إتمام الطلب'}</span>
                   <ArrowLeft size={20} />

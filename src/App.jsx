@@ -124,11 +124,11 @@ function App() {
         {cartItemsCount > 0 && (
           <button 
             onClick={() => setIsCartOpen(true)}
-            className="fixed bottom-24 md:bottom-6 right-6 z-30 bg-wood text-text-light p-4 rounded-full shadow-2xl flex items-center gap-2 hover:scale-105 transition-transform"
+            className="fixed bottom-24 md:bottom-6 right-6 z-30 bg-brand-red text-text-light p-4 rounded-full shadow-2xl flex items-center gap-2 hover:scale-105 transition-transform"
           >
             <div className="relative">
               <ShoppingBag size={24} />
-              <span className="absolute -top-2 -right-2 bg-black-primary text-text-light text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-neon-amber">
+              <span className="absolute -top-2 -right-2 bg-black-primary text-text-light text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-brand-red">
                 {cartItemsCount}
               </span>
             </div>
@@ -138,7 +138,7 @@ function App() {
         {/* Floating Review Button */}
         <button 
           onClick={() => setIsReviewModalOpen(true)}
-          className="fixed bottom-24 md:bottom-6 left-6 z-30 bg-black-primary text-text-light px-5 py-3 rounded-full shadow-2xl flex items-center gap-2 hover:scale-105 transition-transform border border-gray-700 hover:border-neon-amber hover:text-neon-amber"
+          className="fixed bottom-24 md:bottom-6 left-6 z-30 bg-black-primary text-text-light px-5 py-3 rounded-full shadow-2xl flex items-center gap-2 hover:scale-105 transition-transform border border-gray-700 hover:border-brand-red hover:text-brand-red"
         >
           <Star size={20} className="fill-current" />
           <span className="font-bold text-sm hidden md:inline">{lang === 'en' ? 'Share Your Opinion' : 'شاركنا رأيك'}</span>

@@ -76,7 +76,7 @@ export default function TrackOrderPage({ menuData }) {
           <div className="relative">
             <div className="absolute right-3.5 top-2 bottom-4 w-1 bg-black-surface rounded-full" />
             <div 
-              className="absolute right-3.5 top-2 w-1 bg-orange-500 rounded-full transition-all duration-1000" 
+              className="absolute right-3.5 top-2 w-1 bg-brand-red rounded-full transition-all duration-1000" 
               style={{ height: `${(statusIndex / (statusList.length - 1)) * 100}%` }}
             />
             <div className="flex flex-col gap-4">
@@ -86,10 +86,10 @@ export default function TrackOrderPage({ menuData }) {
                 
                 return (
                   <div key={step.id} className="relative flex items-center gap-4 z-10">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center border-4 border-white ${isCompleted ? 'bg-orange-500' : 'bg-black-surface'}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center border-4 border-white ${isCompleted ? 'bg-brand-red' : 'bg-black-surface'}`}>
                       {isCompleted && <CheckCircle size={14} className="text-text-light" />}
                     </div>
-                    <span className={`font-bold ${isCurrent ? 'text-orange-600' : isCompleted ? 'text-text-light' : 'text-text-muted'}`}>{step.label}</span>
+                    <span className={`font-bold ${isCurrent ? 'text-brand-red' : isCompleted ? 'text-text-light' : 'text-text-muted'}`}>{step.label}</span>
                   </div>
                 );
               })}
@@ -100,8 +100,8 @@ export default function TrackOrderPage({ menuData }) {
         {/* Action Buttons Section */}
         <div className="space-y-4">
           {orderType === 'DineIn' ? (
-            <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
-              <p className="text-orange-800 font-bold leading-relaxed">
+            <div className="bg-brand-red/10 p-4 rounded-xl border border-brand-red/20">
+              <p className="text-brand-red font-bold leading-relaxed">
                 {lang === 'en' ? 'Please head to the cashier with your order number' : 'برجاء التوجه للكاشير مع رقم طلبك'} {orderId} {lang === 'en' ? 'to complete payment' : 'لإتمام الدفع'}
               </p>
             </div>
@@ -122,7 +122,7 @@ export default function TrackOrderPage({ menuData }) {
 
           <button 
             onClick={() => setIsReviewModalOpen(true)}
-            className="w-full bg-black-surface text-orange-600 border-2 border-orange-600 p-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-orange-50 transition-colors"
+            className="w-full bg-black-surface text-brand-red border-2 border-brand-red p-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-brand-red/10 transition-colors"
           >
             <Star size={20} />
             <span>{lang === 'en' ? 'Share your feedback' : 'شاركنا رأيك في الطلب'} ⭐</span>

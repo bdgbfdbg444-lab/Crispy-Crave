@@ -16,7 +16,7 @@ export default function LoadingScreen() {
           repeat: Infinity,
           ease: "easeInOut"
         }}
-        className="text-neon-amber mb-6"
+        className="text-brand-red mb-6"
       >
         <Flame size={64} className="fill-primary" />
       </motion.div>

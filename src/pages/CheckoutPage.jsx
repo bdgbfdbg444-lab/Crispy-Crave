@@ -161,9 +161,9 @@ export default function CheckoutPage({ menuData }) {
           </div>
 
           {formData.orderType === 'DineIn' ? (
-            <div className="bg-wood/5 border border-neon-amber/20 text-text-light p-5 rounded-xl font-bold text-center">
+            <div className="bg-brand-red/5 border border-brand-red/20 text-text-light p-5 rounded-xl font-bold text-center">
               {lang === 'en' ? 'Please head to the cashier with your order number' : 'برجاء التوجه للكاشير مع رقم طلبك'} 
-              <span className="text-neon-amber mx-1">{generatedOrderId}</span>
+              <span className="text-brand-red mx-1">{generatedOrderId}</span>
               {lang === 'en' ? 'to complete payment' : 'لإتمام الدفع'}
             </div>
           ) : (
@@ -193,10 +193,10 @@ export default function CheckoutPage({ menuData }) {
                   
                   return (
                     <div key={step.id} className="relative flex items-center gap-4 mb-4 z-10">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center border-4 border-black-surface ${isCompleted ? 'bg-neon-amber' : 'bg-black-surface'}`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center border-4 border-black-surface ${isCompleted ? 'bg-brand-red' : 'bg-black-surface'}`}>
                         {isCompleted && <CheckCircle size={14} className="text-text-light" />}
                       </div>
-                      <span className={`font-bold ${isCurrent ? 'text-orange-600' : isCompleted ? 'text-text-light' : 'text-text-muted'}`}>{step.label}</span>
+                      <span className={`font-bold ${isCurrent ? 'text-brand-red' : isCompleted ? 'text-text-light' : 'text-text-muted'}`}>{step.label}</span>
                     </div>
                   );
                 })}
@@ -214,7 +214,7 @@ export default function CheckoutPage({ menuData }) {
 
           <button 
             onClick={() => setIsReviewModalOpen(true)}
-            className="w-full mt-4 bg-black-surface text-text-light border-2 border-wood-dark/30 py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:border-neon-amber hover:text-neon-amber transition-colors"
+            className="w-full mt-4 bg-black-surface text-text-light border-2 border-brand-red-dark/30 py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:border-brand-red hover:text-brand-red transition-colors"
           >
             شاركنا رأيك في الطلب ⭐️
           </button>
@@ -236,7 +236,7 @@ export default function CheckoutPage({ menuData }) {
         <p className="text-text-muted mb-8">أضف بعض المنتجات الشهية أولاً لتقوم بإتمام الطلب.</p>
         <button 
           onClick={() => navigate('/menu')}
-          className="bg-wood text-text-light px-8 py-3 rounded-full font-bold hover:bg-wood-dark transition-colors"
+          className="bg-brand-red text-text-light px-8 py-3 rounded-full font-bold hover:bg-brand-red-dark transition-colors"
         >
           تصفح المنيو
         </button>
@@ -261,7 +261,7 @@ export default function CheckoutPage({ menuData }) {
           
           {/* Form Section */}
           <div className="lg:col-span-2">
-            <form onSubmit={handleSubmit} className="bg-black-surface p-6 md:p-8 rounded-3xl shadow-sm border border-wood-dark/30">
+            <form onSubmit={handleSubmit} className="bg-black-surface p-6 md:p-8 rounded-3xl shadow-sm border border-brand-red-dark/30">
               
               <AnimatePresence>
                 {errorMessage && (
@@ -284,7 +284,7 @@ export default function CheckoutPage({ menuData }) {
                 {!tableNumber ? (
                   <div className="grid grid-cols-3 gap-4">
                     {['DineIn', 'takeaway', 'delivery'].map(type => (
-                      <label key={type} className={`cursor-pointer border-2 rounded-xl p-4 text-center transition-all ${formData.orderType === type ? 'border-neon-amber bg-wood/5 text-neon-amber' : 'border-wood-dark/30 text-text-muted hover:border-wood-dark/50'}`}>
+                      <label key={type} className={`cursor-pointer border-2 rounded-xl p-4 text-center transition-all ${formData.orderType === type ? 'border-brand-red bg-brand-red/5 text-brand-red' : 'border-brand-red-dark/30 text-text-muted hover:border-brand-red-dark/50'}`}>
                         <input 
                           type="radio" 
                           name="orderType" 
@@ -298,7 +298,7 @@ export default function CheckoutPage({ menuData }) {
                     ))}
                   </div>
                 ) : (
-                  <div className="bg-wood/10 border border-neon-amber text-neon-amber p-4 rounded-xl text-center">
+                  <div className="bg-brand-red/10 border border-brand-red text-brand-red p-4 rounded-xl text-center">
                     <span className="font-bold text-lg">أنت تطلب من طاولة رقم {tableNumber}</span>
                   </div>
                 )}
@@ -315,7 +315,7 @@ export default function CheckoutPage({ menuData }) {
                     required
                     value={formData.customerName}
                     onChange={handleChange}
-                    className="w-full bg-black-primary border border-wood-dark/30 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-neon-amber/50 focus:border-neon-amber transition-all"
+                    className="w-full bg-black-primary border border-brand-red-dark/30 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-red/50 focus:border-brand-red transition-all"
                     placeholder="مثال: أحمد محمد"
                   />
                 </div>
@@ -327,7 +327,7 @@ export default function CheckoutPage({ menuData }) {
                     required
                     value={formData.customerPhone}
                     onChange={handleChange}
-                    className="w-full bg-black-primary border border-wood-dark/30 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-neon-amber/50 focus:border-neon-amber transition-all"
+                    className="w-full bg-black-primary border border-brand-red-dark/30 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-red/50 focus:border-brand-red transition-all"
                     placeholder="مثال: 010xxxxxxxx" />
                 </div>
 
@@ -346,7 +346,7 @@ export default function CheckoutPage({ menuData }) {
                         value={formData.deliveryAddress}
                         onChange={handleChange}
                         rows="2"
-                        className="w-full bg-black-primary border border-wood-dark/30 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-neon-amber/50 focus:border-neon-amber transition-all resize-none"
+                        className="w-full bg-black-primary border border-brand-red-dark/30 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-red/50 focus:border-brand-red transition-all resize-none"
                         placeholder='المنطقة، الشارع، رقم العمارة، الدور، أي علامة مميزة...'
                       ></textarea>
                     </motion.div>
@@ -359,7 +359,7 @@ export default function CheckoutPage({ menuData }) {
                     value={formData.notes}
                     onChange={handleChange}
                     rows="3"
-                    className="w-full bg-black-primary border border-wood-dark/30 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-neon-amber/50 focus:border-neon-amber transition-all resize-none"
+                    className="w-full bg-black-primary border border-brand-red-dark/30 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-red/50 focus:border-brand-red transition-all resize-none"
                     placeholder={lang === 'en' ? 'No onions, well done...' : 'بدون بصل، تسوية زيادة...'}
                   ></textarea>
                 </div>
@@ -370,7 +370,7 @@ export default function CheckoutPage({ menuData }) {
               <button 
                 type="submit" 
                 disabled={isSubmitting}
-                className={`w-full mt-8 py-4 rounded-xl font-bold text-lg text-text-light transition-all shadow-lg ${isSubmitting ? 'bg-wood-dark/50 text-text-muted cursor-not-allowed' : 'bg-wood hover:bg-wood-dark shadow-neon-amber/30'}`}
+                className={`w-full mt-8 py-4 rounded-xl font-bold text-lg text-text-light transition-all shadow-lg ${isSubmitting ? 'bg-brand-red-dark/50 text-text-muted cursor-not-allowed' : 'bg-brand-red hover:bg-brand-red-dark shadow-brand-red/30'}`}
               >
                 {isSubmitting ? 'جاري الإرسال...' : (lang === 'en' ? 'Confirm and Submit Order' : 'تأكيد وإرسال الطلب')}
               </button>
@@ -379,15 +379,15 @@ export default function CheckoutPage({ menuData }) {
 
           {/* Order Summary */}
           <div className="lg:col-span-1">
-            <div className="bg-black-surface p-6 rounded-3xl shadow-sm border border-wood-dark/30 sticky top-24">
+            <div className="bg-black-surface p-6 rounded-3xl shadow-sm border border-brand-red-dark/30 sticky top-24">
               <h3 className="text-xl font-bold text-text-light mb-6 flex items-center gap-2">
-                <ShoppingBag size={20} className="text-neon-amber" />
+                <ShoppingBag size={20} className="text-brand-red" />
                 {lang === 'en' ? 'Order Summary' : 'ملخص الطلب'}
               </h3>
               
               <div className="space-y-4 mb-6 max-h-60 overflow-y-auto custom-scrollbar pe-">
                 {cartItems.map((item, index) => (
-                  <div key={index} className="flex justify-between items-start gap-2 border-b border-wood-dark/30 pb-4 last:border-0 last:pb-0">
+                  <div key={index} className="flex justify-between items-start gap-2 border-b border-brand-red-dark/30 pb-4 last:border-0 last:pb-0">
                     <div>
                       <h4 className="font-bold text-sm text-text-light">{item.quantity}x {item.product.name}</h4>
                       {item.product.isSoldByWeight && (
@@ -406,9 +406,9 @@ export default function CheckoutPage({ menuData }) {
                 ))}
               </div>
 
-              <div className="pt-4 border-t border-wood-dark/30 flex justify-between items-center text-xl">
+              <div className="pt-4 border-t border-brand-red-dark/30 flex justify-between items-center text-xl">
                 <span className="font-bold text-text-muted">{lang === 'en' ? 'Total' : 'الإجمالي'}</span>
-                <span className="font-black text-neon-amber">{cartTotal} {lang === 'en' ? 'EGP' : 'ج.م'}</span>
+                <span className="font-black text-brand-red">{cartTotal} {lang === 'en' ? 'EGP' : 'ج.م'}</span>
               </div>
             </div>
           </div>

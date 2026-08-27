@@ -127,7 +127,7 @@ export default function ProductModal({ product, category, menuData, isOpen, onCl
           {/* Close Button */}
           <button 
             onClick={onClose}
-            className="absolute top-4 left-4 z-10 bg-black-surface/80 backdrop-blur-md text-text-light hover:bg-black-surface hover:text-neon-amber w-10 h-10 rounded-full flex items-center justify-center shadow-md transition-colors"
+            className="absolute top-4 left-4 z-10 bg-black-surface/80 backdrop-blur-md text-text-light hover:bg-black-surface hover:text-brand-red w-10 h-10 rounded-full flex items-center justify-center shadow-md transition-colors"
           >
             <X size={20} />
           </button>
@@ -139,7 +139,7 @@ export default function ProductModal({ product, category, menuData, isOpen, onCl
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
               <div className="absolute bottom-6 right-6 text-text-light">
                 <h2 className="text-3xl font-display font-black mb-1">{lang === 'en' && product.nameEn ? product.nameEn : product.name}</h2>
-                {category && <span className="text-neon-amber font-bold text-sm bg-black-primary/50 px-3 py-1 rounded-full backdrop-blur-sm">{lang === 'en' && category.nameEn ? category.nameEn : category.name}</span>}
+                {category && <span className="text-brand-red font-bold text-sm bg-black-primary/50 px-3 py-1 rounded-full backdrop-blur-sm">{lang === 'en' && category.nameEn ? category.nameEn : category.name}</span>}
               </div>
             </div>
           )}
@@ -149,7 +149,7 @@ export default function ProductModal({ product, category, menuData, isOpen, onCl
             {!product.imagePath && (
               <div className="mb-6">
                 <h2 className="text-3xl font-display font-black text-text-light mb-1">{lang === 'en' && product.nameEn ? product.nameEn : product.name}</h2>
-                {category && <span className="text-neon-amber font-bold text-sm bg-black-surface px-3 py-1 rounded-full">{lang === 'en' && category.nameEn ? category.nameEn : category.name}</span>}
+                {category && <span className="text-brand-red font-bold text-sm bg-black-surface px-3 py-1 rounded-full">{lang === 'en' && category.nameEn ? category.nameEn : category.name}</span>}
               </div>
             )}
 
@@ -165,7 +165,7 @@ export default function ProductModal({ product, category, menuData, isOpen, onCl
                 </h3>
                 <div className="flex flex-wrap gap-2">
                   {product.ingredients.map((ingredient, idx) => (
-                    <span key={idx} className="bg-black-primary text-text-light px-3 py-1 rounded-full text-xs font-semibold border border-wood-dark/30">
+                    <span key={idx} className="bg-black-primary text-text-light px-3 py-1 rounded-full text-xs font-semibold border border-brand-red-dark/30">
                       {ingredient}
                     </span>
                   ))}
@@ -175,10 +175,10 @@ export default function ProductModal({ product, category, menuData, isOpen, onCl
 
             {/* Weight Selection */}
             {product.isSoldByWeight && (
-              <div className="mb-8 bg-black-surface p-5 rounded-2xl border border-wood-dark/30">
+              <div className="mb-8 bg-black-surface p-5 rounded-2xl border border-brand-red-dark/30">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="font-bold text-lg">{lang === 'en' ? 'Choose' : 'اختر'} الوزن</h3>
-                  <span className="text-neon-amber font-bold">{basePrice} {lang === 'en' ? 'EGP' : 'ج.م'}</span>
+                  <span className="text-brand-red font-bold">{basePrice} {lang === 'en' ? 'EGP' : 'ج.م'}</span>
                 </div>
                 
                 <div className="flex items-center gap-4 bg-black-surface p-2 rounded-xl shadow-sm w-max mx-auto">
@@ -213,7 +213,7 @@ export default function ProductModal({ product, category, menuData, isOpen, onCl
                 
                 {Object.entries(addOnsByGroup).map(([groupName, addOns]) => (
                   <div key={groupName}>
-                    <h3 className="font-bold text-lg mb-4 text-text-light border-b border-wood-dark/30 pb-2">{groupName}</h3>
+                    <h3 className="font-bold text-lg mb-4 text-text-light border-b border-brand-red-dark/30 pb-2">{groupName}</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {addOns.map(addOn => {
                         const isSelected = selectedModifiers.some(m => m.id === addOn.id);
@@ -240,14 +240,14 @@ export default function ProductModal({ product, category, menuData, isOpen, onCl
                             key={addOn.id}
                             onClick={() => handleModifierToggle(addOn)}
                             className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all ${
-                              isSelected ? 'border-neon-amber bg-wood/5 ring-1 ring-neon-amber' : 'border-wood-dark/30 hover:border-neon-amber/50'
+                              isSelected ? 'border-brand-red bg-brand-red/5 ring-1 ring-brand-red' : 'border-brand-red-dark/30 hover:border-brand-red/50'
                             }`}
                           >
                             <div className="flex items-center gap-3">
-                              <div className={`w-5 h-5 rounded flex items-center justify-center border ${isSelected ? 'bg-wood border-neon-amber text-text-light' : 'border-wood-dark/50'}`}>
+                              <div className={`w-5 h-5 rounded flex items-center justify-center border ${isSelected ? 'bg-brand-red border-brand-red text-text-light' : 'border-brand-red-dark/50'}`}>
                                 {isSelected && <svg viewBox="0 0 14 14" fill="none" className="w-3 h-3"><path d="M3 8L6 11L11 3.5" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" stroke="currentColor"></path></svg>}
                               </div>
-                              <span className={`font-bold ${isSelected ? 'text-neon-amber' : 'text-text-light'}`}>{addOn.name}</span>
+                              <span className={`font-bold ${isSelected ? 'text-brand-red' : 'text-text-light'}`}>{addOn.name}</span>
                             </div>
                             <span className="text-sm font-bold text-text-muted">{displayPrice}</span>
                           </div>
@@ -261,7 +261,7 @@ export default function ProductModal({ product, category, menuData, isOpen, onCl
           </div>
 
           {/* Footer / Add to Cart */}
-          <div className="p-6 bg-black-surface border-t border-wood-dark/30 shrink-0">
+          <div className="p-6 bg-black-surface border-t border-brand-red-dark/30 shrink-0">
             <div className="flex flex-col sm:flex-row items-center gap-4">
               
               {/* Quantity */}
@@ -284,7 +284,7 @@ export default function ProductModal({ product, category, menuData, isOpen, onCl
               {/* Add Button */}
               <button 
                 onClick={handleAddToCart}
-                className="flex-grow w-full bg-wood hover:bg-wood-dark text-text-light py-4 px-6 rounded-xl font-bold flex items-center justify-between transition-all shadow-lg shadow-neon-amber/30"
+                className="flex-grow w-full bg-brand-red hover:bg-brand-red-dark text-text-light py-4 px-6 rounded-xl font-bold flex items-center justify-between transition-all shadow-lg shadow-brand-red/30"
               >
                 <div className="flex items-center gap-2">
                   <ShoppingBag size={20} />

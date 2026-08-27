@@ -50,7 +50,7 @@ export default function SignatureDishes({ menuData }) {
   return (
     <section className="py-24 bg-black-surface relative overflow-hidden">
       {/* Background Decor */}
-      <div className="absolute top-0 left-0 w-64 h-64 bg-wood/5 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
+      <div className="absolute top-0 left-0 w-64 h-64 bg-brand-red/5 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
       
       <div className="container mx-auto px-6 relative z-10">
         <div className="text-center mb-16">
@@ -58,7 +58,7 @@ export default function SignatureDishes({ menuData }) {
             initial={{ opacity: 0, scale: 0.8 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
-            className="flex justify-center items-center gap-2 text-neon-amber mb-4"
+            className="flex justify-center items-center gap-2 text-brand-red mb-4"
           >
             <Flame size={24} />
             <span className="font-bold tracking-wider text-sm uppercase">Signature Selection</span>
@@ -77,7 +77,7 @@ export default function SignatureDishes({ menuData }) {
             initial={{ opacity: 0, width: 0 }}
             whileInView={{ opacity: 1, width: "80px" }}
             viewport={{ once: true }}
-            className="h-1 bg-wood mx-auto rounded-full"
+            className="h-1 bg-brand-red mx-auto rounded-full"
           ></motion.div>
         </div>
 
@@ -92,7 +92,7 @@ export default function SignatureDishes({ menuData }) {
             <motion.div 
               key={index}
               variants={itemVariants}
-              className="bg-black-surface rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-shadow duration-300 group cursor-pointer border border-wood-dark/30 flex flex-col"
+              className="bg-black-surface rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-shadow duration-300 group cursor-pointer border border-brand-red-dark/30 flex flex-col"
             >
               {/* Image Container */}
               <div className="relative h-64 overflow-hidden bg-black-primary">
@@ -110,14 +110,14 @@ export default function SignatureDishes({ menuData }) {
                 )}
                 
                 {/* Price Badge */}
-                <div className="absolute top-4 right-4 bg-wood text-text-light font-bold py-1 px-3 rounded-full shadow-lg">
+                <div className="absolute top-4 right-4 bg-brand-red text-text-light font-bold py-1 px-3 rounded-full shadow-lg">
                   {item.sellingPrice} {lang === 'en' ? 'EGP' : 'ج.م'}
                 </div>
               </div>
 
               {/* Content */}
               <div className="p-6 flex-grow flex flex-col">
-                <h3 className="text-2xl font-display font-bold text-text-light mb-2 group-hover:text-neon-amber transition-colors">
+                <h3 className="text-2xl font-display font-bold text-text-light mb-2 group-hover:text-brand-red transition-colors">
                   {lang === 'en' && item.nameEn ? item.nameEn : item.name}
                 </h3>
                 <p className="text-text-muted mb-6 flex-grow">
@@ -126,7 +126,7 @@ export default function SignatureDishes({ menuData }) {
                 
                 <button 
                   onClick={() => setSelectedProduct(item)}
-                  className="flex items-center text-neon-amber font-bold mt-auto group-hover:gap-2 transition-all w-full text-right outline-none"
+                  className="flex items-center text-brand-red font-bold mt-auto group-hover:gap-2 transition-all w-full text-right outline-none"
                 >
                   <span>{lang === 'en' ? 'Order Now' : 'اطلب الآن'}</span>
                   <ArrowLeft size={18} className="ms- opacity-0 group-hover:opacity-100 transition-opacity -translate-x-2 group-hover:translate-x-0" />

@@ -27,7 +27,7 @@ export default function FaqSection({ websiteData }) {
   return (
     <section className="py-24 bg-black-surface relative overflow-hidden">
       {/* Background Decor */}
-      <div className="absolute top-0 right-0 w-64 h-64 bg-wood/5 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2"></div>
+      <div className="absolute top-0 right-0 w-64 h-64 bg-brand-red/5 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2"></div>
       
       <div className="container mx-auto px-6 relative z-10 max-w-4xl">
         <div className="text-center mb-16">
@@ -35,7 +35,7 @@ export default function FaqSection({ websiteData }) {
             initial={{ opacity: 0, scale: 0.8 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
-            className="flex justify-center items-center gap-2 text-neon-amber mb-4"
+            className="flex justify-center items-center gap-2 text-brand-red mb-4"
           >
             <HelpCircle size={24} />
             <span className="font-bold tracking-wider text-sm uppercase">FAQ</span>
@@ -54,7 +54,7 @@ export default function FaqSection({ websiteData }) {
             initial={{ opacity: 0, width: 0 }}
             whileInView={{ opacity: 1, width: "80px" }}
             viewport={{ once: true }}
-            className="h-1 bg-wood mx-auto rounded-full mb-6"
+            className="h-1 bg-brand-red mx-auto rounded-full mb-6"
           ></motion.div>
           <p className="text-text-muted text-lg max-w-xl mx-auto">
             {lang === 'en' ? 'Here are the answers to the most frequent questions from our special customers.' : 'إليك الإجابات على أكثر الأسئلة التي تصلنا من عملائنا المميزين.'}
@@ -72,16 +72,16 @@ export default function FaqSection({ websiteData }) {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1 }}
-                className={`border rounded-2xl overflow-hidden transition-colors duration-300 ${isOpen ? 'bg-black-surface border-neon-amber/30 shadow-md' : 'bg-black-primary border-wood-dark/30 hover:border-wood-dark/50'}`}
+                className={`border rounded-2xl overflow-hidden transition-colors duration-300 ${isOpen ? 'bg-black-surface border-brand-red/30 shadow-md' : 'bg-black-primary border-brand-red-dark/30 hover:border-brand-red-dark/50'}`}
               >
                 <button
                   onClick={() => toggleFaq(index)}
                   className="w-full text-right px-6 py-5 flex items-center justify-between focus:outline-none"
                 >
-                  <span className={`font-bold text-lg md:text-xl pe- ${isOpen ? 'text-neon-amber' : 'text-text-light'}`}>
+                  <span className={`font-bold text-lg md:text-xl pe- ${isOpen ? 'text-brand-red' : 'text-text-light'}`}>
                     {faq.question}
                   </span>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-transform duration-300 ${isOpen ? 'bg-wood/10 text-neon-amber rotate-180' : 'bg-black-surface text-text-muted'}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-transform duration-300 ${isOpen ? 'bg-brand-red/10 text-brand-red rotate-180' : 'bg-black-surface text-text-muted'}`}>
                     <ChevronDown size={20} />
                   </div>
                 </button>
@@ -94,7 +94,7 @@ export default function FaqSection({ websiteData }) {
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.3 }}
                     >
-                      <div className="px-6 pb-6 pt-2 text-text-muted leading-relaxed border-t border-wood-dark/30">
+                      <div className="px-6 pb-6 pt-2 text-text-muted leading-relaxed border-t border-brand-red-dark/30">
                         {faq.answer}
                       </div>
                     </motion.div>

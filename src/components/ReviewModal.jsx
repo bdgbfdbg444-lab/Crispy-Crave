@@ -138,7 +138,7 @@ export default function ReviewModal({ isOpen, onClose }) {
             >
               <X size={24} />
             </button>
-            <h2 className="text-2xl font-display font-black mb-1 text-neon-amber">{lang === 'en' ? 'Share Your Opinion' : 'شاركنا رأيك'}</h2>
+            <h2 className="text-2xl font-display font-black mb-1 text-brand-red">{lang === 'en' ? 'Share Your Opinion' : 'شاركنا رأيك'}</h2>
             <p className="text-sm text-gray-300">{lang === 'en' ? 'Your feedback helps us serve you better.' : 'تقييمك يهمنا ويساعدنا على تقديم الأفضل دائماً.'}</p>
           </div>
 
@@ -175,7 +175,7 @@ export default function ReviewModal({ isOpen, onClose }) {
                         <Star 
                           size={32} 
                           fill={star <= formData.rating ? "#F97316" : "none"} // Primary Color
-                          className={star <= formData.rating ? "text-neon-amber" : "text-gray-300"}
+                          className={star <= formData.rating ? "text-brand-red" : "text-gray-300"}
                         />
                       </button>
                     ))}
@@ -190,7 +190,7 @@ export default function ReviewModal({ isOpen, onClose }) {
                     placeholder={lang === 'en' ? 'Enter your name here' : 'اكتب اسمك هنا'}
                     value={formData.customerName}
                     onChange={(e) => setFormData({...formData, customerName: e.target.value})}
-                    className="w-full bg-black-primary border border-wood-dark/30 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-neon-amber focus:border-transparent transition-all"
+                    className="w-full bg-black-primary border border-brand-red-dark/30 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent transition-all"
                   />
                 </div>
 
@@ -203,7 +203,7 @@ export default function ReviewModal({ isOpen, onClose }) {
                     placeholder={lang === 'en' ? 'What do you think about the food and service?' : 'ما رأيك في الأكل والخدمة؟'}
                     value={formData.comment}
                     onChange={(e) => setFormData({...formData, comment: e.target.value})}
-                    className="w-full bg-black-primary border border-wood-dark/30 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-neon-amber focus:border-transparent transition-all resize-none"
+                    className="w-full bg-black-primary border border-brand-red-dark/30 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent transition-all resize-none"
                   />
                 </div>
 
@@ -225,7 +225,7 @@ export default function ReviewModal({ isOpen, onClose }) {
                       onChange={handleFileChange}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                     />
-                    <div className={`w-full border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center transition-colors ${previewUrl ? 'border-neon-amber bg-wood/5' : 'border-wood-dark/50 hover:border-gray-400 bg-black-primary'}`}>
+                    <div className={`w-full border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center transition-colors ${previewUrl ? 'border-brand-red bg-brand-red/5' : 'border-brand-red-dark/50 hover:border-gray-400 bg-black-primary'}`}>
                       {previewUrl ? (
                         <div className="relative w-full h-40 rounded-lg overflow-hidden">
                           <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
@@ -248,7 +248,7 @@ export default function ReviewModal({ isOpen, onClose }) {
                 <button
                   type="submit"
                   disabled={isSubmitting || !formData.comment.trim()}
-                  className="w-full bg-wood hover:bg-wood-dark disabled:bg-gray-300 disabled:cursor-not-allowed text-text-light font-bold py-4 px-6 rounded-xl transition-all shadow-lg shadow-neon-amber/30 flex items-center justify-center mt-2"
+                  className="w-full bg-brand-red hover:bg-brand-red-dark disabled:bg-gray-300 disabled:cursor-not-allowed text-text-light font-bold py-4 px-6 rounded-xl transition-all shadow-lg shadow-brand-red/30 flex items-center justify-center mt-2"
                 >
                   {isSubmitting ? (
                     <span className="flex items-center gap-2">

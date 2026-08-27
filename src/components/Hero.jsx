@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { APP_CONFIG } from '../config/appConfig';
 import { ChevronDown, Utensils } from 'lucide-react';
+import Logo from './Logo';
 
 export default function Hero({ websiteData }) {
   const { lang } = useLanguage();
@@ -66,7 +67,7 @@ export default function Hero({ websiteData }) {
             transition={{ delay: 1.2, duration: 0.8 }}
             className="flex justify-center w-full"
           >
-            <Link to="/menu" className="bg-wood hover:bg-wood-dark text-text-light font-bold py-4 px-12 rounded-lg shadow-lg hover:shadow-neon-amber/40 transition-all duration-300 flex items-center justify-center gap-3 text-lg md:text-xl border border-wood-light/20">
+            <Link to="/menu" className="bg-brand-red hover:bg-brand-red-dark text-text-light font-bold py-4 px-12 rounded-lg shadow-lg hover:shadow-brand-red/40 transition-all duration-300 flex items-center justify-center gap-3 text-lg md:text-xl border border-brand-red-light/20">
               {lang === 'en' ? 'Order Now' : 'اطلب الآن'} ORDER NOW
             </Link>
           </motion.div>
