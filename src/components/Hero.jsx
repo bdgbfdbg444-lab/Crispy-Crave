@@ -38,17 +38,7 @@ export default function Hero({ websiteData }) {
         <div className="max-w-4xl flex flex-col items-center">
           
           {/* Main Neon Title - Crisp outline glow like the image */}
-          <motion.h1 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 1.2, ease: "easeOut" }}
-            className="text-6xl md:text-8xl lg:text-[9rem] font-normal mb-2 leading-none uppercase tracking-normal whitespace-nowrap neon-hover-effect"
-            style={{ 
-              fontFamily: "'Bebas Neue', sans-serif",
-            }}
-          >
-            {headline}
-          </motion.h1>
+          <div className="mb-6 flex justify-center w-full z-10 scale-90 md:scale-100"><Logo className="text-[12vw] sm:text-7xl md:text-8xl lg:text-[9rem] drop-shadow-[0_0_20px_rgba(230,57,70,0.4)]" /></div>
 
           {/* Subtitle - Clean, readable, non-glowing text with white space pre-line for the line break */}
           <motion.p 
@@ -68,7 +58,7 @@ export default function Hero({ websiteData }) {
             className="flex justify-center w-full"
           >
             <Link to="/menu" className="bg-brand-red hover:bg-brand-red-dark text-text-light font-bold py-4 px-12 rounded-lg shadow-lg hover:shadow-brand-red/40 transition-all duration-300 flex items-center justify-center gap-3 text-lg md:text-xl border border-brand-red-light/20">
-              {lang === 'en' ? 'Order Now' : 'اطلب الآن'} ORDER NOW
+              {lang === 'en' ? 'Order Now' : 'اطلب الآن'}
             </Link>
           </motion.div>
         </div>
