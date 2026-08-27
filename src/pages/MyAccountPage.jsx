@@ -105,7 +105,7 @@ const DashboardView = ({ customerData, onLogout }) => {
         
         {editingEmail ? (
           <div className="flex flex-col gap-2">
-            <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} className="border p-2 rounded" placeholder="أدخل {lang === 'en' ? 'Email Address' : 'البريد الإلكتروني'}" />
+            <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} className="bg-black-primary border border-brand-red-dark/30 text-text-light p-2 rounded-xl focus:outline-none focus:border-brand-red" placeholder="أدخل {lang === 'en' ? 'Email Address' : 'البريد الإلكتروني'}" />
             <div className="flex gap-2">
               <button onClick={handleSaveEmail} disabled={savingEmail} className="bg-brand-red text-text-light px-4 py-2 rounded text-sm disabled:opacity-50">
                 {savingEmail ? 'جاري الحفظ...' : 'حفظ'}
@@ -467,7 +467,7 @@ export default function MyAccountPage() {
           <form onSubmit={handlePhoneSubmit}>
             <div className="mb-4">
               <label className="block text-text-light mb-2">رقم الموبايل</label>
-              <input type="tel" className="w-full border p-3 rounded" value={phone} onChange={e => setPhone(e.target.value)} placeholder="01012345678" />
+              <input type="tel" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={phone} onChange={e => setPhone(e.target.value)} placeholder="01012345678" />
             </div>
             <button type="submit" disabled={loading} className="w-full bg-brand-red text-text-light p-3 rounded hover:bg-brand-red-dark disabled:opacity-50">
               {loading ? 'جاري التحقق...' : 'متابعة'}
@@ -494,7 +494,7 @@ export default function MyAccountPage() {
           </div>
           <div className="mb-4">
             <label className="block text-text-light mb-2">كلمة المرور</label>
-            <input type="password" className="w-full border p-3 rounded" value={password} onChange={e => setPassword(e.target.value)} />
+            <input type="password" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={password} onChange={e => setPassword(e.target.value)} />
           </div>
           <button type="submit" disabled={loading} className="w-full bg-brand-red text-text-light p-3 rounded hover:bg-brand-red-dark disabled:opacity-50 mb-3">
             {loading ? 'جاري الدخول...' : 'تسجيل الدخول'}
@@ -531,11 +531,11 @@ export default function MyAccountPage() {
           </div>
           <div className="mb-4">
             <label className="block text-text-light mb-2">كود التفعيل (من الكاشير)</label>
-            <input type="text" className="w-full border p-3 rounded" value={resetCode} onChange={e => setResetCode(e.target.value)} />
+            <input type="text" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={resetCode} onChange={e => setResetCode(e.target.value)} />
           </div>
           <div className="mb-4">
             <label className="block text-text-light mb-2">كلمة المرور الجديدة</label>
-            <input type="password" className="w-full border p-3 rounded" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+            <input type="password" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
           </div>
           <button type="submit" disabled={loading} className="w-full bg-brand-red text-text-light font-bold p-3 rounded-lg hover:bg-brand-red-dark disabled:opacity-50 transition-colors mt-2">
             {loading ? 'جاري التحديث...' : 'تحديث كلمة المرور'}
@@ -553,19 +553,19 @@ export default function MyAccountPage() {
           </div>
           <div className="mb-4">
             <label className="block text-text-light mb-2">الاسم</label>
-            <input type="text" className="w-full border p-3 rounded" value={name} onChange={e => setName(e.target.value)} />
+            <input type="text" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={name} onChange={e => setName(e.target.value)} />
           </div>
           <div className="mb-4">
             <label className="block text-text-light mb-2">العنوان (اختياري لتسهيل ال{lang === 'en' ? 'Order' : 'طلب'})</label>
-            <input type="text" className="w-full border p-3 rounded" value={address} onChange={e => setAddress(e.target.value)} />
+            <input type="text" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={address} onChange={e => setAddress(e.target.value)} />
           </div>
           <div className="mb-4">
             <label className="block text-text-light mb-2">{lang === 'en' ? 'Email Address' : 'البريد الإلكتروني'} (اختياري)</label>
-            <input type="email" className="w-full border p-3 rounded" value={email} onChange={e => setEmail(e.target.value)} />
+            <input type="email" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={email} onChange={e => setEmail(e.target.value)} />
           </div>
           <div className="mb-4">
             <label className="block text-text-light mb-2">كلمة المرور (6 أحرف على الأقل)</label>
-            <input type="password" className="w-full border p-3 rounded" value={password} onChange={e => setPassword(e.target.value)} />
+            <input type="password" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={password} onChange={e => setPassword(e.target.value)} />
           </div>
           <button type="submit" disabled={loading} className="w-full bg-brand-red text-text-light p-3 rounded hover:bg-brand-red-dark disabled:opacity-50 mb-3">
             {loading ? 'جاري التسجيل...' : 'إنشاء حساب'}
@@ -583,11 +583,11 @@ export default function MyAccountPage() {
           </div>
           <div className="mb-4">
             <label className="block text-text-light mb-2">رقم الموبايل</label>
-            <input type="tel" className="w-full border p-3 rounded" value={phone} onChange={e => setPhone(e.target.value)} placeholder="01012345678" />
+            <input type="tel" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={phone} onChange={e => setPhone(e.target.value)} placeholder="01012345678" />
           </div>
           <div className="mb-4">
             <label className="block text-text-light mb-2">العنوان (اختياري لتسهيل ال{lang === 'en' ? 'Order' : 'طلب'})</label>
-            <input type="text" className="w-full border p-3 rounded" value={address} onChange={e => setAddress(e.target.value)} />
+            <input type="text" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={address} onChange={e => setAddress(e.target.value)} />
           </div>
           <button type="submit" disabled={loading} className="w-full bg-brand-red text-text-light p-3 rounded hover:bg-brand-red-dark disabled:opacity-50 mb-3">
             {loading ? 'جاري الربط...' : 'ربط وإكمال'}
