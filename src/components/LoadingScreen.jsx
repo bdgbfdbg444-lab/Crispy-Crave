@@ -1,41 +1,40 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Flame } from 'lucide-react';
-import { APP_CONFIG } from '../config/appConfig';
+import Logo from './Logo';
 
 export default function LoadingScreen() {
   return (
-    <div className="fixed inset-0 z-[100] bg-black-primary flex flex-col items-center justify-center">
+    <div className="fixed inset-0 z-[100] bg-black-primary flex flex-col items-center justify-center overflow-hidden">
+      
+      {/* Dynamic Background Glow */}
+      <motion.div 
+        animate={{ opacity: [0.1, 0.3, 0.1], scale: [1, 1.2, 1] }}
+        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute w-64 h-64 bg-brand-red/20 rounded-full blur-[100px]"
+      />
+
       <motion.div
         animate={{ 
-          scale: [1, 1.2, 1],
-          opacity: [0.5, 1, 0.5]
+          scale: [1, 1.05, 1],
         }}
         transition={{ 
           duration: 1.5, 
           repeat: Infinity,
           ease: "easeInOut"
         }}
-        className="text-brand-red mb-6"
+        className="relative z-10 mb-8"
       >
-        <Flame size={64} className="fill-primary" />
+        <Logo className="text-5xl md:text-7xl drop-shadow-[0_0_15px_rgba(230,57,70,0.6)]" />
       </motion.div>
       
-      <motion.h1 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="text-3xl md:text-4xl font-display font-black text-text-light tracking-widest uppercase mb-4 text-center px-4"
-      >
-        {APP_CONFIG.restaurantName}
-      </motion.h1>
-      
-      <motion.div 
-        initial={{ width: 0 }}
-        animate={{ width: "200px" }}
-        transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-        className="h-1 bg-gradient-to-r from-transparent via-primary to-transparent rounded-full"
-      />
+      {/* Loading Progress Bar */}
+      <div className="w-48 md:w-64 h-1 bg-black-surface rounded-full overflow-hidden relative z-10">
+        <motion.div 
+          animate={{ x: ["-100%", "100%"] }}
+          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+          className="w-full h-full bg-gradient-to-r from-transparent via-brand-red to-transparent rounded-full"
+        />
+      </div>
     </div>
   );
 }
