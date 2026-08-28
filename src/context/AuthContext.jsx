@@ -35,11 +35,12 @@ export function AuthProvider({ children }) {
               const data = custSnap.val();
               
               // --- LAZY MIGRATION: Single Address to Multiple Addresses ---
-              if (data.address && (!data.addresses || !Array.isArray(data.addresses) || data.addresses.length === 0)) {
+              const legacyAddress = data.address || data.Address;
+              if (legacyAddress && (!data.addresses || !Array.isArray(data.addresses) || data.addresses.length === 0)) {
                 const newAddress = {
                   id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
                   label: 'المنزل',
-                  fullAddress: data.address,
+                  fullAddress: legacyAddress,
                   isDefault: true
                 };
                 data.addresses = [newAddress];
@@ -77,11 +78,12 @@ export function AuthProvider({ children }) {
         if (custSnap.exists()) {
           const data = custSnap.val();
           
-          if (data.address && (!data.addresses || !Array.isArray(data.addresses) || data.addresses.length === 0)) {
+          const legacyAddress = data.address || data.Address;
+          if (legacyAddress && (!data.addresses || !Array.isArray(data.addresses) || data.addresses.length === 0)) {
             const newAddress = {
               id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
               label: 'المنزل',
-              fullAddress: data.address,
+              fullAddress: legacyAddress,
               isDefault: true
             };
             data.addresses = [newAddress];
