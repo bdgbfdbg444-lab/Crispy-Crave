@@ -5,58 +5,52 @@ import { useAuth } from '../context/AuthContext';
 import { auth, db, googleProvider } from '../firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, sendPasswordResetEmail, signOut } from 'firebase/auth';
 import { ref, get, set, update } from 'firebase/database';
-import { Package, MapPin, Edit3, LogOut, ChevronLeft , Navigation, ChevronDown, ChevronUp } from 'lucide-react';
+import { Package, MapPin, Edit3, LogOut, ChevronLeft, Navigation, ChevronDown, ChevronUp, Home, Briefcase, Plus, Trash2, Settings, User, CheckCircle2 } from 'lucide-react';
 import { APP_CONFIG } from '../config/appConfig';
 import { fetchMenuData } from '../services/firebaseService';
 
 const DashboardView = ({ customerData, onLogout }) => {
   const { lang } = useLanguage();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = React.useState('overview');
   const [editingEmail, setEditingEmail] = React.useState(false);
   const [newEmail, setNewEmail] = React.useState(customerData.Email || '');
   const [savingEmail, setSavingEmail] = React.useState(false);
   const [expandedOrder, setExpandedOrder] = React.useState(null);
 
+  const [addresses, setAddresses] = React.useState(customerData.addresses || []);
+  const [showAddForm, setShowAddForm] = React.useState(false);
+  const [newAddress, setNewAddress] = React.useState({ label: 'المنزل', fullAddress: '' });
+  const [isSavingAddress, setIsSavingAddress] = React.useState(false);
+
+  React.useEffect(() => {
+    if (customerData.addresses) {
+      setAddresses(customerData.addresses);
+    }
+  }, [customerData.addresses]);
+
   const history = customerData.History || [];
+  let activeOrders = history.filter(o => !['Completed', 'Cancelled', 'Voided', 'Refunded'].includes(o.Status));
   
-  // Find active orders (Not Completed/Cancelled/Voided/Refunded)
-  let activeOrders = history.filter(o => 
-    !['Completed', 'Cancelled', 'Voided', 'Refunded'].includes(o.Status)
-  );
-  
-  // Inject pending order if not synced from POS yet
   const savedOrderId = localStorage.getItem('activeOrderId');
   const savedOrderTotal = localStorage.getItem('activeOrderTotal') || '---';
   if (savedOrderId) {
-    const isInHistory = history.some(o => 
-      o.OrderNumber === savedOrderId || 
-      `#${o.OrderNumber}` === savedOrderId || 
-      o.OrderNumber === savedOrderId.replace('#', '') ||
-      (o.WebOrderId && (o.WebOrderId === savedOrderId || o.WebOrderId === savedOrderId.replace('#', '')))
-    );
+    const isInHistory = history.some(o => o.OrderNumber === savedOrderId || o.OrderNumber === savedOrderId.replace('#', '') || (o.WebOrderId && (o.WebOrderId === savedOrderId || o.WebOrderId === savedOrderId.replace('#', ''))));
     if (!isInHistory) {
-      activeOrders = [{
-        OrderNumber: savedOrderId,
-        Status: 'Pending',
-        TotalAmount: savedOrderTotal,
-        OrderDate: new Date().toISOString()
-      }, ...activeOrders];
+      activeOrders = [{ OrderNumber: savedOrderId, Status: 'Pending', TotalAmount: savedOrderTotal, OrderDate: new Date().toISOString() }, ...activeOrders];
     }
   }
 
-  const pastOrders = history.filter(o => 
-    ['Completed', 'Cancelled', 'Voided', 'Refunded'].includes(o.Status)
-  );
+  const pastOrders = history.filter(o => ['Completed', 'Cancelled', 'Voided', 'Refunded'].includes(o.Status));
 
   const translateStatus = (status) => {
     switch(status) {
-      case 'Pending': return lang === 'en' ? 'Pending Acceptance' : 'جاري المراجعة...';
-      case 'New': return 'تم القبول';
-      case 'Accepted': return 'تم القبول';
-      case 'InKitchen': return 'قيد التحضير';
-      case 'Ready': return 'جاهز للاستلام/التوصيل';
-      case 'Completed': return lang === 'en' ? 'Delivered' : 'تم التسليم';
-      case 'Cancelled': return 'ملغي';
+      case 'Pending': return lang === 'en' ? 'Pending' : 'قيد الانتظار';
+      case 'Accepted': return lang === 'en' ? 'Preparing' : 'يتم التجهيز';
+      case 'InKitchen': return lang === 'en' ? 'In Kitchen' : 'في المطبخ';
+      case 'Ready': return lang === 'en' ? 'Ready/Out for Delivery' : 'جاهز/في الطريق للاستلام';
+      case 'Completed': return lang === 'en' ? 'Delivered' : 'مكتمل (تم التوصيل)';
+      case 'Cancelled': return lang === 'en' ? 'Cancelled' : 'ملغي';
       default: return status;
     }
   };
@@ -70,10 +64,8 @@ const DashboardView = ({ customerData, onLogout }) => {
   const handleSaveEmail = async () => {
     setSavingEmail(true);
     try {
-      const { db, update, ref } = await import('firebase/database');
-      await update(ref(db, `PublicCustomers/${customerData.Phone}`), {
-        Email: newEmail.trim() || null
-      });
+      const { db, update, ref } = await import('../firebase');
+      await update(ref(db, `PublicCustomers/${customerData.Phone}`), { Email: newEmail.trim() || null });
       setEditingEmail(false);
       alert(lang === 'en' ? 'Email updated successfully!' : 'تم تحديث البريد الإلكتروني بنجاح!');
       window.location.reload();
@@ -83,153 +75,297 @@ const DashboardView = ({ customerData, onLogout }) => {
     setSavingEmail(false);
   };
 
+  const saveAddressesToFirebase = async (updatedAddresses) => {
+    try {
+      const { db, update, ref } = await import('../firebase');
+      await update(ref(db, `PublicCustomers/${customerData.Phone}`), { addresses: updatedAddresses });
+      setAddresses(updatedAddresses);
+    } catch (err) {
+      console.error(err);
+      alert(lang === 'en' ? 'Failed to save address' : 'فشل حفظ العنوان');
+    }
+  };
+
+  const handleAddAddress = async () => {
+    if (!newAddress.fullAddress.trim()) return;
+    if (newAddress.fullAddress.length > 200) {
+      alert(lang === 'en' ? 'Address is too long (max 200 characters)' : 'العنوان طويل جداً (الحد الأقصى 200 حرف)');
+      return;
+    }
+    if (addresses.length >= 5) {
+      alert(lang === 'en' ? 'You have reached the maximum limit of 5 addresses' : 'لقد وصلت للحد الأقصى (5 عناوين)');
+      return;
+    }
+
+    setIsSavingAddress(true);
+    const addressToSave = {
+      id: Date.now().toString(),
+      label: newAddress.label,
+      fullAddress: newAddress.fullAddress.trim(),
+      isDefault: addresses.length === 0
+    };
+
+    const updatedAddresses = [...addresses, addressToSave];
+    await saveAddressesToFirebase(updatedAddresses);
+    
+    setNewAddress({ label: 'المنزل', fullAddress: '' });
+    setShowAddForm(false);
+    setIsSavingAddress(false);
+  };
+
+  const handleDeleteAddress = async (id) => {
+    if (addresses.length === 1) {
+      alert(lang === 'en' ? 'You cannot delete your only address' : 'لا يمكنك حذف عنوانك الوحيد المتبقي');
+      return;
+    }
+    const confirmDelete = window.confirm(lang === 'en' ? 'Are you sure you want to delete this address?' : 'هل أنت متأكد أنك تريد حذف هذا العنوان؟');
+    if (!confirmDelete) return;
+
+    let updatedAddresses = addresses.filter(a => a.id !== id);
+    if (!updatedAddresses.some(a => a.isDefault) && updatedAddresses.length > 0) {
+      updatedAddresses[0].isDefault = true;
+    }
+
+    await saveAddressesToFirebase(updatedAddresses);
+  };
+
+  const handleSetDefault = async (id) => {
+    const updatedAddresses = addresses.map(a => ({
+      ...a,
+      isDefault: a.id === id
+    }));
+    await saveAddressesToFirebase(updatedAddresses);
+  };
+
+  const getAddressIcon = (label) => {
+    if (label === 'المنزل' || label === 'Home') return <Home size={18} />;
+    if (label === 'العمل' || label === 'Work') return <Briefcase size={18} />;
+    return <MapPin size={18} />;
+  };
+
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="text-xl font-bold text-text-light">{lang === 'en' ? 'Welcome,' : 'مرحباً،'} {customerData.Name}</h3>
-        <button onClick={onLogout} className="flex items-center gap-1 text-red-500 hover:text-red-400 bg-black-surface border border-red-900 px-3 py-1.5 rounded-lg transition-colors">
-          <LogOut size={16} />
-          <span className="text-sm font-medium">{lang === 'en' ? 'Logout' : 'خروج'}</span>
+    <div className="flex flex-col md:flex-row gap-6" dir={lang === 'en' ? 'ltr' : 'rtl'}>
+      <div className="w-full md:w-64 flex flex-col gap-2 shrink-0">
+        <button onClick={() => setActiveTab('overview')} className={`p-4 rounded-xl flex items-center gap-3 transition-colors ${activeTab === 'overview' ? 'bg-brand-red text-text-light font-bold' : 'bg-black-surface text-text-muted hover:bg-black-primary'}`}>
+          <User size={20} />
+          <span>{lang === 'en' ? 'Overview' : 'نظرة عامة'}</span>
+        </button>
+        <button onClick={() => setActiveTab('orders')} className={`p-4 rounded-xl flex items-center gap-3 transition-colors ${activeTab === 'orders' ? 'bg-brand-red text-text-light font-bold' : 'bg-black-surface text-text-muted hover:bg-black-primary'}`}>
+          <Package size={20} />
+          <span>{lang === 'en' ? 'My Orders' : 'طلباتي'}</span>
+        </button>
+        <button onClick={() => setActiveTab('addresses')} className={`p-4 rounded-xl flex items-center gap-3 transition-colors ${activeTab === 'addresses' ? 'bg-brand-red text-text-light font-bold' : 'bg-black-surface text-text-muted hover:bg-black-primary'}`}>
+          <MapPin size={20} />
+          <span>{lang === 'en' ? 'My Addresses' : 'عناويني'}</span>
+        </button>
+        <button onClick={() => setActiveTab('settings')} className={`p-4 rounded-xl flex items-center gap-3 transition-colors ${activeTab === 'settings' ? 'bg-brand-red text-text-light font-bold' : 'bg-black-surface text-text-muted hover:bg-black-primary'}`}>
+          <Settings size={20} />
+          <span>{lang === 'en' ? 'Settings' : 'الإعدادات'}</span>
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mb-8">
-        <div className="bg-black-primary border border-brand-red/30 rounded-xl p-4 text-center">
-          <p className="text-sm text-brand-red font-medium mb-1">{lang === 'en' ? 'Current Points' : 'نقاطك الحالية'}</p>
-          <p className="text-3xl font-bold text-brand-red">{customerData.Points || 0}</p>
-        </div>
-        <div className="bg-black-primary border border-brand-red-dark/30 rounded-xl p-4 text-center">
-          <p className="text-sm text-text-light font-medium mb-1">{lang === 'en' ? 'Total Orders' : 'إجمالي طلباتك'}</p>
-          <p className="text-3xl font-bold text-text-light">{customerData.TotalOrders || 0}</p>
-        </div>
-      </div>
-
-      <div className="bg-black-primary rounded-xl p-4 mb-6">
-        <h4 className="font-bold text-text-light mb-3 flex items-center gap-2">
-          <MapPin size={18} className="text-text-muted"/>
-          {lang === 'en' ? 'Registered Address' : 'العنوان المسجل'}
-        </h4>
-        <p className="text-text-muted">{customerData.Address || 'لا يوجد عنوان مسجل'}</p>
-      </div>
-
-      <div className="bg-black-primary rounded-xl p-4 mb-6">
-        <h4 className="font-bold text-text-light mb-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-text-muted">📧</span>
-            {lang === 'en' ? 'Email Address' : 'البريد الإلكتروني'}
+      <div className="flex-1 bg-black-surface p-6 rounded-xl border border-brand-red/10 min-h-[400px]">
+        {activeTab === 'overview' && (
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-bold text-text-light">{lang === 'en' ? 'Welcome,' : 'أهلاً بك،'} <span className="text-brand-red">{customerData.Name}</span></h3>
+            </div>
+            <div className="grid grid-cols-2 gap-4 mb-8">
+              <div className="bg-black-primary border border-brand-red/30 rounded-xl p-6 text-center">
+                <p className="text-sm text-brand-red font-medium mb-2">{lang === 'en' ? 'Current Points' : 'نقاط الولاء'}</p>
+                <p className="text-4xl font-bold text-brand-red">{customerData.Points || 0}</p>
+              </div>
+              <div className="bg-black-primary border border-brand-red-dark/30 rounded-xl p-6 text-center">
+                <p className="text-sm text-text-light font-medium mb-2">{lang === 'en' ? 'Total Orders' : 'إجمالي الطلبات'}</p>
+                <p className="text-4xl font-bold text-text-light">{customerData.TotalOrders || 0}</p>
+              </div>
+            </div>
+            
+            {activeOrders.length > 0 && (
+              <div>
+                <h4 className="font-bold text-lg mb-4 text-text-light">{lang === 'en' ? 'Active Orders' : 'طلباتك الحالية'}</h4>
+                <div className="border border-brand-red/50 bg-black-primary p-4 rounded-xl flex justify-between items-center">
+                   <div>
+                      <p className="font-bold text-text-light">{lang === 'en' ? 'Order' : 'طلب'} {activeOrders[0].OrderNumber}</p>
+                      <p className="text-brand-red text-sm mt-1">{translateStatus(activeOrders[0].Status)}</p>
+                   </div>
+                   <button onClick={() => { setActiveTab('orders'); setExpandedOrder(activeOrders[0].OrderNumber); }} className="text-sm bg-brand-red px-4 py-2 rounded-lg text-white font-bold">{lang === 'en' ? 'View' : 'عرض التفاصيل'}</button>
+                </div>
+              </div>
+            )}
           </div>
-          {!editingEmail && (
-            <button onClick={() => setEditingEmail(true)} className="text-sm text-blue-400 flex items-center gap-1">
-              <Edit3 size={14} /> {lang === 'en' ? 'Edit' : 'تعديل'}
-            </button>
-          )}
-        </h4>
-        
-        {editingEmail ? (
-          <div className="flex flex-col gap-2">
-            <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} className="bg-black-primary border border-brand-red-dark/30 text-text-light p-2 rounded-xl focus:outline-none focus:border-brand-red" placeholder="أدخل {lang === 'en' ? 'Email Address' : 'البريد الإلكتروني'}" />
-            <div className="flex gap-2">
-              <button onClick={handleSaveEmail} disabled={savingEmail} className="bg-brand-red text-text-light px-4 py-2 rounded text-sm disabled:opacity-50">
-                {savingEmail ? 'جاري الحفظ...' : 'حفظ'}
-              </button>
-              <button onClick={() => {setEditingEmail(false); setNewEmail(customerData.Email || '');}} className="bg-black-surface text-text-light px-4 py-2 rounded text-sm">
-                إلغاء
-              </button>
+        )}
+
+        {activeTab === 'orders' && (
+          <div>
+            <h3 className="text-2xl font-bold mb-6 text-text-light">{lang === 'en' ? 'Order History' : 'سجل الطلبات'}</h3>
+            {history.length === 0 ? (
+               <p className="text-text-muted text-center py-10">{lang === 'en' ? 'No orders yet.' : 'لم تقم بأي طلبات بعد.'}</p>
+            ) : (
+              <div className="space-y-4">
+                {[...activeOrders, ...pastOrders].map((order, i) => {
+                  const isExpanded = expandedOrder === order.OrderNumber;
+                  const isActive = !['Completed', 'Cancelled', 'Voided', 'Refunded'].includes(order.Status);
+                  return (
+                    <div key={i} className={`border ${isActive ? 'border-brand-red/50' : 'border-brand-red-dark/30'} bg-black-primary rounded-xl overflow-hidden transition-all duration-200`}>
+                      <div 
+                        className="p-4 cursor-pointer hover:bg-black-surface/50 flex justify-between items-center"
+                        onClick={() => setExpandedOrder(isExpanded ? null : order.OrderNumber)}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center ${getStatusColor(order.Status)}`}>
+                            <Package size={20} />
+                          </div>
+                          <div>
+                            <p className="font-bold text-text-light text-lg">{lang === 'en' ? 'Order' : 'طلب'} {order.OrderNumber}</p>
+                            <p className="text-sm text-text-muted">{new Date(order.OrderDate).toLocaleDateString(lang === 'en' ? 'en-US' : 'ar-EG', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end">
+                          <p className="font-bold text-lg text-text-light">{order.TotalAmount} {lang === 'en' ? 'EGP' : 'ج.م'}</p>
+                          <p className={`text-sm font-semibold ${isActive ? 'text-brand-red' : 'text-text-muted'}`}>{translateStatus(order.Status)}</p>
+                        </div>
+                      </div>
+                      
+                      {isExpanded && isActive && (
+                        <div className="p-4 border-t border-brand-red/20 bg-black-surface">
+                           <button onClick={() => navigate('/track/' + encodeURIComponent(order.OrderNumber))} className="w-full bg-brand-red hover:bg-brand-red-dark text-text-light font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors">
+                              <Navigation size={18} />
+                              {lang === 'en' ? 'Track Order' : 'تتبع الطلب مباشرة'}
+                           </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'addresses' && (
+          <div>
+            <div className="flex justify-between items-center mb-6">
+               <h3 className="text-2xl font-bold text-text-light">{lang === 'en' ? 'My Addresses' : 'عناويني المحفوظة'}</h3>
+               {!showAddForm && addresses.length < 5 && (
+                 <button onClick={() => setShowAddForm(true)} className="flex items-center gap-1 bg-brand-red hover:bg-brand-red-dark text-white px-3 py-2 rounded-lg text-sm transition-colors">
+                   <Plus size={16} />
+                   <span>{lang === 'en' ? 'Add New' : 'إضافة عنوان'}</span>
+                 </button>
+               )}
+            </div>
+
+            {showAddForm && (
+              <div className="bg-black-primary border border-brand-red/30 p-4 rounded-xl mb-6">
+                <h4 className="font-bold text-text-light mb-4">{lang === 'en' ? 'New Address' : 'عنوان جديد'}</h4>
+                <div className="flex gap-2 mb-4">
+                  {['المنزل', 'العمل', 'أخرى'].map((lbl) => (
+                    <button 
+                      key={lbl}
+                      onClick={() => setNewAddress({...newAddress, label: lbl})}
+                      className={`px-4 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors ${newAddress.label === lbl ? 'bg-brand-red text-white' : 'bg-black-surface text-text-muted border border-brand-red-dark/30'}`}
+                    >
+                      {getAddressIcon(lbl)}
+                      {lang === 'en' ? (lbl === 'المنزل' ? 'Home' : lbl === 'العمل' ? 'Work' : 'Other') : lbl}
+                    </button>
+                  ))}
+                </div>
+                <textarea 
+                  value={newAddress.fullAddress}
+                  onChange={(e) => setNewAddress({...newAddress, fullAddress: e.target.value})}
+                  maxLength={200}
+                  className="w-full bg-black-surface border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red min-h-[100px] mb-4"
+                  placeholder={lang === 'en' ? 'Enter full address details...' : 'اكتب تفاصيل العنوان بالكامل...'}
+                />
+                <div className="flex justify-end gap-3">
+                  <button onClick={() => setShowAddForm(false)} className="px-4 py-2 text-text-muted hover:text-text-light">
+                    {lang === 'en' ? 'Cancel' : 'إلغاء'}
+                  </button>
+                  <button onClick={handleAddAddress} disabled={isSavingAddress || !newAddress.fullAddress.trim()} className="bg-brand-red text-white px-6 py-2 rounded-lg disabled:opacity-50 font-bold">
+                    {isSavingAddress ? '...' : (lang === 'en' ? 'Save' : 'حفظ العنوان')}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {addresses.length === 0 ? (
+               <div className="text-center py-10 bg-black-primary rounded-xl border border-brand-red-dark/20">
+                  <MapPin size={40} className="mx-auto text-text-muted mb-3" />
+                  <p className="text-text-light mb-4">{lang === 'en' ? 'You have no saved addresses.' : 'ليس لديك أي عناوين محفوظة.'}</p>
+                  <button onClick={() => setShowAddForm(true)} className="bg-brand-red text-white px-6 py-2 rounded-lg">{lang === 'en' ? 'Add Your First Address' : 'أضف أول عنوان الآن'}</button>
+               </div>
+            ) : (
+              <div className="grid gap-4">
+                {addresses.map((addr) => (
+                  <div key={addr.id} className={`p-4 rounded-xl border ${addr.isDefault ? 'border-brand-red bg-brand-red/5' : 'border-brand-red-dark/30 bg-black-primary'} flex justify-between items-start`}>
+                     <div className="flex gap-4 items-start">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${addr.isDefault ? 'bg-brand-red text-white' : 'bg-black-surface text-text-muted'}`}>
+                           {getAddressIcon(addr.label)}
+                        </div>
+                        <div>
+                           <div className="flex items-center gap-2 mb-1">
+                              <h5 className="font-bold text-text-light">{lang === 'en' ? (addr.label === 'المنزل' ? 'Home' : addr.label === 'العمل' ? 'Work' : 'Other') : addr.label}</h5>
+                              {addr.isDefault && (
+                                <span className="text-[10px] bg-brand-red text-white px-2 py-0.5 rounded-full uppercase tracking-wider">{lang === 'en' ? 'Default' : 'الافتراضي'}</span>
+                              )}
+                           </div>
+                           <p className="text-text-muted text-sm whitespace-pre-wrap">{addr.fullAddress}</p>
+                        </div>
+                     </div>
+                     <div className="flex flex-col gap-2 items-end shrink-0">
+                        {!addr.isDefault && (
+                          <button onClick={() => handleSetDefault(addr.id)} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
+                            <CheckCircle2 size={14} /> {lang === 'en' ? 'Set Default' : 'تعيين كافتراضي'}
+                          </button>
+                        )}
+                        <button onClick={() => handleDeleteAddress(addr.id)} className="text-xs text-red-500 hover:text-red-400 flex items-center gap-1">
+                          <Trash2 size={14} /> {lang === 'en' ? 'Delete' : 'حذف'}
+                        </button>
+                     </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'settings' && (
+          <div className="max-w-md">
+            <h3 className="text-2xl font-bold mb-6 text-text-light">{lang === 'en' ? 'Account Settings' : 'إعدادات الحساب'}</h3>
+            
+            <div className="bg-black-primary rounded-xl p-5 mb-6 border border-brand-red-dark/30">
+              <h4 className="font-bold text-text-light mb-3">{lang === 'en' ? 'Email Address' : 'البريد الإلكتروني'}</h4>
+              {editingEmail ? (
+                <div className="flex flex-col gap-3">
+                  <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} className="bg-black-surface border border-brand-red/50 text-text-light p-3 rounded-lg focus:outline-none" placeholder={lang === 'en' ? 'Enter Email' : 'أدخل البريد الإلكتروني'} />
+                  <div className="flex gap-2">
+                    <button onClick={handleSaveEmail} disabled={savingEmail} className="bg-brand-red text-text-light px-4 py-2 rounded-lg text-sm font-bold flex-1">
+                      {savingEmail ? '...' : (lang === 'en' ? 'Save' : 'حفظ التعديل')}
+                    </button>
+                    <button onClick={() => {setEditingEmail(false); setNewEmail(customerData.Email || '');}} className="bg-black-surface text-text-light border border-text-muted px-4 py-2 rounded-lg text-sm">
+                      {lang === 'en' ? 'Cancel' : 'إلغاء'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-between items-center">
+                  <p className="text-text-muted">{customerData.Email || (lang === 'en' ? 'No email linked' : 'لا يوجد بريد إلكتروني مرتبط')}</p>
+                  <button onClick={() => setEditingEmail(true)} className="text-sm text-blue-400 flex items-center gap-1 hover:text-blue-300">
+                    <Edit3 size={14} /> {lang === 'en' ? 'Edit' : 'تعديل'}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-4 border-t border-brand-red-dark/30">
+               <button onClick={onLogout} className="w-full flex items-center justify-center gap-2 text-red-500 hover:text-red-400 bg-red-500/10 hover:bg-red-500/20 py-3 rounded-xl transition-colors font-bold">
+                 <LogOut size={18} />
+                 <span>{lang === 'en' ? 'Sign Out' : 'تسجيل الخروج'}</span>
+               </button>
             </div>
           </div>
-        ) : (
-          <p className="text-text-muted">{customerData.Email || 'لا يوجد بريد مسجل'}</p>
         )}
-      </div>
 
-      {activeOrders.length > 0 && (
-        <div className="mb-8">
-          <h3 className="font-bold text-xl mb-4 text-text-light flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-black-primary0 animate-pulse"></div>
-            {lang === 'en' ? 'Order' : 'طلب'}اتك الحالية
-          </h3>
-          <div className="space-y-4">
-            {activeOrders.map((order, i) => (
-              <div key={i} className="border-2 border-brand-red/50 bg-black-primary p-4 rounded-xl shadow-sm">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <p className="font-bold text-lg text-text-light">{lang === 'en' ? 'Order' : 'طلب'} {order.OrderNumber}</p>
-                    <p className="text-sm text-brand-red font-semibold mt-1">
-                      الحالة: {translateStatus(order.Status)}
-                    </p>
-                  </div>
-                  <div className="text-left">
-                    <p className="font-bold text-xl text-text-light">{order.TotalAmount} ج.م</p>
-                    <p className="text-xs text-text-muted mt-1">{new Date(order.OrderDate).toLocaleTimeString('ar-EG', {hour: '2-digit', minute:'2-digit'})}</p>
-                  </div>
-                </div>
-                
-                <button 
-                  onClick={() => navigate('/track/' + encodeURIComponent(order.OrderNumber))}
-                  className="w-full bg-brand-red hover:bg-brand-red-dark text-text-light font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors"
-                >
-                  <Navigation size={18} />
-                  تتبع ال{lang === 'en' ? 'Order' : 'طلب'} لايف
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div>
-        <h3 className="font-bold text-xl mb-4 text-text-light">{lang === 'en' ? 'Order History' : 'سجل الطلبات السابقة'}</h3>
-        {pastOrders.length > 0 ? (
-          <div className="space-y-4">
-            {pastOrders.map((order, i) => {
-              const isExpanded = expandedOrder === order.OrderNumber;
-              return (
-                <div key={i} className="border border-brand-red-dark/30 bg-black-surface rounded-xl shadow-sm overflow-hidden transition-all duration-200">
-                  <div 
-                    className="p-4 cursor-pointer hover:bg-black-primary flex justify-between items-center"
-                    onClick={() => setExpandedOrder(isExpanded ? null : order.OrderNumber)}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${getStatusColor(order.Status)}`}>
-                        <Package size={20} />
-                      </div>
-                      <div>
-                        <p className="font-bold text-text-light text-lg">{lang === 'en' ? 'Order' : 'طلب'} {order.OrderNumber}</p>
-                        <p className="text-sm text-text-muted">{new Date(order.OrderDate).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4 text-left">
-                      <div>
-                        <p className="font-bold text-text-light">{order.TotalAmount} ج.م</p>
-                        <span className={`text-xs px-2 py-1 rounded-full mt-1 inline-block ${getStatusColor(order.Status)}`}>
-                          {translateStatus(order.Status)}
-                        </span>
-                      </div>
-                      {isExpanded ? <ChevronUp size={20} className="text-text-muted"/> : <ChevronDown size={20} className="text-text-muted"/>}
-                    </div>
-                  </div>
-                  
-                  {isExpanded && (
-                    <div className="border-t border-brand-red-dark/30 bg-black-primary p-4">
-                      <h5 className="font-bold text-text-light mb-2">التفاصيل:</h5>
-                      {order.Items && order.Items.map((item, idx) => (
-                        <div key={idx} className="flex justify-between items-center py-1 text-sm border-b border-brand-red-dark/30 last:border-0">
-                          <span className="text-text-muted">{item.Quantity}x {item.Name}</span>
-                          <span className="font-medium text-text-light">{item.Price * item.Quantity} ج.م</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="bg-black-primary rounded-xl p-8 text-center text-text-muted">
-            <Package size={48} className="mx-auto mb-3 text-gray-300" />
-            <p>لا توجد {lang === 'en' ? 'Order' : 'طلب'}ات سابقة</p>
-          </div>
-        )}
       </div>
     </div>
   );
