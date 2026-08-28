@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { ref, get } from 'firebase/database';
+import { ref, get, update } from 'firebase/database';
 
 const AuthContext = createContext();
 
@@ -36,7 +36,11 @@ export function AuthProvider({ children }) {
               
               // --- LAZY MIGRATION: Single Address to Multiple Addresses ---
               const legacyAddress = data.address || data.Address;
+              console.log("[Migration Debug 1] Legacy address found:", legacyAddress);
+              console.log("[Migration Debug 1] Current addresses:", data.addresses);
+              
               if (legacyAddress && (!data.addresses || !Array.isArray(data.addresses) || data.addresses.length === 0)) {
+                console.log("[Migration Debug 1] Triggering migration!");
                 const newAddress = {
                   id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
                   label: 'المنزل',
@@ -47,7 +51,8 @@ export function AuthProvider({ children }) {
                 // Update Firebase in the background
                 update(ref(db, `PublicCustomers/${phone}`), {
                   addresses: data.addresses
-                }).catch(err => console.error("Address migration failed:", err));
+                }).then(() => console.log("[Migration Debug 1] Update successful!"))
+                  .catch(err => console.error("Address migration failed:", err));
               }
               
               setCustomerData(data);
@@ -79,7 +84,11 @@ export function AuthProvider({ children }) {
           const data = custSnap.val();
           
           const legacyAddress = data.address || data.Address;
+          console.log("[Migration Debug 2] Legacy address found:", legacyAddress);
+          console.log("[Migration Debug 2] Current addresses:", data.addresses);
+          
           if (legacyAddress && (!data.addresses || !Array.isArray(data.addresses) || data.addresses.length === 0)) {
+            console.log("[Migration Debug 2] Triggering migration!");
             const newAddress = {
               id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
               label: 'المنزل',
@@ -89,7 +98,8 @@ export function AuthProvider({ children }) {
             data.addresses = [newAddress];
             update(ref(db, `PublicCustomers/${targetPhone}`), {
               addresses: data.addresses
-            }).catch(err => console.error("Address migration failed:", err));
+            }).then(() => console.log("[Migration Debug 2] Update successful!"))
+              .catch(err => console.error("Address migration failed:", err));
           }
           
           setCustomerData(data);
