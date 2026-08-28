@@ -32,7 +32,24 @@ export function AuthProvider({ children }) {
             const custRef = ref(db, `PublicCustomers/${phone}`);
             const custSnap = await get(custRef);
             if (custSnap.exists()) {
-              setCustomerData(custSnap.val());
+              const data = custSnap.val();
+              
+              // --- LAZY MIGRATION: Single Address to Multiple Addresses ---
+              if (data.address && (!data.addresses || !Array.isArray(data.addresses) || data.addresses.length === 0)) {
+                const newAddress = {
+                  id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                  label: 'المنزل',
+                  fullAddress: data.address,
+                  isDefault: true
+                };
+                data.addresses = [newAddress];
+                // Update Firebase in the background
+                update(ref(db, `PublicCustomers/${phone}`), {
+                  addresses: data.addresses
+                }).catch(err => console.error("Address migration failed:", err));
+              }
+              
+              setCustomerData(data);
             }
           } else {
             setUserPhone(null);
@@ -56,10 +73,25 @@ export function AuthProvider({ children }) {
     if (targetPhone) {
       setUserPhone(targetPhone);
       const custRef = ref(db, `PublicCustomers/${targetPhone}`);
-      const custSnap = await get(custRef);
-      if (custSnap.exists()) {
-        setCustomerData(custSnap.val());
-      }
+        const custSnap = await get(custRef);
+        if (custSnap.exists()) {
+          const data = custSnap.val();
+          
+          if (data.address && (!data.addresses || !Array.isArray(data.addresses) || data.addresses.length === 0)) {
+            const newAddress = {
+              id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+              label: 'المنزل',
+              fullAddress: data.address,
+              isDefault: true
+            };
+            data.addresses = [newAddress];
+            update(ref(db, `PublicCustomers/${targetPhone}`), {
+              addresses: data.addresses
+            }).catch(err => console.error("Address migration failed:", err));
+          }
+          
+          setCustomerData(data);
+        }
     }
   };
 
