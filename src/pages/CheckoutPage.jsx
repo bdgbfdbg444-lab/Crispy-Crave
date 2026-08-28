@@ -106,10 +106,11 @@ export default function CheckoutPage({ menuData }) {
       setGeneratedOrderId(displayOrderId);
       setFinalTotal(cartTotal);
       clearCart();
-        localStorage.setItem('activeOrderId', displayOrderId);
-        setIsSubmitting(false);
-        navigate('/track/' + encodeURIComponent(displayOrderId));
-        return;
+      localStorage.setItem('activeOrderId', displayOrderId);
+      localStorage.setItem('activeOrderTotal', cartTotal);
+      setIsSubmitting(false);
+      navigate('/track/' + encodeURIComponent(displayOrderId));
+      return;
 
     } catch (error) {
       console.error("Error submitting order:", error);

@@ -61,10 +61,13 @@ export default function TrackOrderPage({ menuData }) {
     { id: 'Cancelled', label: (lang === 'en' ? 'Cancelled' : 'تم الإلغاء') }
   ];
 
-  let statusIndex = ['Pending', 'New', 'InKitchen', 'Ready', 'Completed', 'Cancelled'].indexOf(orderStatus);
+  // Map 'Accepted' from POS to 'New' for the UI matching
+  const mappedStatus = orderStatus === 'Accepted' ? 'New' : orderStatus;
+
+  let statusIndex = ['Pending', 'New', 'InKitchen', 'Ready', 'Completed', 'Cancelled'].indexOf(mappedStatus);
   if (statusIndex === -1) statusIndex = 0;
 
-  const isCancelled = orderStatus === 'Cancelled';
+  const isCancelled = mappedStatus === 'Cancelled';
 
   return (
     <div className="pt-24 pb-12 min-h-screen bg-black-surface flex flex-col items-center justify-center p-6 text-center">

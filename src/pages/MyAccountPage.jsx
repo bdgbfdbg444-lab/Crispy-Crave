@@ -26,13 +26,19 @@ const DashboardView = ({ customerData, onLogout }) => {
   
   // Inject pending order if not synced from POS yet
   const savedOrderId = localStorage.getItem('activeOrderId');
+  const savedOrderTotal = localStorage.getItem('activeOrderTotal') || '---';
   if (savedOrderId) {
-    const isInHistory = history.some(o => o.OrderNumber === savedOrderId || `#${o.OrderNumber}` === savedOrderId || o.OrderNumber === savedOrderId.replace('#', ''));
+    const isInHistory = history.some(o => 
+      o.OrderNumber === savedOrderId || 
+      `#${o.OrderNumber}` === savedOrderId || 
+      o.OrderNumber === savedOrderId.replace('#', '') ||
+      (o.WebOrderId && (o.WebOrderId === savedOrderId || o.WebOrderId === savedOrderId.replace('#', '')))
+    );
     if (!isInHistory) {
       activeOrders = [{
         OrderNumber: savedOrderId,
         Status: 'Pending',
-        TotalAmount: '---',
+        TotalAmount: savedOrderTotal,
         OrderDate: new Date().toISOString()
       }, ...activeOrders];
     }
@@ -46,6 +52,7 @@ const DashboardView = ({ customerData, onLogout }) => {
     switch(status) {
       case 'Pending': return lang === 'en' ? 'Pending Acceptance' : 'جاري المراجعة...';
       case 'New': return 'تم القبول';
+      case 'Accepted': return 'تم القبول';
       case 'InKitchen': return 'قيد التحضير';
       case 'Ready': return 'جاهز للاستلام/التوصيل';
       case 'Completed': return lang === 'en' ? 'Delivered' : 'تم التسليم';
