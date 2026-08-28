@@ -3,6 +3,7 @@ import React from 'react';
 export default function Logo({ className = '' }) {
   return (
     <div 
+      dir="ltr"
       className={`flex items-center select-none ${className}`} 
       style={{ fontFamily: "'Bebas Neue', sans-serif" }}
     >

@@ -23,15 +23,42 @@ export default function ReviewModal({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      setSelectedFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewUrl(reader.result);
-      };
-      reader.readAsDataURL(file);
+      // 1. Basic Type Validation
+      if (!file.type.startsWith('image/')) {
+        alert(lang === 'en' ? 'Only image files are allowed.' : 'يسمح فقط برفع الصور.');
+        return;
+      }
+
+      // 2. Absolute sanity check (reject ridiculous files > 20MB)
+      if (file.size > 20 * 1024 * 1024) {
+        alert(lang === 'en' ? 'File is too large.' : 'الصورة كبيرة جداً.');
+        return;
+      }
+
+      try {
+        // 3. Compress the image automatically
+        const options = {
+          maxSizeMB: 0.5, // 500 KB limit
+          maxWidthOrHeight: 1200,
+          useWebWorker: true
+        };
+        const compressedFile = await imageCompression(file, options);
+        
+        setSelectedFile(compressedFile);
+        
+        // 4. Generate preview
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setPreviewUrl(reader.result);
+        };
+        reader.readAsDataURL(compressedFile);
+      } catch (error) {
+        console.error("Compression Error:", error);
+        alert(lang === 'en' ? 'Error processing image.' : 'حدث خطأ أثناء معالجة الصورة.');
+      }
     }
   };
 
@@ -237,7 +264,7 @@ export default function ReviewModal({ isOpen, onClose }) {
                         <>
                           <Upload size={32} className="text-text-muted mb-2" />
                           <span className="text-sm font-bold text-text-muted">{lang === 'en' ? 'Click here to upload' : 'اضغط هنا لرفع صورة'}</span>
-                          <span className="text-xs text-text-muted mt-1">{lang === 'en' ? 'PNG, JPG up to 5MB' : 'PNG, JPG حتى 5MB'}</span>
+                          <span className="text-xs text-text-muted mt-1">{lang === 'en' ? 'PNG, JPG (Auto-compressed)' : 'PNG, JPG حتى 5MB'}</span>
                         </>
                       )}
                     </div>

@@ -57,7 +57,7 @@ export default function CheckoutPage({ menuData }) {
         
         let weightText = '';
         if (item.product.isSoldByWeight && item.product.selectedWeight) {
-          weightText = ` (${item.product.selectedWeight} {lang === 'en' ? 'EGP' : 'ج'}رام)`;
+          weightText = ` (${item.product.selectedWeight} ${lang === 'en' ? 'gm' : 'جرام'})`;
         }
 
         const finalProductName = `${item.product.name}${weightText}${modifierText}`;

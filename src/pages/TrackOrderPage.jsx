@@ -49,18 +49,22 @@ export default function TrackOrderPage({ menuData }) {
     );
   }
 
-  const orderStatus = orderData?.Status || 'New';
+  const orderStatus = orderData?.Status || 'Pending';
   const orderType = orderData?.OrderType || '';
   
   const statusList = [
+    { id: 'Pending', label: (lang === 'en' ? 'Pending Acceptance' : 'جاري مراجعة الطلب') },
     { id: 'New', label: (lang === 'en' ? 'Accepted' : 'تم القبول') },
     { id: 'InKitchen', label: (lang === 'en' ? 'Preparing' : 'قيد التحضير') },
     { id: 'Ready', label: (lang === 'en' ? 'Ready for Pickup/Delivery' : 'جاهز للاستلام/التوصيل') },
-    { id: 'Completed', label: (lang === 'en' ? 'Delivered' : 'تم التسليم') }
+    { id: 'Completed', label: (lang === 'en' ? 'Delivered' : 'تم التسليم') },
+    { id: 'Cancelled', label: (lang === 'en' ? 'Cancelled' : 'تم الإلغاء') }
   ];
 
-  let statusIndex = ['New', 'InKitchen', 'Ready', 'Completed'].indexOf(orderStatus);
+  let statusIndex = ['Pending', 'New', 'InKitchen', 'Ready', 'Completed', 'Cancelled'].indexOf(orderStatus);
   if (statusIndex === -1) statusIndex = 0;
+
+  const isCancelled = orderStatus === 'Cancelled';
 
   return (
     <div className="pt-24 pb-12 min-h-screen bg-black-surface flex flex-col items-center justify-center p-6 text-center">
@@ -73,28 +77,35 @@ export default function TrackOrderPage({ menuData }) {
         
         <div className="bg-black-primary p-6 rounded-2xl text-right relative overflow-hidden mb-8">
           <h3 className="font-bold text-lg mb-4 text-text-light relative z-10">{lang === 'en' ? 'Track Order Status:' : 'تتبع حالة الطلب:'}</h3>
-          <div className="relative">
-            <div className="absolute right-3.5 top-2 bottom-4 w-1 bg-black-surface rounded-full" />
-            <div 
-              className="absolute right-3.5 top-2 w-1 bg-brand-red rounded-full transition-all duration-1000" 
-              style={{ height: `${(statusIndex / (statusList.length - 1)) * 100}%` }}
-            />
-            <div className="flex flex-col gap-4">
-              {statusList.map((step, index) => {
-                let isCompleted = index <= statusIndex;
-                let isCurrent = index === statusIndex;
-                
-                return (
-                  <div key={step.id} className="relative flex items-center gap-4 z-10">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center border-4 border-white ${isCompleted ? 'bg-brand-red' : 'bg-black-surface'}`}>
-                      {isCompleted && <CheckCircle size={14} className="text-text-light" />}
-                    </div>
-                    <span className={`font-bold ${isCurrent ? 'text-brand-red' : isCompleted ? 'text-text-light' : 'text-text-muted'}`}>{step.label}</span>
-                  </div>
-                );
-              })}
+          
+          {isCancelled ? (
+            <div className="bg-red-900/20 border border-red-900/50 rounded-xl p-4 text-center">
+              <p className="text-brand-red font-bold text-lg">{lang === 'en' ? 'Your order has been cancelled.' : 'عذراً، تم إلغاء هذا الطلب.'}</p>
             </div>
-          </div>
+          ) : (
+            <div className="relative">
+              <div className="absolute right-3.5 top-2 bottom-4 w-1 bg-black-surface rounded-full" />
+              <div 
+                className="absolute right-3.5 top-2 w-1 bg-brand-red rounded-full transition-all duration-1000" 
+                style={{ height: `${(statusIndex / (statusList.length - 2)) * 100}%` }}
+              />
+              <div className="flex flex-col gap-4">
+                {statusList.filter(s => s.id !== 'Cancelled').map((step, index) => {
+                  let isCompleted = index <= statusIndex;
+                  let isCurrent = index === statusIndex;
+                  
+                  return (
+                    <div key={step.id} className="relative flex items-center gap-4 z-10">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center border-4 border-white ${isCompleted ? 'bg-brand-red' : 'bg-black-surface'}`}>
+                        {isCompleted && <CheckCircle size={14} className="text-text-light" />}
+                      </div>
+                      <span className={`font-bold ${isCurrent ? 'text-brand-red' : isCompleted ? 'text-text-light' : 'text-text-muted'}`}>{step.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Action Buttons Section */}

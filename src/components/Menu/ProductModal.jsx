@@ -166,7 +166,7 @@ export default function ProductModal({ product, category, menuData, isOpen, onCl
                 <div className="flex flex-wrap gap-2">
                   {product.ingredients.map((ingredient, idx) => (
                     <span key={idx} className="bg-black-primary text-text-light px-3 py-1 rounded-full text-xs font-semibold border border-brand-red-dark/30">
-                      {ingredient}
+                      {typeof ingredient === 'object' ? (lang === 'en' && ingredient.nameEn ? ingredient.nameEn : ingredient.name) : ingredient}
                     </span>
                   ))}
                 </div>
@@ -219,7 +219,7 @@ export default function ProductModal({ product, category, menuData, isOpen, onCl
                         const isSelected = selectedModifiers.some(m => m.id === addOn.id);
                         
                         // Determine display price
-                        let displayPrice = `+${addOn.price} {lang === 'en' ? 'EGP' : 'ج.م'}`;
+                        let displayPrice = `+${addOn.price} ${lang === 'en' ? 'EGP' : 'ج.م'}`;
                         if (addOn.group === 'Free') {
                           if (isSelected) {
                             const freeMods = selectedModifiers.filter(m => m.group === 'Free');

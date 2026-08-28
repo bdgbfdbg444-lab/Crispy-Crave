@@ -20,16 +20,31 @@ const DashboardView = ({ customerData, onLogout }) => {
   const history = customerData.History || [];
   
   // Find active orders (Not Completed/Cancelled/Voided/Refunded)
-  const activeOrders = history.filter(o => 
+  let activeOrders = history.filter(o => 
     !['Completed', 'Cancelled', 'Voided', 'Refunded'].includes(o.Status)
   );
   
+  // Inject pending order if not synced from POS yet
+  const savedOrderId = localStorage.getItem('activeOrderId');
+  if (savedOrderId) {
+    const isInHistory = history.some(o => o.OrderNumber === savedOrderId || `#${o.OrderNumber}` === savedOrderId || o.OrderNumber === savedOrderId.replace('#', ''));
+    if (!isInHistory) {
+      activeOrders = [{
+        OrderNumber: savedOrderId,
+        Status: 'Pending',
+        TotalAmount: '---',
+        OrderDate: new Date().toISOString()
+      }, ...activeOrders];
+    }
+  }
+
   const pastOrders = history.filter(o => 
     ['Completed', 'Cancelled', 'Voided', 'Refunded'].includes(o.Status)
   );
 
   const translateStatus = (status) => {
     switch(status) {
+      case 'Pending': return lang === 'en' ? 'Pending Acceptance' : 'جاري المراجعة...';
       case 'New': return 'تم القبول';
       case 'InKitchen': return 'قيد التحضير';
       case 'Ready': return 'جاهز للاستلام/التوصيل';

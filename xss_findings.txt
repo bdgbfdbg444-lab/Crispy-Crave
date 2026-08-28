@@ -1,0 +1,2 @@
+src\components\CateringSection.jsx:109: <h2 className="text-4xl md:text-5xl font-display font-black text-text-light mb-6 leading-tight" dangerouslySetInnerHTML={{ __html: (lang === 'en' && websiteData?.cateringTitleEn ? websiteData?.cateringTitleEn : websiteData?.cateringTitle) || 'اجعل تجمعاتك <span class="text-brand-red">أكثر متعة</span>' }} />
+src\components\LocationSection.jsx:97: <div className="w-full h-full [&>iframe]:w-full [&>iframe]:h-full" dangerouslySetInnerHTML={{ __html: mapIframe }} />
