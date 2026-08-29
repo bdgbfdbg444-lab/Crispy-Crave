@@ -29,9 +29,9 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
         const nestedProduct = item.Product || item.product || {};
         const itemId = (item.ProductId || item.productId || item.id || nestedProduct.id || '').toString();
         
-        const fallbackName = item.ProductName || item.productName || item.name || item.Name || nestedProduct.name || nestedProduct.Name || 'Unknown';
-        const fallbackNameEn = item.ProductName || item.productName || item.name || item.NameEn || nestedProduct.nameEn || nestedProduct.NameEn || 'Unknown';
-        const fallbackPrice = parseFloat(item.UnitPrice || item.unitPrice || item.price || item.Price || nestedProduct.price || nestedProduct.sellingPrice || nestedProduct.Price || 0);
+        const fallbackName = (item.ProductName || item.productName || item.name || item.Name || nestedProduct.name || nestedProduct.Name || 'Unknown').toString().trim();
+        const fallbackNameEn = (item.ProductName || item.productName || item.name || item.NameEn || nestedProduct.nameEn || nestedProduct.NameEn || 'Unknown').toString().trim();
+        const fallbackPrice = parseFloat(item.UnitPrice || item.unitPrice || item.price || item.Price || nestedProduct.price || nestedProduct.sellingPrice || nestedProduct.Price || 0) || 0;
 
         if (menuData && menuData.categories) {
            const categoriesArray = Array.isArray(menuData.categories) ? menuData.categories : Object.values(menuData.categories);
@@ -43,7 +43,7 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
              
              // Fallback by Name if ID fails or is empty
              if (!found && fallbackName !== 'Unknown') {
-                 found = catItemsArray.find(i => i.name === fallbackName || i.nameEn === fallbackName || i.nameEn === fallbackNameEn);
+                 found = catItemsArray.find(i => (i.name && i.name.trim() === fallbackName) || (i.nameEn && i.nameEn.trim() === fallbackName) || (i.nameEn && i.nameEn.trim() === fallbackNameEn));
              }
              
              if (found) {
@@ -58,12 +58,12 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
             id: itemId || Date.now().toString(),
             name: fallbackName,
             nameEn: fallbackNameEn,
-            price: fallbackPrice,
-            image: nestedProduct.image || ''
+            sellingPrice: fallbackPrice,
+            imagePath: nestedProduct.image || nestedProduct.imagePath || ''
           };
         }
 
-        const qty = parseFloat(item.Quantity || item.quantity || 1);
+        const qty = parseFloat(item.Quantity || item.quantity || 1) || 1;
         addToCart(product, qty);
       });
       setIsCartOpen(true);
