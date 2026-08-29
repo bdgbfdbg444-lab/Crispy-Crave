@@ -16,12 +16,19 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
   const { addToCart } = useCart();
 
   const handleOrderAgain = (order) => {
-    if (order.Items && Array.isArray(order.Items)) {
-      order.Items.forEach(item => {
+    let itemsList = order.Items || order.items;
+    if (itemsList && typeof itemsList === 'object' && !Array.isArray(itemsList)) {
+      itemsList = Object.values(itemsList);
+    }
+    
+    if (itemsList && Array.isArray(itemsList)) {
+      itemsList.forEach(item => {
         let product = null;
         if (menuData && menuData.categories) {
-           for (const cat of menuData.categories) {
-             const found = cat.items.find(i => i.id.toString() === (item.ProductId || '').toString());
+           const categoriesArray = Array.isArray(menuData.categories) ? menuData.categories : Object.values(menuData.categories);
+           for (const cat of categoriesArray) {
+             const catItemsArray = Array.isArray(cat.items) ? cat.items : Object.values(cat.items || {});
+             const found = catItemsArray.find(i => i.id.toString() === (item.ProductId || '').toString());
              if (found) {
                 product = { ...found };
                 break;
@@ -39,7 +46,7 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
           };
         }
 
-        const qty = item.Quantity || 1;
+        const qty = item.Quantity || item.quantity || 1;
         addToCart(product, qty);
       });
       navigate('/cart');
