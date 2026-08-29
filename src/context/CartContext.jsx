@@ -1,13 +1,36 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const CartContext = createContext();
 
 export const useCart = () => useContext(CartContext);
 
 export const CartProvider = ({ children }) => {
-  const [cartItems, setCartItems] = useState([]);
+  const [cartItems, setCartItems] = useState(() => {
+    try {
+      const saved = localStorage.getItem('crispy_cart_items');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [tableNumber, setTableNumber] = useState(null);
+  
+  const [tableNumber, setTableNumber] = useState(() => {
+    return localStorage.getItem('crispy_cart_table') || null;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('crispy_cart_items', JSON.stringify(cartItems));
+  }, [cartItems]);
+
+  useEffect(() => {
+    if (tableNumber) {
+      localStorage.setItem('crispy_cart_table', tableNumber);
+    } else {
+      localStorage.removeItem('crispy_cart_table');
+    }
+  }, [tableNumber]);
 
   const addToCart = (customProduct, quantity) => {
     setCartItems(prev => {
