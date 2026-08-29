@@ -43,7 +43,7 @@ export function AuthProvider({ children }) {
                 console.log("[Migration Debug 1] Triggering migration!");
                 const newAddress = {
                   id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-                  label: 'المنزل',
+                  label: '??????',
                   fullAddress: legacyAddress,
                   isDefault: true
                 };

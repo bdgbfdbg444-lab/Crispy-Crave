@@ -92,6 +92,13 @@ const DashboardView = ({ customerData, onLogout }) => {
       alert(lang === 'en' ? 'Address is too long (max 200 characters)' : 'العنوان طويل جداً (الحد الأقصى 200 حرف)');
       return;
     }
+    const now = Date.now();
+    if (now - window.lastAddTimestamp < 3000) {
+      alert(lang === 'en' ? 'Please wait a moment before adding another address' : 'الرجاء الانتظار قليلاً قبل إضافة عنوان آخر');
+      return;
+    }
+    window.lastAddTimestamp = now;
+
     if (addresses.length >= 5) {
       alert(lang === 'en' ? 'You have reached the maximum limit of 5 addresses' : 'لقد وصلت للحد الأقصى (5 عناوين)');
       return;
