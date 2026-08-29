@@ -25,15 +25,27 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
       itemsList.forEach(item => {
         let product = null;
         
-        // Handle old nested format (item.product.name) vs new flat format (item.productName)
+        // Handle old nested format (item.product.name) vs new flat format (item.productName) vs raw old format (item.Name)
         const nestedProduct = item.Product || item.product || {};
         const itemId = (item.ProductId || item.productId || item.id || nestedProduct.id || '').toString();
         
+        const fallbackName = item.ProductName || item.productName || item.name || item.Name || nestedProduct.name || nestedProduct.Name || 'Unknown';
+        const fallbackNameEn = item.ProductName || item.productName || item.name || item.NameEn || nestedProduct.nameEn || nestedProduct.NameEn || 'Unknown';
+        const fallbackPrice = parseFloat(item.UnitPrice || item.unitPrice || item.price || item.Price || nestedProduct.price || nestedProduct.sellingPrice || nestedProduct.Price || 0);
+
         if (menuData && menuData.categories) {
            const categoriesArray = Array.isArray(menuData.categories) ? menuData.categories : Object.values(menuData.categories);
            for (const cat of categoriesArray) {
              const catItemsArray = Array.isArray(cat.items) ? cat.items : Object.values(cat.items || {});
-             const found = catItemsArray.find(i => i.id && i.id.toString() === itemId);
+             
+             // Try by ID first
+             let found = catItemsArray.find(i => i.id && i.id.toString() === itemId);
+             
+             // Fallback by Name if ID fails or is empty
+             if (!found && fallbackName !== 'Unknown') {
+                 found = catItemsArray.find(i => i.name === fallbackName || i.nameEn === fallbackName || i.nameEn === fallbackNameEn);
+             }
+             
              if (found) {
                 product = { ...found };
                 break;
@@ -44,14 +56,14 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
         if (!product) {
           product = {
             id: itemId || Date.now().toString(),
-            name: JSON.stringify(item).substring(0, 60),
-            nameEn: JSON.stringify(item).substring(0, 60),
-            price: item.UnitPrice || item.unitPrice || item.price || nestedProduct.price || nestedProduct.sellingPrice || nestedProduct.Price || 0,
+            name: fallbackName,
+            nameEn: fallbackNameEn,
+            price: fallbackPrice,
             image: nestedProduct.image || ''
           };
         }
 
-        const qty = item.Quantity || item.quantity || 1;
+        const qty = parseFloat(item.Quantity || item.quantity || 1);
         addToCart(product, qty);
       });
       setIsCartOpen(true);
