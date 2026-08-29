@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { APP_CONFIG } from '../config/appConfig';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReviewModal from '../components/ReviewModal';
+import imageCompression from 'browser-image-compression';
 
 export default function CheckoutPage({ menuData }) {
   const { lang } = useLanguage();
@@ -28,6 +29,10 @@ export default function CheckoutPage({ menuData }) {
   const [finalTotal, setFinalTotal] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [receiptFile, setReceiptFile] = useState(null);
+
+  const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
+  const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'unsigned_preset';
 
   const marketing = menuData?.marketing || {};
   const walletNumber = marketing.walletNumber;
@@ -35,6 +40,23 @@ export default function CheckoutPage({ menuData }) {
 
   const handleChange = (e) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleFileSelect = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        alert(lang === 'en' ? 'Only image files are allowed.' : 'يسمح فقط برفع الصور.');
+        return;
+      }
+      try {
+        const options = { maxSizeMB: 0.5, maxWidthOrHeight: 1200, useWebWorker: true };
+        const compressed = await imageCompression(file, options);
+        setReceiptFile(compressed);
+      } catch (error) {
+        console.error('Error compressing image:', error);
+      }
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -73,16 +95,35 @@ export default function CheckoutPage({ menuData }) {
           };
       });
 
+      let paymentReceiptUrl = null;
+      if (receiptFile) {
+        const cloudData = new FormData();
+        cloudData.append('file', receiptFile);
+        cloudData.append('upload_preset', UPLOAD_PRESET);
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+          method: 'POST',
+          body: cloudData,
+        });
+        if (res.ok) {
+          const cloudResult = await res.json();
+          paymentReceiptUrl = cloudResult.secure_url;
+        }
+      }
+
       const orderPayload = {
         orderDate: new Date().toISOString(),
         customerName: formData.customerName,
-        customerPhone: formData.customerPhone, deliveryAddress: formData.orderType === 'delivery' ? formData.deliveryAddress : '',
+        customerPhone: formData.customerPhone,
         notes: formData.notes,
-        totalAmount: cartTotal,
         orderType: formData.orderType,
-          tableNumber: formData.tableNumber,
+        deliveryAddress: formData.orderType === 'delivery' ? formData.deliveryAddress : '',
+        tableNumber: formData.orderType === 'DineIn' ? formData.tableNumber : '',
+        totalAmount: cartTotal,
+        paymentMethod: 'Cash',
+        status: 'New',
+        items: items,
         displayOrderId: displayOrderId,
-        items: items
+        paymentReceiptUrl: paymentReceiptUrl
       };
 
       // 2. Send to Firebase POST /Orders.json
@@ -405,7 +446,7 @@ export default function CheckoutPage({ menuData }) {
                 </div>
               </div>
 
-                <PaymentSection marketing={marketing} />
+                <PaymentSection marketing={marketing} onFileSelect={handleFileSelect} />
 
               <button 
                 type="submit" 

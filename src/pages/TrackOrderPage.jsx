@@ -82,8 +82,22 @@ export default function TrackOrderPage({ menuData }) {
           <h3 className="font-bold text-lg mb-4 text-text-light relative z-10">{lang === 'en' ? 'Track Order Status:' : 'تتبع حالة الطلب:'}</h3>
           
           {isCancelled ? (
-            <div className="bg-red-900/20 border border-red-900/50 rounded-xl p-4 text-center">
-              <p className="text-brand-red font-bold text-lg">{lang === 'en' ? 'Your order has been cancelled.' : 'عذراً، تم إلغاء هذا الطلب.'}</p>
+            <div className="bg-brand-red/10 border border-brand-red/30 rounded-xl p-4 text-center">
+              <p className="text-brand-red font-bold text-lg mb-2">
+                {lang === 'en' ? 'Order Cancelled' : 'تم إلغاء الطلب'}
+              </p>
+              <p className="text-text-muted text-sm mb-4">
+                {lang === 'en' ? 'There was an issue processing your order (e.g. unclear payment receipt or unavailable items). Please contact us via WhatsApp.' : 'عفواً، تم إلغاء الطلب بسبب مشكلة في تأكيد التحويل المالي أو عدم توفر المنتج. يرجى التواصل معنا عبر الواتساب للمساعدة.'}
+              </p>
+              <a 
+                href={`https://wa.me/${menuData?.marketing?.orderWhatsAppNumber || '201000000000'}`} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors"
+              >
+                <MessageCircle size={20} />
+                {lang === 'en' ? 'Contact Support' : 'تواصل مع الدعم'}
+              </a>
             </div>
           ) : (
             <div className="relative">

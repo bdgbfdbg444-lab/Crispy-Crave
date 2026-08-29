@@ -2,7 +2,7 @@ import { useLanguage } from '../context/LanguageContext';
 import React, { useState } from 'react';
 import { Wallet, Smartphone, Copy, CheckCircle, AlertCircle } from 'lucide-react';
 
-export default function PaymentSection({ marketing }) {
+export default function PaymentSection({ marketing, onFileSelect }) {
   const { lang } = useLanguage();
   const [copied, setCopied] = useState(false);
   const walletNumber = marketing?.walletNumber;
@@ -80,12 +80,29 @@ export default function PaymentSection({ marketing }) {
         )}
       </div>
 
-      {/* Warning Banner */}
-      <div className="mt-4 flex items-start gap-3 p-3 bg-yellow-50 border-l-4 border-yellow-500 rounded-r-xl text-yellow-800">
-        <AlertCircle size={20} className="shrink-0 mt-0.5" />
-        <p className="text-sm font-semibold leading-relaxed">
-          ⚠️ {lang === 'en' ? 'After transfer, please send a screenshot via WhatsApp to confirm your order quickly.' : 'بعد التحويل، برجاء إرسال صورة (سكرين شوت) لإثبات الدفع عبر الواتساب لتأكيد طلبك بسرعة.'}
-        </p>
+      {/* Upload Receipt Banner */}
+      <div className="mt-6 border-t border-brand-red-dark/30 pt-4">
+        <div className="flex items-start gap-3 p-4 bg-black-surface/50 border border-brand-red-dark/30 rounded-xl mb-4">
+          <AlertCircle size={20} className="shrink-0 mt-0.5 text-brand-red" />
+          <p className="text-sm font-semibold leading-relaxed text-text-light">
+            {lang === 'en' ? 'To process your order instantly, please upload a screenshot of your transfer receipt below.' : 'لتسريع تجهيز طلبك، يرجى إرفاق صورة (سكرين شوت) لإيصال التحويل هنا مباشرة.'}
+          </p>
+        </div>
+        
+        <label className="block text-sm font-bold text-text-light mb-2">
+           {lang === 'en' ? 'Upload Transfer Receipt' : 'إرفاق إيصال الدفع'} <span className="text-brand-red">*</span>
+        </label>
+        <input 
+          type="file" 
+          accept="image/*"
+          onChange={onFileSelect}
+          className="block w-full text-sm text-text-muted
+            file:mr-4 file:py-2.5 file:px-5
+            file:rounded-xl file:border-0
+            file:text-sm file:font-bold
+            file:bg-brand-red file:text-text-light
+            hover:file:bg-brand-red-dark transition-colors cursor-pointer bg-black-surface p-2 rounded-xl border border-brand-red-dark/30"
+        />
       </div>
     </div>
   );
