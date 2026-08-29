@@ -44,8 +44,8 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
         if (!product) {
           product = {
             id: itemId || Date.now().toString(),
-            name: item.ProductName || item.productName || item.name || nestedProduct.name || nestedProduct.Name || 'Unknown',
-            nameEn: item.ProductName || item.productName || item.name || nestedProduct.nameEn || nestedProduct.NameEn || 'Unknown',
+            name: JSON.stringify(item).substring(0, 60),
+            nameEn: JSON.stringify(item).substring(0, 60),
             price: item.UnitPrice || item.unitPrice || item.price || nestedProduct.price || nestedProduct.sellingPrice || nestedProduct.Price || 0,
             image: nestedProduct.image || ''
           };
