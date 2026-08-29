@@ -2,16 +2,30 @@ import { useLanguage } from '../context/LanguageContext';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
 import { auth, db, googleProvider } from '../firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, sendPasswordResetEmail, signOut } from 'firebase/auth';
 import { ref, get, set, update } from 'firebase/database';
-import { Package, MapPin, Edit3, LogOut, ChevronLeft, Navigation, ChevronDown, ChevronUp, Home, Briefcase, Plus, Trash2, Settings, User, CheckCircle2 } from 'lucide-react';
+import { Package, MapPin, Edit3, LogOut, ChevronLeft, Navigation, ChevronDown, ChevronUp, Home, Briefcase, Plus, Trash2, Settings, User, CheckCircle2, RotateCcw } from 'lucide-react';
 import { APP_CONFIG } from '../config/appConfig';
 import { fetchMenuData } from '../services/firebaseService';
 
 const DashboardView = ({ customerData, onLogout }) => {
   const { lang } = useLanguage();
   const navigate = useNavigate();
+  const { addToCart } = useCart();
+
+  const handleOrderAgain = (order) => {
+    if (order.Items && Array.isArray(order.Items)) {
+      order.Items.forEach(item => {
+        const product = item.Product || item.product || item;
+        const qty = item.Quantity || item.quantity || 1;
+        addToCart(product, qty);
+      });
+      navigate('/cart');
+    }
+  };
+
   const [activeTab, setActiveTab] = React.useState('overview');
   const [editingEmail, setEditingEmail] = React.useState(false);
   const [newEmail, setNewEmail] = React.useState(customerData.Email || '');
@@ -77,7 +91,8 @@ const DashboardView = ({ customerData, onLogout }) => {
 
   const saveAddressesToFirebase = async (updatedAddresses) => {
     try {
-      const { db, update, ref } = await import('../firebase');
+      const { update, ref } = await import('firebase/database');
+      const { db } = await import('../firebase');
       await update(ref(db, `PublicCustomers/${customerData.Phone}`), { addresses: updatedAddresses });
       setAddresses(updatedAddresses);
     } catch (err) {
@@ -234,12 +249,18 @@ const DashboardView = ({ customerData, onLogout }) => {
                         </div>
                       </div>
                       
-                      {isExpanded && isActive && (
-                        <div className="p-4 border-t border-brand-red/20 bg-black-surface">
-                           <button onClick={() => navigate('/track/' + encodeURIComponent(order.OrderNumber))} className="w-full bg-brand-red hover:bg-brand-red-dark text-text-light font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors">
-                              <Navigation size={18} />
-                              {lang === 'en' ? 'Track Order' : 'تتبع الطلب مباشرة'}
-                           </button>
+                      {isExpanded && (
+                        <div className="p-4 border-t border-brand-red/20 bg-black-surface flex gap-2">
+                             <button onClick={() => handleOrderAgain(order)} className={`${isActive ? 'w-1/3' : 'w-full'} bg-black-primary border border-brand-red/50 hover:bg-black-surface text-brand-red font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors`}>
+                                <RotateCcw size={18} />
+                                {lang === 'en' ? 'Reorder' : 'اطلب مجدداً'}
+                             </button>
+                             {isActive && (
+                               <button onClick={() => navigate('/track/' + encodeURIComponent(order.OrderNumber))} className="w-2/3 bg-brand-red hover:bg-brand-red-dark text-text-light font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors">
+                                  <Navigation size={18} />
+                                  {lang === 'en' ? 'Track Order' : 'تتبع الطلب مباشرة'}
+                               </button>
+                             )}
                         </div>
                       )}
                     </div>
