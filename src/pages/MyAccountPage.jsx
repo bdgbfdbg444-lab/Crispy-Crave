@@ -36,7 +36,8 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
         if (menuData && menuData.categories) {
            const categoriesArray = Array.isArray(menuData.categories) ? menuData.categories : Object.values(menuData.categories);
            for (const cat of categoriesArray) {
-             const catItemsArray = Array.isArray(cat.items) ? cat.items : Object.values(cat.items || {});
+             const itemsSource = cat.products || cat.items || {};
+             const catItemsArray = Array.isArray(itemsSource) ? itemsSource : Object.values(itemsSource);
              
              // Try by ID first
              let found = catItemsArray.find(i => i.id && i.id.toString() === itemId);
