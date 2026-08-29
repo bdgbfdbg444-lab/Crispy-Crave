@@ -10,7 +10,7 @@ import { Package, MapPin, Edit3, LogOut, ChevronLeft, Navigation, ChevronDown, C
 import { APP_CONFIG } from '../config/appConfig';
 import { fetchMenuData } from '../services/firebaseService';
 
-const DashboardView = ({ customerData, onLogout }) => {
+const DashboardView = ({ customerData, onLogout, menuData }) => {
   const { lang } = useLanguage();
   const navigate = useNavigate();
   const { addToCart } = useCart();
@@ -18,8 +18,28 @@ const DashboardView = ({ customerData, onLogout }) => {
   const handleOrderAgain = (order) => {
     if (order.Items && Array.isArray(order.Items)) {
       order.Items.forEach(item => {
-        const product = item.Product || item.product || item;
-        const qty = item.Quantity || item.quantity || 1;
+        let product = null;
+        if (menuData && menuData.categories) {
+           for (const cat of menuData.categories) {
+             const found = cat.items.find(i => i.id.toString() === (item.ProductId || '').toString());
+             if (found) {
+                product = { ...found };
+                break;
+             }
+           }
+        }
+        
+        if (!product) {
+          product = {
+            id: item.ProductId || Date.now(),
+            name: item.ProductName || 'Unknown',
+            nameEn: item.ProductName || 'Unknown',
+            price: item.UnitPrice || 0,
+            image: ''
+          };
+        }
+
+        const qty = item.Quantity || 1;
         addToCart(product, qty);
       });
       navigate('/cart');
@@ -400,7 +420,7 @@ const DashboardView = ({ customerData, onLogout }) => {
 };
 
 
-export default function MyAccountPage() {
+export default function MyAccountPage({ menuData }) {
   const { lang } = useLanguage();
   const { currentUser, userPhone, customerData, loading: authLoading, refreshCustomerData } = useAuth();
   
@@ -785,6 +805,7 @@ export default function MyAccountPage() {
         <DashboardView 
           customerData={customerData} 
           onLogout={handleLogout} 
+          menuData={menuData}
         />
       )}
     </div>
