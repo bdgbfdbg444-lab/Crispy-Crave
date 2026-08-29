@@ -13,7 +13,7 @@ import { fetchMenuData } from '../services/firebaseService';
 const DashboardView = ({ customerData, onLogout, menuData }) => {
   const { lang } = useLanguage();
   const navigate = useNavigate();
-  const { addToCart } = useCart();
+  const { addToCart, setIsCartOpen } = useCart();
 
   const handleOrderAgain = (order) => {
     let itemsList = order.Items || order.items;
@@ -24,11 +24,13 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
     if (itemsList && Array.isArray(itemsList)) {
       itemsList.forEach(item => {
         let product = null;
+        const itemId = (item.ProductId || item.productId || item.id || '').toString();
+        
         if (menuData && menuData.categories) {
            const categoriesArray = Array.isArray(menuData.categories) ? menuData.categories : Object.values(menuData.categories);
            for (const cat of categoriesArray) {
              const catItemsArray = Array.isArray(cat.items) ? cat.items : Object.values(cat.items || {});
-             const found = catItemsArray.find(i => i.id.toString() === (item.ProductId || '').toString());
+             const found = catItemsArray.find(i => i.id.toString() === itemId);
              if (found) {
                 product = { ...found };
                 break;
@@ -38,10 +40,10 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
         
         if (!product) {
           product = {
-            id: item.ProductId || Date.now(),
-            name: item.ProductName || 'Unknown',
-            nameEn: item.ProductName || 'Unknown',
-            price: item.UnitPrice || 0,
+            id: itemId || Date.now().toString(),
+            name: item.ProductName || item.productName || item.name || 'Unknown',
+            nameEn: item.ProductName || item.productName || item.name || 'Unknown',
+            price: item.UnitPrice || item.unitPrice || item.price || 0,
             image: ''
           };
         }
@@ -49,7 +51,7 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
         const qty = item.Quantity || item.quantity || 1;
         addToCart(product, qty);
       });
-      navigate('/cart');
+      setIsCartOpen(true);
     }
   };
 
