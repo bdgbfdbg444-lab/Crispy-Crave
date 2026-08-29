@@ -30,6 +30,7 @@ export default function CheckoutPage({ menuData }) {
   const [errorMessage, setErrorMessage] = useState('');
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [receiptFile, setReceiptFile] = useState(null);
+  const [showPayment, setShowPayment] = useState(false);
 
   const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
   const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'unsigned_preset';
@@ -40,6 +41,21 @@ export default function CheckoutPage({ menuData }) {
 
   const handleChange = (e) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleContinueToPayment = (e) => {
+    e.preventDefault();
+    if (formData.orderType === 'delivery' && !formData.deliveryAddress.trim()) { 
+      setErrorMessage(lang === 'en' ? 'Please enter delivery address' : 'يرجى إدخال عنوان التوصيل'); 
+      return; 
+    }
+    if (!formData.customerName.trim() || !formData.customerPhone.trim()) { 
+      setErrorMessage(lang === 'en' ? 'Please fill required fields' : 'يرجى ملء الحقول الإجبارية (الاسم ورقم الهاتف)'); 
+      return; 
+    }
+    
+    setErrorMessage('');
+    setShowPayment(true);
   };
 
   const handleFileSelect = async (e) => {
