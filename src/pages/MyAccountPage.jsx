@@ -24,13 +24,16 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
     if (itemsList && Array.isArray(itemsList)) {
       itemsList.forEach(item => {
         let product = null;
-        const itemId = (item.ProductId || item.productId || item.id || '').toString();
+        
+        // Handle old nested format (item.product.name) vs new flat format (item.productName)
+        const nestedProduct = item.Product || item.product || {};
+        const itemId = (item.ProductId || item.productId || item.id || nestedProduct.id || '').toString();
         
         if (menuData && menuData.categories) {
            const categoriesArray = Array.isArray(menuData.categories) ? menuData.categories : Object.values(menuData.categories);
            for (const cat of categoriesArray) {
              const catItemsArray = Array.isArray(cat.items) ? cat.items : Object.values(cat.items || {});
-             const found = catItemsArray.find(i => i.id.toString() === itemId);
+             const found = catItemsArray.find(i => i.id && i.id.toString() === itemId);
              if (found) {
                 product = { ...found };
                 break;
@@ -41,10 +44,10 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
         if (!product) {
           product = {
             id: itemId || Date.now().toString(),
-            name: item.ProductName || item.productName || item.name || 'Unknown',
-            nameEn: item.ProductName || item.productName || item.name || 'Unknown',
-            price: item.UnitPrice || item.unitPrice || item.price || 0,
-            image: ''
+            name: item.ProductName || item.productName || item.name || nestedProduct.name || nestedProduct.Name || 'Unknown',
+            nameEn: item.ProductName || item.productName || item.name || nestedProduct.nameEn || nestedProduct.NameEn || 'Unknown',
+            price: item.UnitPrice || item.unitPrice || item.price || nestedProduct.price || nestedProduct.sellingPrice || nestedProduct.Price || 0,
+            image: nestedProduct.image || ''
           };
         }
 
