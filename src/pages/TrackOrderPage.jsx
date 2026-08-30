@@ -1,5 +1,5 @@
-import { useLanguage } from '../context/LanguageContext';
-import PaymentSection from '../components/PaymentSection';
+﻿import { useLanguage } from '../context/LanguageContext';
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { CheckCircle, ArrowRight, Star, MessageCircle } from 'lucide-react';
@@ -135,7 +135,7 @@ export default function TrackOrderPage({ menuData }) {
             </div>
           ) : (
             <>
-              <PaymentSection marketing={menuData?.marketing} />
+              
               <a 
               href={`https://wa.me/${menuData?.marketing?.orderWhatsAppNumber || '201000000000'}?text=${encodeURIComponent(` ${orderId}`)}`}
               target="_blank"
