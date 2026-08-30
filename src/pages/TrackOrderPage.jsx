@@ -1,4 +1,4 @@
-﻿import { useLanguage } from '../context/LanguageContext';
+import { useLanguage } from '../context/LanguageContext';
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -15,6 +15,14 @@ export default function TrackOrderPage({ menuData }) {
   const [orderData, setOrderData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [hasAutoOpenedReview, setHasAutoOpenedReview] = useState(false);
+
+  useEffect(() => {
+    if (orderData?.status === 'Completed' && !hasAutoOpenedReview) {
+      setIsReviewModalOpen(true);
+      setHasAutoOpenedReview(true);
+    }
+  }, [orderData?.status, hasAutoOpenedReview]);
 
   useEffect(() => {
     let interval;
@@ -75,7 +83,11 @@ export default function TrackOrderPage({ menuData }) {
         <div className="w-20 h-20 bg-green-100 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
           <CheckCircle size={40} />
         </div>
-        <h2 className="text-3xl font-display font-black text-text-light mb-2">{lang === 'en' ? 'Order Received!' : 'تم استلام طلبك!'}</h2>
+        <h2 className="text-3xl font-display font-black text-text-light mb-2">
+            {mappedStatus === 'Completed' 
+              ? (lang === 'en' ? 'Order Delivered!' : 'تم تسليم الطلب!')
+              : (lang === 'en' ? 'Order Received!' : 'تم استلام طلبك!')}
+        </h2>
         <p className="text-text-muted mb-6">{lang === 'en' ? 'Your order number is' : 'رقم الطلب الخاص بك هو'} <strong className="text-text-light text-lg">{orderId}</strong></p>
         
         <div className="bg-black-primary p-6 rounded-2xl text-right relative overflow-hidden mb-8">
