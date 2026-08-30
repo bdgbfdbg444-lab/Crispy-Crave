@@ -1,4 +1,4 @@
-import { useLanguage } from '../context/LanguageContext';
+﻿import { useLanguage } from '../context/LanguageContext';
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -18,11 +18,11 @@ export default function TrackOrderPage({ menuData }) {
   const [hasAutoOpenedReview, setHasAutoOpenedReview] = useState(false);
 
   useEffect(() => {
-    if (orderData?.status === 'Completed' && !hasAutoOpenedReview) {
+    if (orderData?.Status === 'Completed' && !hasAutoOpenedReview) {
       setIsReviewModalOpen(true);
       setHasAutoOpenedReview(true);
     }
-  }, [orderData?.status, hasAutoOpenedReview]);
+  }, [orderData?.Status, hasAutoOpenedReview]);
 
   useEffect(() => {
     let interval;
@@ -53,6 +53,26 @@ export default function TrackOrderPage({ menuData }) {
     return (
       <div className="pt-24 min-h-screen bg-black-surface flex flex-col items-center justify-center">
         <p className="font-bold text-lg">{lang === 'en' ? 'Loading order status...' : 'جاري تحميل حالة الطلب...'}</p>
+      </div>
+    );
+  }
+
+  if (hasFinishedReview) {
+    return (
+      <div className="pt-24 min-h-screen bg-black-surface flex flex-col items-center justify-center p-6 text-center">
+        <div className="bg-black-surface p-10 rounded-3xl shadow-xl max-w-md w-full border border-green-100">
+          <div className="w-24 h-24 bg-green-100 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircle size={50} />
+          </div>
+          <h2 className="text-3xl font-display font-black text-text-light mb-4">{lang === 'en' ? 'Thank You!' : 'شكراً لك!'}</h2>
+          <p className="text-text-muted text-lg mb-8">{lang === 'en' ? 'Your review has been successfully submitted.' : 'تم إرسال تقييمك بنجاح، شكراً لتعاملك معنا.'}</p>
+          <button 
+            onClick={() => navigate('/menu')}
+            className="w-full bg-brand-red text-text-light p-4 rounded-xl font-bold hover:bg-brand-red/90 transition-colors"
+          >
+            {lang === 'en' ? 'Back to Menu' : 'العودة للمنيو'}
+          </button>
+        </div>
       </div>
     );
   }

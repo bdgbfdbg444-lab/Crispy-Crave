@@ -1,10 +1,10 @@
-import { useLanguage } from '../context/LanguageContext';
+﻿import { useLanguage } from '../context/LanguageContext';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Star, Upload, Loader2, CheckCircle2 } from 'lucide-react';
 import { APP_CONFIG } from '../config/appConfig';
 
-export default function ReviewModal({ isOpen, onClose }) {
+export default function ReviewModal({ isOpen, onClose, onReviewSubmitted }) {
   const { lang } = useLanguage();
   const [formData, setFormData] = useState({
     customerName: '',
