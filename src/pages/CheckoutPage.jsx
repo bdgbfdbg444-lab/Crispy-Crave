@@ -460,19 +460,31 @@ export default function CheckoutPage({ menuData }) {
                     placeholder={lang === 'en' ? 'No onions, well done...' : 'بدون بصل، تسوية زيادة...'}
                   ></textarea>
                 </div>
-              </div>
+                </div>
 
-                <PaymentSection marketing={marketing} onFileSelect={handleFileSelect} />
+                {!showPayment ? (
+                  <button 
+                    type="button" 
+                    onClick={handleContinueToPayment}
+                    className="w-full mt-8 py-4 rounded-xl font-bold text-lg text-text-light transition-all shadow-lg bg-brand-red hover:bg-brand-red-dark shadow-brand-red/30"
+                  >
+                    {lang === 'en' ? 'Continue to Payment' : 'المتابعة للدفع'}
+                  </button>
+                ) : (
+                  <>
+                    <PaymentSection marketing={marketing} onFileSelect={handleFileSelect} />
 
-              <button 
-                type="submit" 
-                disabled={isSubmitting}
-                className={`w-full mt-8 py-4 rounded-xl font-bold text-lg text-text-light transition-all shadow-lg ${isSubmitting ? 'bg-brand-red-dark/50 text-text-muted cursor-not-allowed' : 'bg-brand-red hover:bg-brand-red-dark shadow-brand-red/30'}`}
-              >
-                {isSubmitting ? 'جاري الإرسال...' : (lang === 'en' ? 'Confirm and Submit Order' : 'تأكيد وإرسال الطلب')}
-              </button>
-            </form>
-          </div>
+                    <button 
+                      type="submit" 
+                      disabled={isSubmitting}
+                      className={`w-full mt-8 py-4 rounded-xl font-bold text-lg text-text-light transition-all shadow-lg ${isSubmitting ? 'bg-brand-red-dark/50 text-text-muted cursor-not-allowed' : 'bg-brand-red hover:bg-brand-red-dark shadow-brand-red/30'}`}
+                    >
+                      {isSubmitting ? 'جاري الإرسال...' : (lang === 'en' ? 'Confirm and Submit Order' : 'تأكيد وإرسال الطلب')}
+                    </button>
+                  </>
+                )}
+              </form>
+            </div>
 
           {/* Order Summary */}
           <div className="lg:col-span-1">
