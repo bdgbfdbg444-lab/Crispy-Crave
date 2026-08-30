@@ -1,4 +1,4 @@
-﻿import { useLanguage } from '../context/LanguageContext';
+import { useLanguage } from '../context/LanguageContext';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Star, Upload, Loader2, CheckCircle2 } from 'lucide-react';
@@ -117,8 +117,9 @@ export default function ReviewModal({ isOpen, onClose, onReviewSubmitted }) {
       
       // Auto close after 3 seconds on success
       setTimeout(() => {
+        if (onReviewSubmitted) onReviewSubmitted();
         handleClose();
-      }, 3000);
+      }, 2000);
       
     } catch (error) {
       console.error(error);
