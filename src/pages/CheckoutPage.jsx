@@ -335,7 +335,9 @@ export default function CheckoutPage({ menuData }) {
                 )}
               </AnimatePresence>
 
-              {/* Order Type */}
+              {!showPayment ? (
+                  <>
+                  {/* Order Type */}
               <div className="mb-8">
                 <h3 className="text-xl font-bold text-text-light mb-4">{lang === 'en' ? 'Order Type' : 'نوع الطلب'}</h3>
                 
