@@ -464,16 +464,25 @@ export default function CheckoutPage({ menuData }) {
                 </div>
                 </div>
 
-                {!showPayment ? (
-                  <button 
+                <button 
                     type="button" 
                     onClick={handleContinueToPayment}
                     className="w-full mt-8 py-4 rounded-xl font-bold text-lg text-text-light transition-all shadow-lg bg-brand-red hover:bg-brand-red-dark shadow-brand-red/30"
                   >
                     {lang === 'en' ? 'Continue to Payment' : 'المتابعة للدفع'}
                   </button>
+                  </>
                 ) : (
-                  <>
+                  <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                    <button 
+                      type="button" 
+                      onClick={() => setShowPayment(false)}
+                      className="mb-6 flex items-center gap-2 text-text-muted hover:text-text-light transition-colors"
+                    >
+                      <ArrowRight className="rotate-180" size={20} />
+                      <span className="font-bold">{lang === 'en' ? 'Back to Details' : 'الرجوع للبيانات'}</span>
+                    </button>
+
                     <PaymentSection marketing={marketing} onFileSelect={handleFileSelect} />
 
                     <button 
@@ -483,10 +492,10 @@ export default function CheckoutPage({ menuData }) {
                     >
                       {isSubmitting ? 'جاري الإرسال...' : (lang === 'en' ? 'Confirm and Submit Order' : 'تأكيد وإرسال الطلب')}
                     </button>
-                  </>
-                )}
-              </form>
-            </div>
+                    </div>
+                  )}
+                </form>
+              </div>
 
           {/* Order Summary */}
           <div className="lg:col-span-1">
