@@ -1,4 +1,4 @@
-﻿import { useLanguage } from '../context/LanguageContext';
+import { useLanguage } from '../context/LanguageContext';
 import PaymentSection from '../components/PaymentSection';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -79,7 +79,14 @@ export default function CheckoutPage({ menuData }) {
     e.preventDefault();
     if (cartItems.length === 0) return;
 
-    if (formData.orderType === 'delivery' && !formData.deliveryAddress.trim()) { setErrorMessage('يرجى إدخال عنوان التوصيل بالتفصيل'); return; }
+    if (formData.orderType === 'delivery' && !formData.deliveryAddress.trim()) { setErrorMessage('يُرجى إدخال عنوان التوصيل بالتفصيل'); setIsSubmitting(false); return; }
+    
+    if (!receiptFile) {
+      setErrorMessage(lang === 'en' ? 'Please upload the payment receipt before confirming.' : 'يرجى إرفاق صورة إيصال الدفع لتأكيد الطلب.');
+      setIsSubmitting(false);
+      return;
+    }
+
     setIsSubmitting(true);
     setErrorMessage('');
 
