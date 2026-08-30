@@ -1,5 +1,4 @@
-﻿import { useLanguage } from '../context/LanguageContext';
-
+import { useLanguage } from '../context/LanguageContext';
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { CheckCircle, ArrowRight, Star, MessageCircle } from 'lucide-react';
@@ -16,6 +15,7 @@ export default function TrackOrderPage({ menuData }) {
   const [loading, setLoading] = useState(true);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [hasAutoOpenedReview, setHasAutoOpenedReview] = useState(false);
+  const [hasFinishedReview, setHasFinishedReview] = useState(false);
 
   useEffect(() => {
     if (orderData?.Status === 'Completed' && !hasAutoOpenedReview) {
@@ -89,118 +89,99 @@ export default function TrackOrderPage({ menuData }) {
     { id: 'Cancelled', label: (lang === 'en' ? 'Cancelled' : 'تم الإلغاء') }
   ];
 
-  // Map 'Accepted' from POS to 'New' for the UI matching
   const mappedStatus = orderStatus === 'Accepted' ? 'New' : orderStatus;
-
   let statusIndex = ['Pending', 'New', 'InKitchen', 'Ready', 'Completed', 'Cancelled'].indexOf(mappedStatus);
   if (statusIndex === -1) statusIndex = 0;
 
-  const isCancelled = mappedStatus === 'Cancelled';
+  let displayList = [...statusList];
+  if (mappedStatus === 'Cancelled') {
+    displayList = [
+      { id: 'Pending', label: (lang === 'en' ? 'Pending Acceptance' : 'جاري مراجعة الطلب') },
+      { id: 'Cancelled', label: (lang === 'en' ? 'Cancelled' : 'تم الإلغاء') }
+    ];
+    statusIndex = 1;
+  } else {
+    displayList = displayList.filter(s => s.id !== 'Cancelled');
+  }
 
   return (
-    <div className="pt-24 pb-12 min-h-screen bg-black-surface flex flex-col items-center justify-center p-6 text-center">
-      <div className="bg-black-surface p-10 rounded-3xl shadow-xl max-w-md w-full border border-green-100">
-        <div className="w-20 h-20 bg-green-100 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
-          <CheckCircle size={40} />
-        </div>
-        <h2 className="text-3xl font-display font-black text-text-light mb-2">
-            {mappedStatus === 'Completed' 
-              ? (lang === 'en' ? 'Order Delivered!' : 'تم تسليم الطلب!')
-              : (lang === 'en' ? 'Order Received!' : 'تم استلام طلبك!')}
-        </h2>
-        <p className="text-text-muted mb-6">{lang === 'en' ? 'Your order number is' : 'رقم الطلب الخاص بك هو'} <strong className="text-text-light text-lg">{orderId}</strong></p>
+    <div className="pt-24 min-h-screen bg-black-surface flex flex-col items-center pb-20" style={{ direction: lang === 'ar' ? 'rtl' : 'ltr' }}>
+      
+      <div className="w-24 h-24 bg-green-100 text-green-500 rounded-full flex items-center justify-center mb-6 shadow-inner">
+        <CheckCircle size={50} />
+      </div>
+
+      <h2 className="text-4xl font-display font-black text-text-light mb-2">
+        {lang === 'en' ? 'Order Submitted!' : 'تم تسليم الطلب!'}
+      </h2>
+      <p className="text-text-muted text-lg mb-8">
+        {lang === 'en' ? 'Your order number is' : 'رقم الطلب الخاص بك هو'} <span className="font-bold text-text-light">#{orderId?.replace('#', '')}</span>
+      </p>
+
+      <div className="bg-black-surface/50 w-full max-w-md p-8 rounded-3xl border-2 border-white/5 shadow-2xl mb-8">
+        <h3 className="text-xl font-bold text-text-light mb-8 text-center">{lang === 'en' ? 'Track Order Status:' : 'تتبع حالة الطلب:'}</h3>
         
-        <div className="bg-black-primary p-6 rounded-2xl text-right relative overflow-hidden mb-8">
-          <h3 className="font-bold text-lg mb-4 text-text-light relative z-10">{lang === 'en' ? 'Track Order Status:' : 'تتبع حالة الطلب:'}</h3>
-          
-          {isCancelled ? (
-            <div className="bg-brand-red/10 border border-brand-red/30 rounded-xl p-4 text-center">
-              <p className="text-brand-red font-bold text-lg mb-2">
-                {lang === 'en' ? 'Order Cancelled' : 'تم إلغاء الطلب'}
-              </p>
-              <p className="text-text-muted text-sm mb-4">
-                {lang === 'en' ? 'There was an issue processing your order (e.g. unclear payment receipt or unavailable items). Please contact us via WhatsApp.' : 'عفواً، تم إلغاء الطلب بسبب مشكلة في تأكيد التحويل المالي أو عدم توفر المنتج. يرجى التواصل معنا عبر الواتساب للمساعدة.'}
-              </p>
-              <a 
-                href={`https://wa.me/${menuData?.marketing?.orderWhatsAppNumber || '201000000000'}`} 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors"
-              >
-                <MessageCircle size={20} />
-                {lang === 'en' ? 'Contact Support' : 'تواصل مع الدعم'}
-              </a>
-            </div>
-          ) : (
-            <div className="relative">
-              <div className="absolute right-3.5 top-2 bottom-4 w-1 bg-black-surface rounded-full" />
-              <div 
-                className="absolute right-3.5 top-2 w-1 bg-brand-red rounded-full transition-all duration-1000" 
-                style={{ height: `${(statusIndex / (statusList.length - 2)) * 100}%` }}
-              />
-              <div className="flex flex-col gap-4">
-                {statusList.filter(s => s.id !== 'Cancelled').map((step, index) => {
-                  let isCompleted = index <= statusIndex;
-                  let isCurrent = index === statusIndex;
-                  
-                  return (
-                    <div key={step.id} className="relative flex items-center gap-4 z-10">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center border-4 border-white ${isCompleted ? 'bg-brand-red' : 'bg-black-surface'}`}>
-                        {isCompleted && <CheckCircle size={14} className="text-text-light" />}
-                      </div>
-                      <span className={`font-bold ${isCurrent ? 'text-brand-red' : isCompleted ? 'text-text-light' : 'text-text-muted'}`}>{step.label}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
+        <div className="relative">
+          <div className="absolute left-6 top-6 bottom-6 w-1 bg-white/5 rounded-full" style={{ left: lang === 'ar' ? 'auto' : '1.5rem', right: lang === 'ar' ? '1.5rem' : 'auto' }}></div>
+          <div className="absolute left-6 top-6 w-1 bg-brand-red rounded-full transition-all duration-1000" 
+               style={{ height: `${(statusIndex / (displayList.length - 1)) * 100}%`, left: lang === 'ar' ? 'auto' : '1.5rem', right: lang === 'ar' ? '1.5rem' : 'auto' }}></div>
 
-        {/* Action Buttons Section */}
-        <div className="space-y-4">
-          {orderType === 'DineIn' ? (
-            <div className="bg-brand-red/10 p-4 rounded-xl border border-brand-red/20">
-              <p className="text-brand-red font-bold leading-relaxed">
-                {lang === 'en' ? 'Please head to the cashier with your order number' : 'برجاء التوجه للكاشير مع رقم طلبك'} {orderId} {lang === 'en' ? 'to complete payment' : 'لإتمام الدفع'}
-              </p>
-            </div>
-          ) : (
-            <>
+          <div className="flex flex-col gap-8">
+            {displayList.map((step, index) => {
+              const isCompleted = index <= statusIndex;
+              const isCurrent = index === statusIndex;
               
-              <a 
-              href={`https://wa.me/${menuData?.marketing?.orderWhatsAppNumber || '201000000000'}?text=${encodeURIComponent(` ${orderId}`)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full bg-[#25D366] text-text-light p-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#20bd5a] transition-colors"
-            >
-              <MessageCircle size={20} />
-              <span>{lang === 'en' ? 'Contact via WhatsApp' : 'تواصل عبر واتساب'} 💬</span>
-            </a>
-            </>
-          )}
-
-          <button 
-            onClick={() => setIsReviewModalOpen(true)}
-            className="w-full bg-black-surface text-brand-red border-2 border-brand-red p-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-brand-red/10 transition-colors"
-          >
-            <Star size={20} />
-            <span>{lang === 'en' ? 'Share your feedback' : 'شاركنا رأيك في الطلب'} ⭐</span>
-          </button>
+              return (
+                <div key={step.id} className="relative flex items-center gap-6 z-10" style={{ opacity: isCompleted ? 1 : 0.4 }}>
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-colors duration-500 ${isCompleted ? 'bg-brand-red text-text-light' : 'bg-black-surface border-2 border-white/10 text-white/20'}`}>
+                    <CheckCircle size={24} />
+                  </div>
+                  <div className="flex-1">
+                    <p className={`text-lg font-bold ${isCurrent ? 'text-brand-red' : 'text-text-light'}`}>{step.label}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
+      </div>
+
+      <div className="w-full max-w-md flex flex-col gap-4 px-4">
+        {orderType === 'Delivery' && (
+          <>
+          <a 
+            href={APP_CONFIG.whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full bg-[#25D366] text-white p-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#20bd5a] transition-colors"
+          >
+            <MessageCircle size={20} />
+            <span>{lang === 'en' ? 'Contact via WhatsApp' : 'تواصل عبر واتساب'}</span>
+          </a>
+          </>
+        )}
+
+        <button 
+          onClick={() => setIsReviewModalOpen(true)}
+          className="w-full bg-black-surface text-brand-red border-2 border-brand-red p-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-brand-red/10 transition-colors"
+        >
+          <Star size={20} />
+          <span>{lang === 'en' ? 'Share your feedback' : 'شاركنا رأيك في الطلب'}</span>
+        </button>
 
         <button 
           onClick={() => navigate('/menu')}
-          className="mt-8 flex items-center justify-center gap-2 text-text-muted font-bold hover:text-text-light transition-colors mx-auto"
+          className="text-text-muted hover:text-text-light font-bold flex items-center justify-center gap-2 mt-4 transition-colors"
         >
+          <ArrowRight size={20} className={lang === 'ar' ? '' : 'rotate-180'} />
           <span>{lang === 'en' ? 'Back to Menu' : 'العودة للمنيو'}</span>
-          <ArrowRight size={20} className="rotate-180" />
         </button>
       </div>
 
       <ReviewModal 
         isOpen={isReviewModalOpen}
         onClose={() => setIsReviewModalOpen(false)}
+        onReviewSubmitted={() => setHasFinishedReview(true)}
       />
     </div>
   );
