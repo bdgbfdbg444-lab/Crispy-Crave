@@ -92,7 +92,7 @@ export default function CheckoutPage({ menuData }) {
 
     try {
       // 1. Prepare Order Data
-      const displayOrderId = '#' + Math.floor(1000 + Math.random() * 9000);
+      let displayOrderId = '#' + Math.floor(1000 + Math.random() * 9000);
       
       const items = cartItems.map(item => {
         let modifierText = '';
@@ -149,21 +149,43 @@ export default function CheckoutPage({ menuData }) {
         paymentReceiptUrl: paymentReceiptUrl
       };
 
-      // 2. Send to Firebase POST /Orders.json
-      const response = await fetch(`${APP_CONFIG.firebaseDbUrl}Orders.json`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderPayload)
-      });
+      const editingOrderId = localStorage.getItem('editingOrderId');
+      if (editingOrderId) {
+        orderPayload.displayOrderId = editingOrderId;
+        orderPayload.isModification = true;
+        
+        // Push modification request to Firebase Orders node! (To bypass security rules)
+        const modResponse = await fetch(`${APP_CONFIG.firebaseDbUrl}Orders.json`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(orderPayload)
+        });
 
-      const responseData = await response.json();
+        if (!modResponse.ok) {
+           const errText = await modResponse.text();
+           console.error("Firebase Error:", errText);
+           throw new Error(`فشل في إرسال طلب التعديل: ${errText}`);
+        }
+        
+        localStorage.removeItem('editingOrderId');
+        displayOrderId = editingOrderId;
+      } else {
+        // 2. Send to Firebase POST /Orders.json
+        const response = await fetch(`${APP_CONFIG.firebaseDbUrl}Orders.json`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(orderPayload)
+        });
 
-      if (!response.ok) {
-        throw new Error(responseData.error || 'فشل في إرسال الطلب، يرجى التأكد من اتصالك بالإنترنت.');
-      }
+        const responseData = await response.json();
 
-      if (!responseData || !responseData.name) {
-        throw new Error('استجابة غير متوقعة من السيرفر. لم يتم تأكيد الطلب.');
+        if (!response.ok) {
+          throw new Error(responseData.error || 'فشل في إرسال الطلب، يرجى التأكد من اتصالك بالانترنت.');
+        }
+
+        if (!responseData || !responseData.name) {
+          throw new Error('فشل غير متوقع من الخادم. لم يتم إنشاء الأوردر.');
+        }
       }
 
       // 3. Success Handling (ONLY runs if fetch succeeded and threw no errors)

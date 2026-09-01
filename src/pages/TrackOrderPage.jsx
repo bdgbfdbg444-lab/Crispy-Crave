@@ -1,9 +1,12 @@
 import { useLanguage } from '../context/LanguageContext';
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { CheckCircle, ArrowRight, Star, MessageCircle } from 'lucide-react';
+import { CheckCircle, ArrowRight, Star, MessageCircle, Edit3 } from 'lucide-react';
 import { APP_CONFIG } from '../config/appConfig';
 import ReviewModal from '../components/ReviewModal';
+import { ref, onValue, off } from 'firebase/database';
+import { db } from '../firebase';
+import { useCart } from '../context/CartContext';
 
 const FIREBASE_URL = 'https://crispy-c9702-default-rtdb.europe-west1.firebasedatabase.app';
 
@@ -11,6 +14,7 @@ export default function TrackOrderPage({ menuData }) {
   const { lang } = useLanguage();
   const { orderId } = useParams();
   const navigate = useNavigate();
+  const { addToCart, clearCart } = useCart();
   const [orderData, setOrderData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
@@ -25,29 +29,55 @@ export default function TrackOrderPage({ menuData }) {
   }, [orderData?.Status, hasAutoOpenedReview]);
 
   useEffect(() => {
-    let interval;
-    const fetchStatus = async () => {
-      try {
-        const safeOrderId = orderId.replace('#', '').trim();
-        const res = await fetch(`${FIREBASE_URL}/OrderTracking/${safeOrderId}.json`);
-        if (!res.ok) throw new Error('Failed to fetch status');
-        const data = await res.json();
-        
-        if (data) {
-          setOrderData(data);
-        }
-      } catch (err) {
-        console.error('Error fetching tracking data', err);
-      } finally {
-        setLoading(false);
+    const safeOrderId = orderId.replace('#', '').trim();
+    const trackingRef = ref(db, `OrderTracking/${safeOrderId}`);
+    
+    const unsubscribe = onValue(trackingRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setOrderData(data);
       }
+      setLoading(false);
+    }, (error) => {
+      console.error('Error fetching tracking data', error);
+      setLoading(false);
+    });
+
+    return () => {
+      off(trackingRef, 'value', unsubscribe);
     };
-
-    fetchStatus();
-    interval = setInterval(fetchStatus, 5000);
-
-    return () => clearInterval(interval);
   }, [orderId]);
+
+  const handleEditOrder = async () => {
+    const currentStatus = orderData?.Status || 'Pending';
+    if (currentStatus !== 'Pending' && currentStatus !== 'New') {
+       alert(lang === 'en' ? 'Order is already being prepared and cannot be edited.' : 'عذراً، الأوردر قيد التحضير ولا يمكن تعديله الآن.');
+       return;
+    }
+    
+    try {
+      const safeOrderId = orderId.replace('#', '').trim();
+      const orderRef = ref(db, `Orders/${safeOrderId}`);
+      // Wait, get is not imported, let's just fetch from REST API for one-off read
+      const res = await fetch(`${APP_CONFIG.firebaseDbUrl}Orders/${safeOrderId}.json`);
+      const originalOrder = await res.json();
+      
+      if (originalOrder) {
+         clearCart();
+         if (originalOrder.Items) {
+            originalOrder.Items.forEach(item => {
+               addToCart(item);
+            });
+         }
+         localStorage.setItem('editingOrderId', safeOrderId);
+         navigate('/menu');
+      } else {
+         alert(lang === 'en' ? 'Order items could not be loaded.' : 'حدث خطأ أثناء تحميل عناصر الأوردر.');
+      }
+    } catch(err) {
+      console.error(err);
+    }
+  };
 
   if (loading) {
     return (
@@ -80,17 +110,27 @@ export default function TrackOrderPage({ menuData }) {
   const orderStatus = orderData?.Status || 'Pending';
   const orderType = orderData?.OrderType || '';
   
-  const statusList = [
+  let statusList = [
     { id: 'Pending', label: (lang === 'en' ? 'Pending Acceptance' : 'جاري مراجعة الطلب') },
     { id: 'New', label: (lang === 'en' ? 'Accepted' : 'تم القبول') },
     { id: 'InKitchen', label: (lang === 'en' ? 'Preparing' : 'قيد التحضير') },
-    { id: 'Ready', label: (lang === 'en' ? 'Ready for Pickup/Delivery' : 'جاهز للاستلام/التوصيل') },
-    { id: 'Completed', label: (lang === 'en' ? 'Delivered' : 'تم التسليم') },
-    { id: 'Cancelled', label: (lang === 'en' ? 'Cancelled' : 'تم الإلغاء') }
+    { id: 'Ready', label: (lang === 'en' ? 'Ready' : 'جاهز') }
   ];
+  
+  if ((orderType || '').toLowerCase() === 'delivery') {
+      statusList.push({ id: 'OutForDelivery', label: (lang === 'en' ? 'Out For Delivery' : 'مع الطيار / في الطريق') });
+      statusList.push({ id: 'Completed', label: (lang === 'en' ? 'Delivered' : 'تم التسليم') });
+  } else {
+      statusList.push({ id: 'Completed', label: (lang === 'en' ? 'Completed' : 'مكتمل') });
+  }
+  statusList.push({ id: 'Cancelled', label: (lang === 'en' ? 'Cancelled' : 'تم الإلغاء') });
 
   const mappedStatus = orderStatus === 'Accepted' ? 'New' : orderStatus;
-  let statusIndex = ['Pending', 'New', 'InKitchen', 'Ready', 'Completed', 'Cancelled'].indexOf(mappedStatus);
+  const statusArray = (orderType || '').toLowerCase() === 'delivery' 
+      ? ['Pending', 'New', 'InKitchen', 'Ready', 'OutForDelivery', 'Completed', 'Cancelled']
+      : ['Pending', 'New', 'InKitchen', 'Ready', 'Completed', 'Cancelled'];
+      
+  let statusIndex = statusArray.indexOf(mappedStatus);
   if (statusIndex === -1) statusIndex = 0;
 
   let displayList = [...statusList];
@@ -120,6 +160,33 @@ export default function TrackOrderPage({ menuData }) {
 
       <div className="bg-black-surface/50 w-full max-w-md p-8 rounded-3xl border-2 border-white/5 shadow-2xl mb-8">
         <h3 className="text-xl font-bold text-text-light mb-8 text-center">{lang === 'en' ? 'Track Order Status:' : 'تتبع حالة الطلب:'}</h3>
+
+          {mappedStatus === 'OutForDelivery' && orderData?.DriverName && (
+              <div className="bg-[#DBEAFE] border border-[#3B82F6] rounded-xl p-4 mb-6 mt-4 mx-auto w-[90%] max-w-sm flex flex-col items-center justify-center gap-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-[#1D4ED8]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <p className="text-[#1D4ED8] font-bold text-center text-lg leading-relaxed">
+                      {lang === 'en' ? `On the way to you with: ${orderData.DriverName}` : `في الطريق إليك مع: ${orderData.DriverName}`}
+                  </p>
+                  {orderData?.DriverPhone ? (
+                      <a 
+                          href={`tel:${orderData.DriverPhone}`}
+                          className="bg-[#1D4ED8] hover:bg-[#1e3a8a] text-white px-5 py-2 rounded-full font-bold shadow-md flex items-center gap-2 transition-colors w-full justify-center"
+                      >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                              <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
+                          </svg>
+                          <span>{lang === 'en' ? 'Call Driver' : 'اتصال بالطيار'}</span>
+                          <span className="text-sm opacity-90 mx-1">({orderData.DriverPhone})</span>
+                      </a>
+                  ) : (
+                      <p className="text-[#1D4ED8] text-sm text-center mt-1">
+                          {lang === 'en' ? 'For inquiries, please contact the restaurant.' : 'للتواصل والاستفسارات، يرجى الاتصال برقم المطعم.'}
+                      </p>
+                  )}
+              </div>
+          )}
         
         <div className="relative">
           <div className="absolute left-6 top-6 bottom-6 w-1 bg-white/5 rounded-full" style={{ left: lang === 'ar' ? 'auto' : '1.5rem', right: lang === 'ar' ? '1.5rem' : 'auto' }}></div>
@@ -147,7 +214,7 @@ export default function TrackOrderPage({ menuData }) {
       </div>
 
       <div className="w-full max-w-md flex flex-col gap-4 px-4">
-        {orderType === 'Delivery' && (
+        {(orderType || '').toLowerCase() === 'delivery' && (
           <>
           <a 
             href={APP_CONFIG.whatsappUrl}
@@ -159,6 +226,16 @@ export default function TrackOrderPage({ menuData }) {
             <span>{lang === 'en' ? 'Contact via WhatsApp' : 'تواصل عبر واتساب'}</span>
           </a>
           </>
+        )}
+
+        {(orderStatus === 'Pending' || orderStatus === 'New') && (
+          <button 
+            onClick={handleEditOrder}
+            className="w-full bg-brand-red text-text-light p-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-brand-red/90 transition-colors mb-2"
+          >
+            <Edit3 size={20} />
+            <span>{lang === 'en' ? 'Edit Order' : 'تعديل الطلب'}</span>
+          </button>
         )}
 
         <button 

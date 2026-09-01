@@ -34,30 +34,27 @@ export const CartProvider = ({ children }) => {
 
   const addToCart = (customProduct, quantity) => {
     setCartItems(prev => {
-      // Check if identical item (same ID, weight, and same modifiers) exists
       const existingItemIndex = prev.findIndex(item => {
         if (item.product.id !== customProduct.id) return false;
         if (item.product.selectedWeight !== customProduct.selectedWeight) return false;
         
-        // Deep compare modifiers
         const existingMods = item.product.selectedModifiers || [];
         const newMods = customProduct.selectedModifiers || [];
         if (existingMods.length !== newMods.length) return false;
         
-        // Sort and compare IDs
         const existingModIds = existingMods.map(m => m.id).sort().join(',');
         const newModIds = newMods.map(m => m.id).sort().join(',');
         return existingModIds === newModIds;
       });
 
       if (existingItemIndex >= 0) {
-        // Update quantity
-        const newCart = [...prev];
-        newCart[existingItemIndex].quantity += quantity;
-        return newCart;
+        return prev.map((item, i) => 
+          i === existingItemIndex 
+            ? { ...item, quantity: item.quantity + quantity }
+            : item
+        );
       }
 
-      // Add new item
       return [...prev, { product: customProduct, quantity }];
     });
     
@@ -69,14 +66,13 @@ export const CartProvider = ({ children }) => {
   };
 
   const updateQuantity = (index, delta) => {
-    setCartItems(prev => {
-      const newCart = [...prev];
-      const newQuantity = newCart[index].quantity + delta;
-      if (newQuantity > 0) {
-        newCart[index].quantity = newQuantity;
+    setCartItems(prev => prev.map((item, i) => {
+      if (i === index) {
+        const newQuantity = item.quantity + delta;
+        return { ...item, quantity: Math.max(1, newQuantity) };
       }
-      return newCart;
-    });
+      return item;
+    }));
   };
 
   const cartTotal = cartItems.reduce((total, item) => {
