@@ -151,13 +151,40 @@ export default function TrackOrderPage({ menuData }) {
         <CheckCircle size={50} />
       </div>
 
-      <h2 className="text-4xl font-display font-black text-text-light mb-2">
-        {lang === 'en' ? 'Order Submitted!' : 'تم تسليم الطلب!'}
-      </h2>
+      {mappedStatus === 'Completed' ? (
+        <h2 className="text-4xl font-display font-black text-brand-red mb-2 text-center">
+          {lang === 'en' ? 'Thank You!' : 'شكراً لك!'}
+        </h2>
+      ) : (
+        <h2 className="text-4xl font-display font-black text-text-light mb-2 text-center">
+          {lang === 'en' ? 'Order Received!' : 'تم استلام طلبك!'}
+        </h2>
+      )}
       <p className="text-text-muted text-lg mb-8">
         {lang === 'en' ? 'Your order number is' : 'رقم الطلب الخاص بك هو'} <span className="font-bold text-text-light">#{orderId?.replace('#', '')}</span>
       </p>
 
+      {mappedStatus === 'Completed' ? (
+        <div className="bg-black-surface/50 w-full max-w-md p-10 rounded-3xl border-2 border-brand-red/30 shadow-2xl mb-8 flex flex-col items-center text-center">
+          <div className="w-24 h-24 bg-brand-red/20 text-brand-red rounded-full flex items-center justify-center mb-6">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h3 className="text-2xl font-bold text-text-light mb-4">
+            {lang === 'en' ? 'We hope you enjoyed your meal!' : 'نتمنى أن تكون قد استمتعت بوجبتك!'}
+          </h3>
+          <p className="text-text-muted mb-8">
+            {lang === 'en' ? 'Your feedback helps us improve and provide the best experience.' : 'رأيك يهمنا جداً ويساعدنا على تقديم أفضل جودة دائماً.'}
+          </p>
+          <button 
+             onClick={() => window.location.href = '#/menu'}
+             className="w-full py-4 bg-brand-red text-text-light font-bold rounded-xl text-lg hover:bg-brand-red-dark transition-colors shadow-lg shadow-brand-red/30"
+          >
+             {lang === 'en' ? 'Order Again' : 'اطلب مرة أخرى'}
+          </button>
+        </div>
+      ) : (
       <div className="bg-black-surface/50 w-full max-w-md p-8 rounded-3xl border-2 border-white/5 shadow-2xl mb-8">
         <h3 className="text-xl font-bold text-text-light mb-8 text-center">{lang === 'en' ? 'Track Order Status:' : 'تتبع حالة الطلب:'}</h3>
 
@@ -212,6 +239,7 @@ export default function TrackOrderPage({ menuData }) {
           </div>
         </div>
       </div>
+      )}
 
       <div className="w-full max-w-md flex flex-col gap-4 px-4">
         {(orderType || '').toLowerCase() === 'delivery' && (
