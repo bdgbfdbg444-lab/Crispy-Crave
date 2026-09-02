@@ -1,5 +1,6 @@
 import { useLanguage } from '../../context/LanguageContext';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { APP_CONFIG } from '../../config/appConfig';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingBag, X, Plus, Minus, Trash2, ArrowLeft } from 'lucide-react';
@@ -8,6 +9,27 @@ import { useCart } from '../../context/CartContext';
 export default function CartSidebar() {
   const { lang } = useLanguage();
   const { cartItems, isCartOpen, setIsCartOpen, removeFromCart, updateQuantity, cartTotal } = useCart();
+  const [activeOrderId, setActiveOrderId] = useState(null);
+
+  useEffect(() => {
+    const actId = localStorage.getItem('activeOrderId');
+    const editingId = localStorage.getItem('editingOrderId');
+    if (actId && !editingId) {
+      const cleanId = actId.replace('#', '').trim();
+      fetch(`${APP_CONFIG.firebaseDbUrl}OrderTracking/${cleanId}.json`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.Status && data.Status !== 'Completed' && data.Status !== 'Cancelled') {
+            setActiveOrderId(cleanId);
+          } else {
+            setActiveOrderId(null);
+          }
+        })
+        .catch(() => {});
+    } else {
+      setActiveOrderId(null);
+    }
+  }, [isCartOpen]);
   const navigate = useNavigate();
 
   // Prevent background scrolling when cart is open
