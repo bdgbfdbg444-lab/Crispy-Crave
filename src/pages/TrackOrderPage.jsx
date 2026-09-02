@@ -72,7 +72,10 @@ export default function TrackOrderPage({ menuData }) {
     }
 
     const safeOrderId = (orderId || '').replace('#', '').trim();
-    const details = JSON.parse(localStorage.getItem(`order_${safeOrderId}_details`) || '{}');
+    const rawDetails = localStorage.getItem(`order_${safeOrderId}_details`) 
+                    || localStorage.getItem(`order_#${safeOrderId}_details`) 
+                    || localStorage.getItem(`order_${orderId}_details`);
+    const details = JSON.parse(rawDetails || '{}');
 
     // Rule 1: Single modification only (مرة واحدة فقط)
     const modCount = details.modificationCount || orderData?.ModificationCount || 0;
@@ -82,16 +85,20 @@ export default function TrackOrderPage({ menuData }) {
     }
 
     try {
-      // 2. Restore original cart items (Layer 1: localStorage, Layer 2: Firebase orderData.Items)
+      // 2. Restore original cart items (Triple-Safety Net: LocalStorage -> orderData -> Firebase REST API)
       let savedItems = [];
-      const localSaved = localStorage.getItem(`order_${safeOrderId}_items`);
+      const localSaved = localStorage.getItem(`order_${safeOrderId}_items`) 
+                      || localStorage.getItem(`order_#${safeOrderId}_items`) 
+                      || localStorage.getItem(`order_${orderId}_items`);
       if (localSaved) {
          try { savedItems = JSON.parse(localSaved); } catch(e) {}
       }
 
+      const allProducts = menuData?.categories?.flatMap(c => c.products || []) || [];
+
+      // Layer 2: orderData from Realtime Listener
       if ((!savedItems || savedItems.length === 0) && orderData?.Items) {
          const itemsList = Array.isArray(orderData.Items) ? orderData.Items : Object.values(orderData.Items);
-         const allProducts = menuData?.categories?.flatMap(c => c.products || []) || [];
          savedItems = itemsList.map(item => {
             if (item.product) return item;
             const matched = allProducts.find(p => p.id === item.productId || p.name === item.productName);
@@ -106,6 +113,31 @@ export default function TrackOrderPage({ menuData }) {
                quantity: item.quantity || 1
             };
          });
+      }
+
+      // Layer 3: Direct fetch from Firebase REST API fallback
+      if (!savedItems || savedItems.length === 0) {
+        try {
+          const res = await fetch(`${APP_CONFIG.firebaseDbUrl}OrderTracking/${safeOrderId}.json`);
+          const trackingNode = await res.json();
+          if (trackingNode && trackingNode.Items) {
+            const itemsList = Array.isArray(trackingNode.Items) ? trackingNode.Items : Object.values(trackingNode.Items);
+            savedItems = itemsList.map(item => {
+              if (item.product) return item;
+              const matched = allProducts.find(p => p.id === item.productId || p.name === item.productName);
+              return {
+                product: matched || {
+                  id: item.productId || Date.now(),
+                  name: item.productName || 'صنف',
+                  price: item.unitPrice || 0,
+                  sellingPrice: item.unitPrice || 0,
+                  calculatedPrice: item.unitPrice || 0
+                },
+                quantity: item.quantity || 1
+              };
+            });
+          }
+        } catch(e) {}
       }
 
       if (!savedItems || savedItems.length === 0) {
