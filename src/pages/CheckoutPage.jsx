@@ -1,6 +1,6 @@
 import { useLanguage } from '../context/LanguageContext';
 import PaymentSection from '../components/PaymentSection';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShoppingBag, ArrowRight, Wallet, CheckCircle, AlertCircle } from 'lucide-react';
 import { useCart } from '../context/CartContext';
