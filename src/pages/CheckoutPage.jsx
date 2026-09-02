@@ -159,7 +159,9 @@ export default function CheckoutPage({ menuData }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (activeOrderWarning && !localStorage.getItem('editingOrderId')) {
+
+
+  if (activeOrderWarning && !localStorage.getItem('editingOrderId')) {
     return (
       <div className="pt-24 min-h-screen bg-black-surface flex flex-col items-center justify-center p-6 text-center" style={{ direction: lang === 'ar' ? 'rtl' : 'ltr' }}>
         <div className="max-w-md w-full bg-black-primary border border-brand-red/30 rounded-3xl p-8 shadow-2xl flex flex-col items-center">
