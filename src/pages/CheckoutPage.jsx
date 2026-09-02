@@ -553,7 +553,8 @@ export default function CheckoutPage({ menuData }) {
                     {/* If editing, show a prominent modification summary banner */}
                     {localStorage.getItem('editingOrderId') && (() => {
                       const editingDetails = JSON.parse(localStorage.getItem('editingOrderDetails') || '{}');
-                      const origTotal = editingDetails.originalTotal || 0;
+                      const activeTotal = parseFloat(localStorage.getItem('activeOrderTotal') || '0');
+                      const origTotal = editingDetails.originalTotal || (activeTotal > 0 ? activeTotal : 0);
                       const priceDiff = cartTotal - origTotal;
                       return (
                         <div className="mb-6 p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 shadow-lg">

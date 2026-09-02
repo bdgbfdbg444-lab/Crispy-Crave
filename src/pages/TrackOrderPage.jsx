@@ -66,7 +66,7 @@ export default function TrackOrderPage({ menuData }) {
     }
 
     // Rule 2: 3-minute time window
-    const orderCreatedAt = details.createdAt || (orderData?.LastUpdate ? new Date(orderData.LastUpdate).getTime() : Date.now());
+    const orderCreatedAt = details.createdAt || (orderData?.CreatedAt ? orderData.CreatedAt : (orderData?.LastUpdate ? new Date(orderData.LastUpdate).getTime() : Date.now()));
     const minutesElapsed = (Date.now() - orderCreatedAt) / (1000 * 60);
     if (minutesElapsed > 3) {
        alert(lang === 'en' ? 'The 3-minute modification window for this order has expired.' : 'عذراً، انتهت المهلة المتاحة لتعديل الطلب (3 دقائق من وقت إنشاء الطلب).');
@@ -74,15 +74,39 @@ export default function TrackOrderPage({ menuData }) {
     }
 
     try {
-      // 1. Restore original cart items
+      // 1. Restore original cart items (Layer 1: localStorage, Layer 2: Firebase orderData.Items)
       let savedItems = [];
       const localSaved = localStorage.getItem(`order_${safeOrderId}_items`);
       if (localSaved) {
          try { savedItems = JSON.parse(localSaved); } catch(e) {}
       }
 
-      if (savedItems.length > 0 && setCartItems) {
-         setCartItems(savedItems);
+      if ((!savedItems || savedItems.length === 0) && orderData?.Items) {
+         const itemsList = Array.isArray(orderData.Items) ? orderData.Items : Object.values(orderData.Items);
+         const allProducts = menuData?.categories?.flatMap(c => c.products || []) || [];
+         savedItems = itemsList.map(item => {
+            if (item.product) return item;
+            const matched = allProducts.find(p => p.id === item.productId || p.name === item.productName);
+            return {
+               product: matched || {
+                  id: item.productId || Date.now(),
+                  name: item.productName || 'صنف',
+                  price: item.unitPrice || 0,
+                  sellingPrice: item.unitPrice || 0
+               },
+               quantity: item.quantity || 1
+            };
+         });
+      }
+
+      // Calculate reliable original total
+      const origTotal = details.originalTotal || orderData?.TotalAmount || parseFloat(localStorage.getItem('activeOrderTotal') || '0') || 0;
+
+      if (savedItems && savedItems.length > 0) {
+         localStorage.setItem('crispy_cart_items', JSON.stringify(savedItems));
+         if (setCartItems) {
+            setCartItems(savedItems);
+         }
       }
 
       // 2. Set editing session
@@ -90,7 +114,13 @@ export default function TrackOrderPage({ menuData }) {
       localStorage.setItem('editingOrderDetails', JSON.stringify({
          ...details,
          orderId: safeOrderId,
-         originalTotal: details.originalTotal || orderData?.TotalAmount || 0
+         originalTotal: origTotal,
+         customerName: details.customerName || orderData?.CustomerName || '',
+         customerPhone: details.customerPhone || orderData?.CustomerPhone || '',
+         orderType: details.orderType || orderData?.OrderType || 'takeaway',
+         deliveryAddress: details.deliveryAddress || orderData?.DeliveryAddress || '',
+         tableNumber: details.tableNumber || orderData?.TableNumber || '',
+         notes: details.notes || orderData?.Notes || ''
       }));
 
       // 3. Open cart and navigate to menu
