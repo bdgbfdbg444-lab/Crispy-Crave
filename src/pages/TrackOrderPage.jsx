@@ -14,7 +14,7 @@ export default function TrackOrderPage({ menuData }) {
   const { lang } = useLanguage();
   const { orderId } = useParams();
   const navigate = useNavigate();
-  const { addToCart, clearCart } = useCart();
+  const { addToCart, clearCart, setCartItems, setIsCartOpen } = useCart();
   const [orderData, setOrderData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
@@ -54,26 +54,50 @@ export default function TrackOrderPage({ menuData }) {
        alert(lang === 'en' ? 'Order is already being prepared and cannot be edited.' : 'عذراً، الأوردر قيد التحضير ولا يمكن تعديله الآن.');
        return;
     }
-    
+
+    const safeOrderId = (orderId || '').replace('#', '').trim();
+    const details = JSON.parse(localStorage.getItem(`order_${safeOrderId}_details`) || '{}');
+
+    // Rule 1: Max 2 modifications
+    const modCount = details.modificationCount || 0;
+    if (modCount >= 2) {
+       alert(lang === 'en' ? 'You have reached the maximum number of modifications for this order (2 times only).' : 'عذراً، لقد استنفدت الحد الأقصى لمرات تعديل هذا الطلب (مرتان فقط).');
+       return;
+    }
+
+    // Rule 2: 3-minute time window
+    const orderCreatedAt = details.createdAt || (orderData?.LastUpdate ? new Date(orderData.LastUpdate).getTime() : Date.now());
+    const minutesElapsed = (Date.now() - orderCreatedAt) / (1000 * 60);
+    if (minutesElapsed > 3) {
+       alert(lang === 'en' ? 'The 3-minute modification window for this order has expired.' : 'عذراً، انتهت المهلة المتاحة لتعديل الطلب (3 دقائق من وقت إنشاء الطلب).');
+       return;
+    }
+
     try {
-      const safeOrderId = orderId.replace('#', '').trim();
-      const orderRef = ref(db, `Orders/${safeOrderId}`);
-      // Wait, get is not imported, let's just fetch from REST API for one-off read
-      const res = await fetch(`${APP_CONFIG.firebaseDbUrl}Orders/${safeOrderId}.json`);
-      const originalOrder = await res.json();
-      
-      if (originalOrder) {
-         clearCart();
-         if (originalOrder.Items) {
-            originalOrder.Items.forEach(item => {
-               addToCart(item);
-            });
-         }
-         localStorage.setItem('editingOrderId', safeOrderId);
-         navigate('/menu');
-      } else {
-         alert(lang === 'en' ? 'Order items could not be loaded.' : 'حدث خطأ أثناء تحميل عناصر الأوردر.');
+      // 1. Restore original cart items
+      let savedItems = [];
+      const localSaved = localStorage.getItem(`order_${safeOrderId}_items`);
+      if (localSaved) {
+         try { savedItems = JSON.parse(localSaved); } catch(e) {}
       }
+
+      if (savedItems.length > 0 && setCartItems) {
+         setCartItems(savedItems);
+      }
+
+      // 2. Set editing session
+      localStorage.setItem('editingOrderId', safeOrderId);
+      localStorage.setItem('editingOrderDetails', JSON.stringify({
+         ...details,
+         orderId: safeOrderId,
+         originalTotal: details.originalTotal || orderData?.TotalAmount || 0
+      }));
+
+      // 3. Open cart and navigate to menu
+      if (setIsCartOpen) {
+         setIsCartOpen(true);
+      }
+      navigate('/menu');
     } catch(err) {
       console.error(err);
     }
@@ -256,15 +280,40 @@ export default function TrackOrderPage({ menuData }) {
           </>
         )}
 
-        {(orderStatus === 'Pending' || orderStatus === 'New') && (
-          <button 
-            onClick={handleEditOrder}
-            className="w-full bg-brand-red text-text-light p-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-brand-red/90 transition-colors mb-2"
-          >
-            <Edit3 size={20} />
-            <span>{lang === 'en' ? 'Edit Order' : 'تعديل الطلب'}</span>
-          </button>
-        )}
+        {(orderStatus === 'Pending' || orderStatus === 'New') && (() => {
+          const safeId = (orderId || '').replace('#', '').trim();
+          const savedDetails = JSON.parse(localStorage.getItem(`order_${safeId}_details`) || '{}');
+          const modCount = savedDetails.modificationCount || 0;
+          const isMaxReached = modCount >= 2;
+          const orderTime = savedDetails.createdAt || (orderData?.LastUpdate ? new Date(orderData.LastUpdate).getTime() : 0);
+          const isTimeExpired = orderTime > 0 && ((Date.now() - orderTime) / 60000) > 3;
+
+          if (isMaxReached) {
+            return (
+              <div className="w-full bg-amber-500/10 border border-amber-500/30 text-amber-500 p-3 rounded-xl text-center text-sm font-bold mb-2">
+                {lang === 'en' ? 'Maximum modifications reached (2/2)' : 'تم استنفاد الحد الأقصى للتعديلات (مرتان فقط)'}
+              </div>
+            );
+          }
+
+          if (isTimeExpired) {
+            return (
+              <div className="w-full bg-amber-500/10 border border-amber-500/30 text-amber-500 p-3 rounded-xl text-center text-sm font-bold mb-2">
+                {lang === 'en' ? 'Modification window expired (3 min)' : 'انتهت مهلة التعديل المتاحة (3 دقائق من وقت الطلب)'}
+              </div>
+            );
+          }
+
+          return (
+            <button 
+              onClick={handleEditOrder}
+              className="w-full bg-brand-red text-text-light p-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-brand-red/90 transition-colors mb-2"
+            >
+              <Edit3 size={20} />
+              <span>{lang === 'en' ? `Edit Order (${2 - modCount} remaining)` : `تعديل الطلب (متبقي ${2 - modCount} تعديل)`}</span>
+            </button>
+          );
+        })()}
 
         <button 
           onClick={() => setIsReviewModalOpen(true)}

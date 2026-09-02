@@ -31,6 +31,26 @@ export default function CheckoutPage({ menuData }) {
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [receiptFile, setReceiptFile] = useState(null);
   const [showPayment, setShowPayment] = useState(false);
+  useEffect(() => {
+    const editingId = localStorage.getItem('editingOrderId');
+    const editingDetailsStr = localStorage.getItem('editingOrderDetails');
+    if (editingId && editingDetailsStr) {
+      try {
+        const details = JSON.parse(editingDetailsStr);
+        setFormData(prev => ({
+          ...prev,
+          customerName: details.customerName || prev.customerName,
+          customerPhone: details.customerPhone || prev.customerPhone,
+          orderType: details.orderType || prev.orderType,
+          deliveryAddress: details.deliveryAddress || prev.deliveryAddress,
+          tableNumber: details.tableNumber || prev.tableNumber,
+          notes: details.notes || prev.notes
+        }));
+        setShowPayment(true);
+      } catch(e) {}
+    }
+  }, []);
+
 
   const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
   const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'unsigned_preset';
@@ -77,6 +97,11 @@ export default function CheckoutPage({ menuData }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (cartItems.length === 0) {
+      setErrorMessage(lang === 'en' ? 'The cart cannot be empty. Please add at least one item.' : 'لا يمكن أن تكون السلة فارغة. يرجى إضافة صنف واحد على الأقل أو إلغاء التعديل.');
+      return;
+    }
+
     if (cartItems.length === 0) return;
 
     if (formData.orderType === 'delivery' && !formData.deliveryAddress.trim()) { setErrorMessage('يُرجى إدخال عنوان التوصيل بالتفصيل'); setIsSubmitting(false); return; }
@@ -155,7 +180,7 @@ export default function CheckoutPage({ menuData }) {
         orderPayload.isModification = true;
         
         // Push modification request to Firebase Orders node! (To bypass security rules)
-        const modResponse = await fetch(`${APP_CONFIG.firebaseDbUrl}Orders.json`, {
+        const modResponse = await fetch(`${APP_CONFIG.firebaseDbUrl}OrderModificationRequests.json`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(orderPayload)
@@ -191,6 +216,28 @@ export default function CheckoutPage({ menuData }) {
       // 3. Success Handling (ONLY runs if fetch succeeded and threw no errors)
       setGeneratedOrderId(displayOrderId);
       setFinalTotal(cartTotal);
+
+      // Save order items & details for future modifications
+      const existingDetailsStr = localStorage.getItem(`order_${displayOrderId}_details`);
+      const existingDetails = existingDetailsStr ? JSON.parse(existingDetailsStr) : {};
+      const newModCount = editingOrderId ? (existingDetails.modificationCount || 0) + 1 : 0;
+
+      localStorage.setItem(`order_${displayOrderId}_items`, JSON.stringify(cartItems));
+      localStorage.setItem(`order_${displayOrderId}_details`, JSON.stringify({
+        customerName: formData.customerName,
+        customerPhone: formData.customerPhone,
+        orderType: formData.orderType,
+        deliveryAddress: formData.deliveryAddress,
+        tableNumber: formData.tableNumber,
+        notes: formData.notes,
+        createdAt: existingDetails.createdAt || Date.now(),
+        originalTotal: cartTotal,
+        modificationCount: newModCount
+      }));
+
+      localStorage.removeItem('editingOrderId');
+      localStorage.removeItem('editingOrderDetails');
+
       clearCart();
       localStorage.setItem('activeOrderId', displayOrderId);
       localStorage.setItem('activeOrderTotal', cartTotal);
@@ -503,14 +550,57 @@ export default function CheckoutPage({ menuData }) {
                   </>
                 ) : (
                   <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-                    <button 
-                      type="button" 
-                      onClick={() => setShowPayment(false)}
-                      className="mb-6 flex items-center gap-2 text-text-muted hover:text-text-light transition-colors"
-                    >
-                      <ArrowRight className="rotate-180" size={20} />
-                      <span className="font-bold">{lang === 'en' ? 'Back to Details' : 'الرجوع للبيانات'}</span>
-                    </button>
+                    {/* If editing, show a prominent modification summary banner */}
+                    {localStorage.getItem('editingOrderId') && (() => {
+                      const editingDetails = JSON.parse(localStorage.getItem('editingOrderDetails') || '{}');
+                      const origTotal = editingDetails.originalTotal || 0;
+                      const priceDiff = cartTotal - origTotal;
+                      return (
+                        <div className="mb-6 p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 shadow-lg">
+                          <div className="flex items-center gap-2 text-amber-500 font-bold mb-3 text-lg">
+                            <span>✏️ ملخص تعديل الأوردر</span>
+                            <span className="bg-amber-500/20 px-2 py-0.5 rounded-lg text-sm font-mono">#{localStorage.getItem('editingOrderId')}</span>
+                          </div>
+                          <div className="flex justify-between text-sm text-text-muted mb-1">
+                            <span>الحساب الأصلي:</span>
+                            <span className="font-bold text-text-light">{origTotal.toFixed(2)} ج.م</span>
+                          </div>
+                          <div className="flex justify-between text-sm text-text-muted mb-2">
+                            <span>الحساب الجديد بعد التعديل:</span>
+                            <span className="font-bold text-text-light">{cartTotal.toFixed(2)} ج.م</span>
+                          </div>
+                          <div className="pt-3 border-t border-amber-500/20 flex justify-between font-bold">
+                            <span className="text-text-light text-base">
+                              {priceDiff > 0 ? 'مبلغ الفرق الإضافي للدفع:' : priceDiff < 0 ? 'مبلغ الفرق المسترد:' : 'فرق الحساب:'}
+                            </span>
+                            <span className={`text-xl ${priceDiff > 0 ? 'text-amber-500' : priceDiff < 0 ? 'text-green-500' : 'text-text-light'}`}>
+                              {priceDiff > 0 ? `+${priceDiff.toFixed(2)} ج.م` : `${priceDiff.toFixed(2)} ج.م`}
+                            </span>
+                          </div>
+                          {priceDiff > 0 && (
+                            <p className="text-xs text-amber-400 mt-3 font-semibold leading-relaxed">
+                              * يرجى تحويل مبلغ الزيادة (${priceDiff.toFixed(2)} ج.م) ورفع صورة الإيصال بالأسفل لتأكيد التعديل.
+                            </p>
+                          )}
+                          {priceDiff <= 0 && (
+                            <p className="text-xs text-green-400 mt-3 font-semibold leading-relaxed">
+                              * لا يوجد مبلغ إضافي مطلوب، سيتم تسوية الحساب عند الاستلام.
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {!localStorage.getItem('editingOrderId') && (
+                      <button 
+                        type="button" 
+                        onClick={() => setShowPayment(false)}
+                        className="mb-6 flex items-center gap-2 text-text-muted hover:text-text-light transition-colors"
+                      >
+                        <ArrowRight className="rotate-180" size={20} />
+                        <span className="font-bold">{lang === 'en' ? 'Back to Details' : 'الرجوع للبيانات'}</span>
+                      </button>
+                    )}
 
                     <PaymentSection marketing={marketing} onFileSelect={handleFileSelect} />
 
