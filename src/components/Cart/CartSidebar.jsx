@@ -9,23 +9,39 @@ import { useCart } from '../../context/CartContext';
 export default function CartSidebar() {
   const { lang } = useLanguage();
   const { cartItems, isCartOpen, setIsCartOpen, removeFromCart, updateQuantity, cartTotal } = useCart();
-  const [activeOrderId, setActiveOrderId] = useState(null);
+  const [activeOrderId, setActiveOrderId] = useState(() => {
+    const editingId = localStorage.getItem('editingOrderId');
+    if (editingId) return null;
+    const actId = localStorage.getItem('activeOrderId');
+    return actId ? actId.replace('#', '').trim() : null;
+  });
 
   useEffect(() => {
-    const actId = localStorage.getItem('activeOrderId');
     const editingId = localStorage.getItem('editingOrderId');
-    if (actId && !editingId) {
+    if (editingId) {
+      setActiveOrderId(null);
+      return;
+    }
+
+    const actId = localStorage.getItem('activeOrderId');
+    if (actId) {
       const cleanId = actId.replace('#', '').trim();
       fetch(`${APP_CONFIG.firebaseDbUrl}OrderTracking/${cleanId}.json`)
         .then(res => res.json())
         .then(data => {
-          if (data && data.Status && data.Status !== 'Completed' && data.Status !== 'Cancelled') {
-            setActiveOrderId(cleanId);
-          } else {
+          // ONLY clear if confirmed Completed or Cancelled!
+          if (data && (data.Status === 'Completed' || data.Status === 'Cancelled')) {
+            localStorage.removeItem('activeOrderId');
             setActiveOrderId(null);
+          } else {
+            // Keep active
+            setActiveOrderId(cleanId);
           }
         })
-        .catch(() => {});
+        .catch(() => {
+          // Keep active on network error
+          setActiveOrderId(cleanId);
+        });
     } else {
       setActiveOrderId(null);
     }

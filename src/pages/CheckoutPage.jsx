@@ -31,33 +31,51 @@ export default function CheckoutPage({ menuData }) {
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [receiptFile, setReceiptFile] = useState(null);
   const [showPayment, setShowPayment] = useState(false);
-  const [activeOrderWarning, setActiveOrderWarning] = useState(null);
+  const [activeOrderWarning, setActiveOrderWarning] = useState(() => {
+    const editingId = localStorage.getItem('editingOrderId');
+    if (editingId) return null;
+    const actId = localStorage.getItem('activeOrderId');
+    if (actId) {
+      return {
+        orderId: actId,
+        cleanId: actId.replace('#', '').trim(),
+        status: 'Pending'
+      };
+    }
+    return null;
+  });
 
   useEffect(() => {
-    // If we are currently modifying, do not block!
     const editingId = localStorage.getItem('editingOrderId');
-    if (editingId) return;
+    if (editingId) {
+      setActiveOrderWarning(null);
+      return;
+    }
 
-    // Check if there is an active order in progress
     const activeId = localStorage.getItem('activeOrderId');
     if (activeId) {
       const cleanId = activeId.replace('#', '').trim();
       fetch(`${APP_CONFIG.firebaseDbUrl}OrderTracking/${cleanId}.json`)
         .then(res => res.json())
         .then(data => {
-          if (data && data.Status && data.Status !== 'Completed' && data.Status !== 'Cancelled') {
+          // ONLY clear if confirmed Completed or Cancelled!
+          if (data && (data.Status === 'Completed' || data.Status === 'Cancelled')) {
+            localStorage.removeItem('activeOrderId');
+            setActiveOrderWarning(null);
+          } else {
+            // Still active (Pending, New, InKitchen, etc., or null meaning pending POS pick)
             setActiveOrderWarning({
               orderId: activeId,
               cleanId: cleanId,
-              status: data.Status
+              status: data?.Status || 'Pending'
             });
-          } else {
-            // Order was completed or cancelled, remove from active
-            localStorage.removeItem('activeOrderId');
-            setActiveOrderWarning(null);
           }
         })
-        .catch(() => {});
+        .catch(() => {
+          // In case of network error, preserve the local lock!
+        });
+    } else {
+      setActiveOrderWarning(null);
     }
   }, []);
   const handleCancelEditing = () => {
