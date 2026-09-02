@@ -26,7 +26,15 @@ export default function TrackOrderPage({ menuData }) {
       setIsReviewModalOpen(true);
       setHasAutoOpenedReview(true);
     }
-  }, [orderData?.Status, hasAutoOpenedReview]);
+    // If order was cancelled, immediately clear any pending modification session!
+    if (orderData?.Status === 'Cancelled') {
+      const safeOrderId = (orderId || '').replace('#', '').trim();
+      if (localStorage.getItem('editingOrderId') === safeOrderId) {
+        localStorage.removeItem('editingOrderId');
+        localStorage.removeItem('editingOrderDetails');
+      }
+    }
+  }, [orderData?.Status, hasAutoOpenedReview, orderId]);
 
   useEffect(() => {
     const safeOrderId = orderId.replace('#', '').trim();

@@ -31,23 +31,56 @@ export default function CheckoutPage({ menuData }) {
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [receiptFile, setReceiptFile] = useState(null);
   const [showPayment, setShowPayment] = useState(false);
+  const handleCancelEditing = () => {
+    localStorage.removeItem('editingOrderId');
+    localStorage.removeItem('editingOrderDetails');
+    setShowPayment(false);
+  };
+
   useEffect(() => {
     const editingId = localStorage.getItem('editingOrderId');
     const editingDetailsStr = localStorage.getItem('editingOrderDetails');
     if (editingId && editingDetailsStr) {
-      try {
-        const details = JSON.parse(editingDetailsStr);
-        setFormData(prev => ({
-          ...prev,
-          customerName: details.customerName || prev.customerName,
-          customerPhone: details.customerPhone || prev.customerPhone,
-          orderType: details.orderType || prev.orderType,
-          deliveryAddress: details.deliveryAddress || prev.deliveryAddress,
-          tableNumber: details.tableNumber || prev.tableNumber,
-          notes: details.notes || prev.notes
-        }));
-        setShowPayment(true);
-      } catch(e) {}
+      // Validate with Firebase if the order is still active or cancelled!
+      fetch(`${APP_CONFIG.firebaseDbUrl}OrderTracking/${editingId}.json`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && (data.Status === 'Cancelled' || data.Status === 'Completed')) {
+            // Order was cancelled or completed! Auto-clear editing session immediately!
+            localStorage.removeItem('editingOrderId');
+            localStorage.removeItem('editingOrderDetails');
+            setShowPayment(false);
+          } else {
+            try {
+              const details = JSON.parse(editingDetailsStr);
+              setFormData(prev => ({
+                ...prev,
+                customerName: details.customerName || prev.customerName,
+                customerPhone: details.customerPhone || prev.customerPhone,
+                orderType: details.orderType || prev.orderType,
+                deliveryAddress: details.deliveryAddress || prev.deliveryAddress,
+                tableNumber: details.tableNumber || prev.tableNumber,
+                notes: details.notes || prev.notes
+              }));
+              setShowPayment(true);
+            } catch(e) {}
+          }
+        })
+        .catch(() => {
+          try {
+            const details = JSON.parse(editingDetailsStr);
+            setFormData(prev => ({
+              ...prev,
+              customerName: details.customerName || prev.customerName,
+              customerPhone: details.customerPhone || prev.customerPhone,
+              orderType: details.orderType || prev.orderType,
+              deliveryAddress: details.deliveryAddress || prev.deliveryAddress,
+              tableNumber: details.tableNumber || prev.tableNumber,
+              notes: details.notes || prev.notes
+            }));
+            setShowPayment(true);
+          } catch(e) {}
+        });
     }
   }, []);
 
@@ -558,9 +591,18 @@ export default function CheckoutPage({ menuData }) {
                       const priceDiff = cartTotal - origTotal;
                       return (
                         <div className="mb-6 p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 shadow-lg">
-                          <div className="flex items-center gap-2 text-amber-500 font-bold mb-3 text-lg">
-                            <span>✏️ ملخص تعديل الأوردر</span>
-                            <span className="bg-amber-500/20 px-2 py-0.5 rounded-lg text-sm font-mono">#{localStorage.getItem('editingOrderId')}</span>
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2 text-amber-500 font-bold text-lg">
+                              <span>✏️ ملخص تعديل الأوردر</span>
+                              <span className="bg-amber-500/20 px-2 py-0.5 rounded-lg text-sm font-mono">#{localStorage.getItem('editingOrderId')}</span>
+                            </div>
+                            <button 
+                              type="button" 
+                              onClick={handleCancelEditing}
+                              className="text-xs bg-red-500/20 hover:bg-red-500/30 text-red-400 font-bold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                            >
+                              <span>✕ إلغاء التعديل وبدء طلب جديد</span>
+                            </button>
                           </div>
                           <div className="flex justify-between text-sm text-text-muted mb-1">
                             <span>الحساب الأصلي:</span>
