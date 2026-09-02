@@ -166,7 +166,12 @@ export default function TrackOrderPage({ menuData }) {
          notes: details.notes || orderData?.Notes || ''
       }));
 
-      // 4. Hydrate Cart firmly
+      // 4. Immediately consume the single modification chance!
+      details.modificationCount = 1;
+      localStorage.setItem(`order_${safeOrderId}_details`, JSON.stringify(details));
+      localStorage.setItem(`order_#${safeOrderId}_details`, JSON.stringify(details));
+
+      // 5. Hydrate Cart firmly
       localStorage.setItem('crispy_cart_items', JSON.stringify(savedItems));
       if (setCartItems) {
          setCartItems(savedItems);
@@ -396,13 +401,19 @@ export default function TrackOrderPage({ menuData }) {
 
           // If Logged in user: check single modification rule
           const safeId = (orderId || '').replace('#', '').trim();
-          const savedDetails = JSON.parse(localStorage.getItem(`order_${safeId}_details`) || '{}');
-          const modCount = savedDetails.modificationCount || orderData?.ModificationCount || 0;
+          const rawD = localStorage.getItem(`order_${safeId}_details`) || localStorage.getItem(`order_#${safeId}_details`) || '{}';
+          let savedDetails = {};
+          try { savedDetails = JSON.parse(rawD); } catch(e) {}
+          
+          const isExpiredOrModified = (savedDetails.modificationCount >= 1) 
+                                   || (orderData?.ModificationCount >= 1) 
+                                   || savedDetails.modificationExpired 
+                                   || orderData?.ModificationExpired;
 
-          if (modCount >= 1) {
+          if (isExpiredOrModified) {
             return (
-              <div className="w-full bg-amber-500/10 border border-amber-500/30 text-amber-500 p-3 rounded-xl text-center text-sm font-bold mb-2">
-                {lang === 'en' ? 'This order has already been modified once.' : 'تم تعديل هذا الطلب مسبقاً (متاح لمرة واحدة فقط)'}
+              <div className="w-full bg-white/5 border border-white/10 text-text-muted p-3.5 rounded-xl text-center text-sm font-semibold mb-2">
+                {lang === 'en' ? 'Modification chance for this order has ended.' : 'تم استنفاد فرصة تعديل هذا الطلب (متاح لمرة واحدة فقط)'}
               </div>
             );
           }

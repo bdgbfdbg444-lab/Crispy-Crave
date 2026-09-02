@@ -27,7 +27,16 @@ export default function ModificationBanner() {
       const remaining = Math.max(0, expiresAt - Date.now());
 
       if (remaining <= 0) {
-        // Time expired! Clean up and redirect to track page
+        // Time expired! Mark order as modification expired in localStorage
+        const rawD = localStorage.getItem(`order_${orderId}_details`) || localStorage.getItem(`order_#${orderId}_details`) || '{}';
+        try {
+          const parsed = JSON.parse(rawD);
+          parsed.modificationCount = 1;
+          parsed.modificationExpired = true;
+          localStorage.setItem(`order_${orderId}_details`, JSON.stringify(parsed));
+          localStorage.setItem(`order_#${orderId}_details`, JSON.stringify(parsed));
+        } catch(e) {}
+
         localStorage.removeItem('editingOrderId');
         localStorage.removeItem('editingOrderDetails');
         localStorage.removeItem('modificationExpiresAt');
@@ -35,12 +44,16 @@ export default function ModificationBanner() {
         setEditingOrderId(null);
         if (setIsCartOpen) setIsCartOpen(false);
 
-        // Update Firebase that modification timed out
+        // Update Firebase that modification has expired permanently
         try {
           fetch(`${APP_CONFIG.firebaseDbUrl}OrderTracking/${orderId}.json`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ IsModifying: false })
+            body: JSON.stringify({ 
+              IsModifying: false,
+              ModificationCount: 1,
+              ModificationExpired: true 
+            })
           });
         } catch(e) {}
 
@@ -68,6 +81,16 @@ export default function ModificationBanner() {
   const handleCancel = () => {
     if (confirm(lang === 'en' ? 'Cancel editing and keep your original order?' : 'هل تريد إلغاء التعديل والاحتفاظ بطلبك الأصلي؟')) {
       const orderId = editingOrderId;
+
+      const rawD = localStorage.getItem(`order_${orderId}_details`) || localStorage.getItem(`order_#${orderId}_details`) || '{}';
+      try {
+        const parsed = JSON.parse(rawD);
+        parsed.modificationCount = 1;
+        parsed.modificationExpired = true;
+        localStorage.setItem(`order_${orderId}_details`, JSON.stringify(parsed));
+        localStorage.setItem(`order_#${orderId}_details`, JSON.stringify(parsed));
+      } catch(e) {}
+
       localStorage.removeItem('editingOrderId');
       localStorage.removeItem('editingOrderDetails');
       localStorage.removeItem('modificationExpiresAt');
@@ -79,7 +102,11 @@ export default function ModificationBanner() {
         fetch(`${APP_CONFIG.firebaseDbUrl}OrderTracking/${orderId}.json`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ IsModifying: false })
+          body: JSON.stringify({ 
+            IsModifying: false,
+            ModificationCount: 1,
+            ModificationExpired: true 
+          })
         });
       } catch(e) {}
 
