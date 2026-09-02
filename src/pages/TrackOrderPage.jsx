@@ -7,6 +7,7 @@ import ReviewModal from '../components/ReviewModal';
 import { ref, onValue, off } from 'firebase/database';
 import { db } from '../firebase';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 
 const FIREBASE_URL = 'https://crispy-c9702-default-rtdb.europe-west1.firebasedatabase.app';
 
@@ -15,6 +16,7 @@ export default function TrackOrderPage({ menuData }) {
   const { orderId } = useParams();
   const navigate = useNavigate();
   const { addToCart, clearCart, setCartItems, setIsCartOpen } = useCart();
+  const { currentUser } = useAuth();
   const [orderData, setOrderData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
@@ -57,6 +59,12 @@ export default function TrackOrderPage({ menuData }) {
   }, [orderId]);
 
   const handleEditOrder = async () => {
+    // 1. Guest Lock: Only logged in users can self-edit
+    if (!currentUser) {
+       alert(lang === 'en' ? 'To edit an order as a guest, please contact the restaurant via WhatsApp.' : 'لتعديل الطلب كضيف، يرجى التواصل مباشرة مع الفرع عبر الواتساب.');
+       return;
+    }
+
     const currentStatus = orderData?.Status || 'Pending';
     if (currentStatus !== 'Pending' && currentStatus !== 'New') {
        alert(lang === 'en' ? 'Order is already being prepared and cannot be edited.' : 'عذراً، الأوردر قيد التحضير ولا يمكن تعديله الآن.');
@@ -66,23 +74,15 @@ export default function TrackOrderPage({ menuData }) {
     const safeOrderId = (orderId || '').replace('#', '').trim();
     const details = JSON.parse(localStorage.getItem(`order_${safeOrderId}_details`) || '{}');
 
-    // Rule 1: Max 2 modifications
-    const modCount = details.modificationCount || 0;
-    if (modCount >= 2) {
-       alert(lang === 'en' ? 'You have reached the maximum number of modifications for this order (2 times only).' : 'عذراً، لقد استنفدت الحد الأقصى لمرات تعديل هذا الطلب (مرتان فقط).');
-       return;
-    }
-
-    // Rule 2: 3-minute time window
-    const orderCreatedAt = details.createdAt || (orderData?.CreatedAt ? orderData.CreatedAt : (orderData?.LastUpdate ? new Date(orderData.LastUpdate).getTime() : Date.now()));
-    const minutesElapsed = (Date.now() - orderCreatedAt) / (1000 * 60);
-    if (minutesElapsed > 3) {
-       alert(lang === 'en' ? 'The 3-minute modification window for this order has expired.' : 'عذراً، انتهت المهلة المتاحة لتعديل الطلب (3 دقائق من وقت إنشاء الطلب).');
+    // Rule 1: Single modification only (مرة واحدة فقط)
+    const modCount = details.modificationCount || orderData?.ModificationCount || 0;
+    if (modCount >= 1) {
+       alert(lang === 'en' ? 'This order has already been modified once. Modifications are allowed only once.' : 'عذراً، تم تعديل هذا الطلب مسبقاً (التعديل مسموح لمرة واحدة فقط).');
        return;
     }
 
     try {
-      // 1. Restore original cart items (Layer 1: localStorage, Layer 2: Firebase orderData.Items)
+      // 2. Restore original cart items (Layer 1: localStorage, Layer 2: Firebase orderData.Items)
       let savedItems = [];
       const localSaved = localStorage.getItem(`order_${safeOrderId}_items`);
       if (localSaved) {
@@ -100,38 +100,59 @@ export default function TrackOrderPage({ menuData }) {
                   id: item.productId || Date.now(),
                   name: item.productName || 'صنف',
                   price: item.unitPrice || 0,
-                  sellingPrice: item.unitPrice || 0
+                  sellingPrice: item.unitPrice || 0,
+                  calculatedPrice: item.unitPrice || 0
                },
                quantity: item.quantity || 1
             };
          });
       }
 
-      // Calculate reliable original total
-      const origTotal = details.originalTotal || orderData?.TotalAmount || parseFloat(localStorage.getItem('activeOrderTotal') || '0') || 0;
-
-      if (savedItems && savedItems.length > 0) {
-         localStorage.setItem('crispy_cart_items', JSON.stringify(savedItems));
-         if (setCartItems) {
-            setCartItems(savedItems);
-         }
+      if (!savedItems || savedItems.length === 0) {
+         alert(lang === 'en' ? 'Could not load original items for this order.' : 'تعذر تحميل أصناف الطلب الأصلية للتعديل.');
+         return;
       }
 
-      // 2. Set editing session
+      // 3. Start 3-minute modification window
+      const expiresAt = Date.now() + 3 * 60 * 1000;
+      localStorage.setItem('modificationExpiresAt', expiresAt.toString());
       localStorage.setItem('editingOrderId', safeOrderId);
+
+      // Reliable original total
+      const origTotal = details.originalTotal || orderData?.TotalAmount || parseFloat(localStorage.getItem('activeOrderTotal') || '0') || 0;
+
       localStorage.setItem('editingOrderDetails', JSON.stringify({
          ...details,
          orderId: safeOrderId,
          originalTotal: origTotal,
-         customerName: details.customerName || orderData?.CustomerName || '',
-         customerPhone: details.customerPhone || orderData?.CustomerPhone || '',
+         expiresAt: expiresAt,
+         customerName: details.customerName || orderData?.CustomerName || currentUser?.displayName || '',
+         customerPhone: details.customerPhone || orderData?.CustomerPhone || currentUser?.phoneNumber || '',
          orderType: details.orderType || orderData?.OrderType || 'takeaway',
          deliveryAddress: details.deliveryAddress || orderData?.DeliveryAddress || '',
          tableNumber: details.tableNumber || orderData?.TableNumber || '',
          notes: details.notes || orderData?.Notes || ''
       }));
 
-      // 3. Open cart and navigate to menu
+      // 4. Hydrate Cart firmly
+      localStorage.setItem('crispy_cart_items', JSON.stringify(savedItems));
+      if (setCartItems) {
+         setCartItems(savedItems);
+      }
+
+      // 5. Update Firebase that modification has started (hold kitchen)
+      try {
+        fetch(`${APP_CONFIG.firebaseDbUrl}OrderTracking/${safeOrderId}.json`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            IsModifying: true,
+            ModificationExpiresAt: expiresAt
+          })
+        });
+      } catch(e) {}
+
+      // 6. Open cart and navigate to menu
       if (setIsCartOpen) {
          setIsCartOpen(true);
       }
@@ -319,25 +340,37 @@ export default function TrackOrderPage({ menuData }) {
         )}
 
         {(orderStatus === 'Pending' || orderStatus === 'New') && (() => {
-          const safeId = (orderId || '').replace('#', '').trim();
-          const savedDetails = JSON.parse(localStorage.getItem(`order_${safeId}_details`) || '{}');
-          const modCount = savedDetails.modificationCount || 0;
-          const isMaxReached = modCount >= 2;
-          const orderTime = savedDetails.createdAt || (orderData?.LastUpdate ? new Date(orderData.LastUpdate).getTime() : 0);
-          const isTimeExpired = orderTime > 0 && ((Date.now() - orderTime) / 60000) > 3;
-
-          if (isMaxReached) {
+          // If Guest user: do not show edit button, show contact branch info
+          if (!currentUser) {
             return (
-              <div className="w-full bg-amber-500/10 border border-amber-500/30 text-amber-500 p-3 rounded-xl text-center text-sm font-bold mb-2">
-                {lang === 'en' ? 'Maximum modifications reached (2/2)' : 'تم استنفاد الحد الأقصى للتعديلات (مرتان فقط)'}
+              <div className="w-full bg-black-surface border border-brand-red-dark/30 p-4 rounded-xl text-center mb-2 shadow-sm">
+                <p className="text-text-muted text-sm mb-2">
+                  {lang === 'en' 
+                    ? 'To modify or cancel your order as a guest, please contact the restaurant directly:' 
+                    : 'لتعديل أو إلغاء طلبك كضيف، يُرجى التواصل مباشرة مع الفرع:'}
+                </p>
+                <a 
+                  href={APP_CONFIG.whatsappUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 text-green-500 font-bold hover:underline"
+                >
+                  <MessageCircle size={18} />
+                  <span>{lang === 'en' ? 'Contact via WhatsApp' : 'تواصل عبر واتساب'}</span>
+                </a>
               </div>
             );
           }
 
-          if (isTimeExpired) {
+          // If Logged in user: check single modification rule
+          const safeId = (orderId || '').replace('#', '').trim();
+          const savedDetails = JSON.parse(localStorage.getItem(`order_${safeId}_details`) || '{}');
+          const modCount = savedDetails.modificationCount || orderData?.ModificationCount || 0;
+
+          if (modCount >= 1) {
             return (
               <div className="w-full bg-amber-500/10 border border-amber-500/30 text-amber-500 p-3 rounded-xl text-center text-sm font-bold mb-2">
-                {lang === 'en' ? 'Modification window expired (3 min)' : 'انتهت مهلة التعديل المتاحة (3 دقائق من وقت الطلب)'}
+                {lang === 'en' ? 'This order has already been modified once.' : 'تم تعديل هذا الطلب مسبقاً (متاح لمرة واحدة فقط)'}
               </div>
             );
           }
@@ -345,10 +378,10 @@ export default function TrackOrderPage({ menuData }) {
           return (
             <button 
               onClick={handleEditOrder}
-              className="w-full bg-brand-red text-text-light p-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-brand-red/90 transition-colors mb-2"
+              className="w-full bg-brand-red text-text-light p-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-brand-red/90 transition-colors mb-2 cursor-pointer shadow-lg shadow-brand-red/20"
             >
               <Edit3 size={20} />
-              <span>{lang === 'en' ? `Edit Order (${2 - modCount} remaining)` : `تعديل الطلب (متبقي ${2 - modCount} تعديل)`}</span>
+              <span>{lang === 'en' ? 'Edit Order (Once only - 3 min)' : 'تعديل الطلب (متاح لمرة واحدة - مهلة 3 دقائق)'}</span>
             </button>
           );
         })()}

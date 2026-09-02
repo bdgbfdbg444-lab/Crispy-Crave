@@ -4,6 +4,7 @@ import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { fetchWebsiteData, fetchMenuData } from './services/firebaseService';
 import Header from './components/Header';
+import ModificationBanner from './components/ModificationBanner';
 import CartSidebar from './components/Cart/CartSidebar';
 import MobileBottomNav from './components/MobileBottomNav';
 import Home from './pages/Home';
@@ -116,6 +117,7 @@ function App() {
       </AnimatePresence>
 
       <div className="min-h-screen bg-black-surface text-text-light font-sans flex flex-col relative pb-16 md:pb-0 overflow-x-hidden">
+        <ModificationBanner />
         <Header />
         
         {!loading && <AnimatedRoutes websiteData={websiteData} menuData={menuData} />}
