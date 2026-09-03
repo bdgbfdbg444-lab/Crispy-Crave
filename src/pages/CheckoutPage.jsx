@@ -22,13 +22,16 @@ export default function CheckoutPage({ menuData }) {
     notes: '',
     orderType: tableNumber ? 'DineIn' : 'takeaway', deliveryAddress: customerData?.addresses?.find(a => a.isDefault)?.fullAddress || customerData?.Address || '', tableNumber: tableNumber || ''
   });
-  const deliveryZones = menuData?.deliveryZones || [
-    { id: 1, name: "محرم بك / الشاطبي", deliveryFee: 20 },
-    { id: 2, name: "سموحة", deliveryFee: 30 },
-    { id: 3, name: "سيدي جابر / كليوباترا", deliveryFee: 25 },
-    { id: 4, name: "ميامي / العصافرة", deliveryFee: 35 },
-    { id: 5, name: "العجمي", deliveryFee: 60, minOrderAmount: 150 }
-  ];
+  const rawZones = menuData?.deliveryZones;
+  const deliveryZones = Array.isArray(rawZones) 
+    ? rawZones 
+    : (rawZones && typeof rawZones === 'object' ? Object.values(rawZones) : [
+        { id: 1, name: "محرم بك / الشاطبي", deliveryFee: 20 },
+        { id: 2, name: "سموحة", deliveryFee: 30 },
+        { id: 3, name: "سيدي جابر / كليوباترا", deliveryFee: 25 },
+        { id: 4, name: "ميامي / العصافرة", deliveryFee: 35 },
+        { id: 5, name: "العجمي", deliveryFee: 60, minOrderAmount: 150 }
+      ]);
   const taxPercentage = Number(menuData?.restaurant?.defaultTaxPercentage || 0);
 
   const defaultAddr = customerData?.addresses?.find(a => a.isDefault);
@@ -37,8 +40,8 @@ export default function CheckoutPage({ menuData }) {
   });
 
   const subtotal = cartTotal;
-  const selectedZoneObj = deliveryZones.find(z => z.name === selectedZone);
-  const deliveryFee = formData?.orderType === 'delivery' && selectedZoneObj ? Number(selectedZoneObj.deliveryFee) : 0;
+  const selectedZoneObj = deliveryZones.find(z => (z.name || '').trim() === (selectedZone || '').trim());
+  const deliveryFee = formData?.orderType === 'delivery' && selectedZoneObj ? Number(selectedZoneObj.deliveryFee || 0) : 0;
   const taxAmount = taxPercentage > 0 ? Math.round((subtotal * (taxPercentage / 100)) * 100) / 100 : 0;
   const grandTotal = Math.round((subtotal + taxAmount + deliveryFee) * 100) / 100;
 
@@ -390,7 +393,7 @@ export default function CheckoutPage({ menuData }) {
         tableNumber: formData.tableNumber,
         notes: formData.notes,
         createdAt: existingDetails.createdAt || Date.now(),
-        originalTotal: cartTotal,
+        originalTotal: grandTotal,
         paymentReceiptUrl: paymentReceiptUrl || existingDetails.paymentReceiptUrl || '',
         modificationCount: newModCount
       }));
