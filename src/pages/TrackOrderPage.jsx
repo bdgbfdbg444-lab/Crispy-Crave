@@ -204,7 +204,82 @@ export default function TrackOrderPage({ menuData }) {
   if (loading) {
     return (
       <div className="pt-24 min-h-screen bg-black-surface flex flex-col items-center justify-center">
-        <p className="font-bold text-lg">{lang === 'en' ? 'Loading order status...' : 'جاري تحميل حالة الطلب...'}</p>
+        <p className="font-bold text-lg">{lang === "en" ? "Loading order status..." : "جاري تحميل حالة الطلب..."}</p>
+      </div>
+    );
+  }
+
+  // -------------------------------------------------------------
+  // IDOR & Privacy Protection Guard
+  // -------------------------------------------------------------
+  const orderOwnerPhone = (orderData?.CustomerPhone || "").trim();
+  const currentLoggedInPhone = (userPhone || "").trim();
+
+  // If orderData is not found in database at all:
+  if (!orderData) {
+    return (
+      <div className="pt-24 min-h-screen bg-black-surface flex flex-col items-center justify-center p-6 text-center" style={{ direction: lang === "ar" ? "rtl" : "ltr" }}>
+        <div className="max-w-md w-full bg-black-primary border border-brand-red/30 rounded-3xl p-8 shadow-2xl flex flex-col items-center">
+          <div className="w-20 h-20 bg-red-500/10 text-brand-red rounded-full flex items-center justify-center mb-6 border border-brand-red/30">
+            <AlertCircle size={44} />
+          </div>
+          <h2 className="text-2xl font-display font-black text-text-light mb-3">
+            {lang === "en" ? "Order Not Found" : "الطلب غير موجود"}
+          </h2>
+          <p className="text-text-muted leading-relaxed mb-6 text-sm">
+            {lang === "en" 
+              ? `Order #${orderId} was not found. Please check the order number.`
+              : `عفواً، لم يتم العثور على أي بيانات للطلب رقم #${orderId}. يرجى التأكد من كتابة الرقم الصحيح.`}
+          </p>
+          <button 
+            type="button"
+            onClick={() => navigate("/menu")}
+            className="w-full py-4 rounded-xl font-bold text-text-light bg-brand-red hover:bg-brand-red-dark transition-all shadow-lg shadow-brand-red/30 cursor-pointer"
+          >
+            {lang === "en" ? "Back to Menu" : "العودة للمنيو"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // If the user is logged in, verify they OWN this order:
+  const isSessionOwner = sessionStorage.getItem("placed_order_" + (orderId || "").replace("#", "").trim());
+  const isOwner = (currentLoggedInPhone && orderOwnerPhone && currentLoggedInPhone === orderOwnerPhone) || isSessionOwner;
+
+  if (currentUser && !isOwner) {
+    // If it was wrongfully stored in local storage, purge it immediately
+    localStorage.removeItem("activeOrderId");
+    return (
+      <div className="pt-24 min-h-screen bg-black-surface flex flex-col items-center justify-center p-6 text-center" style={{ direction: lang === "ar" ? "rtl" : "ltr" }}>
+        <div className="max-w-md w-full bg-black-primary border border-brand-red/30 rounded-3xl p-8 shadow-2xl flex flex-col items-center">
+          <div className="w-20 h-20 bg-red-500/10 text-brand-red rounded-full flex items-center justify-center mb-6 border border-brand-red/30">
+            <AlertCircle size={44} />
+          </div>
+          <h2 className="text-2xl font-display font-black text-text-light mb-3">
+            {lang === "en" ? "Unauthorized Order Access" : "طلب غير مصرح بعرضه"}
+          </h2>
+          <p className="text-text-muted leading-relaxed mb-6 text-sm">
+            {lang === "en" 
+              ? `Order #${orderId} does not belong to your account (${currentLoggedInPhone}).`
+              : `الطلب رقم #${orderId} لا ينتمي لرقم الهاتف المسجل بحسابك الحالي (${currentLoggedInPhone}). لحماية خصوصية وسرية بيانات العملاء، لا يمكن عرض تفاصيل طلبات تخص حسابات أخرى.`}
+          </p>
+          <button 
+            type="button"
+            onClick={() => navigate("/account")}
+            className="w-full py-4 rounded-xl font-bold text-text-light bg-brand-red hover:bg-brand-red-dark transition-all shadow-lg shadow-brand-red/30 flex items-center justify-center gap-2 cursor-pointer mb-3"
+          >
+            <span>{lang === "en" ? "Go to My Account" : "الانتقال إلى حسابي"}</span>
+            <ArrowRight size={18} className={lang === "ar" ? "rotate-180" : ""} />
+          </button>
+          <button 
+            type="button"
+            onClick={() => navigate("/menu")}
+            className="w-full py-3 rounded-xl font-bold text-text-muted hover:text-text-light transition-colors text-sm cursor-pointer"
+          >
+            {lang === "en" ? "Back to Menu" : "العودة للمنيو"}
+          </button>
+        </div>
       </div>
     );
   }

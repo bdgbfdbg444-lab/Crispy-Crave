@@ -91,14 +91,7 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
   const history = customerData.History || [];
   let activeOrders = history.filter(o => !['Completed', 'Cancelled', 'Voided', 'Refunded'].includes(o.Status));
   
-  const savedOrderId = localStorage.getItem('activeOrderId');
-  const savedOrderTotal = localStorage.getItem('activeOrderTotal') || '---';
-  if (savedOrderId) {
-    const isInHistory = history.some(o => o.OrderNumber === savedOrderId || o.OrderNumber === savedOrderId.replace('#', '') || (o.WebOrderId && (o.WebOrderId === savedOrderId || o.WebOrderId === savedOrderId.replace('#', ''))));
-    if (!isInHistory) {
-      activeOrders = [{ OrderNumber: savedOrderId, Status: 'Pending', TotalAmount: savedOrderTotal, OrderDate: new Date().toISOString() }, ...activeOrders];
-    }
-  }
+// activeOrders strictly comes from customer history only! No localStorage bleeding.
 
   const pastOrders = history.filter(o => ['Completed', 'Cancelled', 'Voided', 'Refunded'].includes(o.Status));
 

@@ -356,6 +356,7 @@ export default function CheckoutPage({ menuData }) {
       localStorage.setItem('activeOrderId', displayOrderId);
       localStorage.setItem('activeOrderTotal', cartTotal);
       setIsSubmitting(false);
+      sessionStorage.setItem('placed_order_' + displayOrderId.replace('#', '').trim(), 'true');
       navigate('/track/' + encodeURIComponent(displayOrderId));
       return;
 
