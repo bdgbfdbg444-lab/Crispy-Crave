@@ -352,12 +352,38 @@ export default function CheckoutPage({ menuData }) {
       localStorage.removeItem('editingOrderId');
       localStorage.removeItem('editingOrderDetails');
 
+      const cleanId = displayOrderId.replace(/#/g, '').trim();
+
+      // Immediately initialize OrderTracking node in Firebase with Status: 'Pending'
+      try {
+        await fetch(`${APP_CONFIG.firebaseDbUrl}OrderTracking/${cleanId}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            Status: 'Pending',
+            CustomerName: formData.customerName,
+            CustomerPhone: formData.customerPhone,
+            OrderType: formData.orderType,
+            DeliveryAddress: formData.orderType === 'delivery' ? formData.deliveryAddress : '',
+            TableNumber: formData.orderType === 'DineIn' ? formData.tableNumber : '',
+            TotalAmount: cartTotal,
+            CreatedAt: Date.now(),
+            Items: items
+          })
+        });
+      } catch(e) {}
+
       clearCart();
-      localStorage.setItem('activeOrderId', displayOrderId);
+      const currentPhone = (formData.customerPhone || '').trim();
+      if (currentPhone) {
+        localStorage.setItem('activeOrder_' + currentPhone, cleanId);
+      }
+      localStorage.setItem('activeOrderId', cleanId);
       localStorage.setItem('activeOrderTotal', cartTotal);
       setIsSubmitting(false);
-      sessionStorage.setItem('placed_order_' + displayOrderId.replace('#', '').trim(), 'true');
-      navigate('/track/' + encodeURIComponent(displayOrderId));
+      sessionStorage.setItem('placed_order_' + cleanId, 'true');
+      // Navigate cleanly without '#' symbol so HashRouter does not double-hash!
+      navigate('/track/' + cleanId);
       return;
 
     } catch (error) {

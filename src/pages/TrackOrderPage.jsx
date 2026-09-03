@@ -14,6 +14,7 @@ const FIREBASE_URL = 'https://crispy-c9702-default-rtdb.europe-west1.firebasedat
 export default function TrackOrderPage({ menuData }) {
   const { lang } = useLanguage();
   const { orderId } = useParams();
+  const safeOrderId = (orderId || '').replace(/#/g, '').trim();
   const navigate = useNavigate();
   const { addToCart, clearCart, setCartItems, setIsCartOpen } = useCart();
   const { currentUser, userPhone } = useAuth();
@@ -39,7 +40,7 @@ export default function TrackOrderPage({ menuData }) {
   }, [orderData?.Status, hasAutoOpenedReview, orderId]);
 
   useEffect(() => {
-    const safeOrderId = orderId.replace('#', '').trim();
+    const safeOrderId = orderId.replace(/#/g, '').trim();
     const trackingRef = ref(db, `OrderTracking/${safeOrderId}`);
     
     const unsubscribe = onValue(trackingRef, (snapshot) => {
