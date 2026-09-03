@@ -301,9 +301,13 @@ export default function CheckoutPage({ menuData }) {
         customerPhone: formData.customerPhone,
         notes: formData.notes,
         orderType: formData.orderType,
-        deliveryAddress: formData.orderType === 'delivery' ? formData.deliveryAddress : '',
-        tableNumber: formData.orderType === 'DineIn' ? formData.tableNumber : '',
-        totalAmount: cartTotal,
+        deliveryAddress: formData.orderType === 'delivery' ? `[منطقة: ${selectedZone}] ${formData.deliveryAddress}` : '',
+        deliveryZone: formData.orderType === 'delivery' ? selectedZone : '',
+        deliveryFee: formData.orderType === 'delivery' ? deliveryFee : 0,
+        subtotal: subtotal,
+        taxPercentage: taxPercentage,
+        taxAmount: taxAmount,
+        totalAmount: grandTotal,
         paymentMethod: 'Cash',
         status: 'New',
         items: items,
@@ -415,7 +419,11 @@ export default function CheckoutPage({ menuData }) {
             OrderType: formData.orderType,
             DeliveryAddress: formData.orderType === 'delivery' ? formData.deliveryAddress : '',
             TableNumber: formData.orderType === 'DineIn' ? formData.tableNumber : '',
-            TotalAmount: cartTotal,
+            Subtotal: subtotal,
+            DeliveryFee: formData.orderType === 'delivery' ? deliveryFee : 0,
+            DeliveryZone: formData.orderType === 'delivery' ? selectedZone : '',
+            TaxAmount: taxAmount,
+            TotalAmount: grandTotal,
             CreatedAt: Date.now(),
             Items: items
           })
@@ -923,9 +931,29 @@ export default function CheckoutPage({ menuData }) {
                 ))}
               </div>
 
-              <div className="pt-4 border-t border-brand-red-dark/30 flex justify-between items-center text-xl">
-                <span className="font-bold text-text-muted">{lang === 'en' ? 'Total' : 'الإجمالي'}</span>
-                <span className="font-black text-brand-red">{cartTotal} {lang === 'en' ? 'EGP' : 'ج.م'}</span>
+              <div className="pt-4 border-t border-brand-red-dark/30 space-y-2 text-sm">
+                <div className="flex justify-between text-text-muted">
+                  <span>{lang === 'en' ? 'Subtotal:' : 'قيمة الوجبات:'}</span>
+                  <span className="font-bold text-text-light">{subtotal.toFixed(2)} {lang === 'en' ? 'EGP' : 'ج.م'}</span>
+                </div>
+                {taxPercentage > 0 && (
+                  <div className="flex justify-between text-text-muted">
+                    <span>{lang === 'en' ? `VAT (${taxPercentage}%):` : `ضريبة القيمة المضافة (${taxPercentage}%):`}</span>
+                    <span className="font-bold text-text-light">{taxAmount.toFixed(2)} {lang === 'en' ? 'EGP' : 'ج.م'}</span>
+                  </div>
+                )}
+                {formData.orderType === 'delivery' && (
+                  <div className="flex justify-between text-text-muted">
+                    <span>{lang === 'en' ? 'Delivery Fee:' : 'سعر التوصيل:'} {selectedZone ? `(${selectedZone})` : ''}</span>
+                    <span className={`font-bold ${deliveryFee > 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                      {deliveryFee > 0 ? `+${deliveryFee.toFixed(2)} ${lang === 'en' ? 'EGP' : 'ج.م'}` : (lang === 'en' ? 'Select Zone' : 'اختر المنطقة')}
+                    </span>
+                  </div>
+                )}
+                <div className="pt-3 border-t border-brand-red-dark/30 flex justify-between items-center text-xl">
+                  <span className="font-bold text-text-muted">{lang === 'en' ? 'Grand Total' : 'الإجمالي'}</span>
+                  <span className="font-black text-brand-red">{grandTotal.toFixed(2)} {lang === 'en' ? 'EGP' : 'ج.م'}</span>
+                </div>
               </div>
             </div>
           </div>
