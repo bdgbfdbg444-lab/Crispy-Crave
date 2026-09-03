@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { ShoppingBag, ArrowRight, Wallet, CheckCircle, AlertCircle } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { validateReceiptFile, scanAndVerifyReceipt, registerUsedReceipt } from '../services/receiptValidator';
 import { APP_CONFIG } from '../config/appConfig';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReviewModal from '../components/ReviewModal';
@@ -199,13 +200,61 @@ export default function CheckoutPage({ menuData }) {
 
   const handleContinueToPayment = (e) => {
     e.preventDefault();
-    if (formData.orderType === 'delivery' && !formData.deliveryAddress.trim()) { 
-      setErrorMessage(lang === 'en' ? 'Please enter delivery address' : 'يرجى إدخال عنوان التوصيل'); 
-      return; 
-    }
+
     if (!formData.customerName.trim() || !formData.customerPhone.trim()) { 
       setErrorMessage(lang === 'en' ? 'Please fill required fields' : 'يرجى ملء الحقول الإجبارية (الاسم ورقم الهاتف)'); 
       return; 
+    }
+
+    // Egyptian phone format check
+    const phoneClean = (formData.customerPhone || '').trim();
+    const egPhoneRegex = /^01[0125][0-9]{8}$/;
+    if (!egPhoneRegex.test(phoneClean)) {
+      const msg = lang === 'en' 
+        ? 'Please enter a valid 11-digit Egyptian mobile number (e.g. 010xxxxxxxx)' 
+        : 'يرجى إدخال رقم موبايل مصري صحيح مكون من 11 رقماً يبدأ بـ (010, 011, 012, 015)';
+      setErrorMessage(msg);
+      alert(msg);
+      return;
+    }
+
+    if (formData.orderType === 'delivery') {
+      if (!formData.deliveryAddress.trim()) { 
+        setErrorMessage(lang === 'en' ? 'Please enter delivery address' : 'يرجى إدخال عنوان التوصيل بالتفصيل'); 
+        return; 
+      }
+
+      // Strict Min Order Amount Check
+      if (selectedZoneObj && selectedZoneObj.minOrderAmount > 0 && subtotal < selectedZoneObj.minOrderAmount) {
+        const msg = `⚠️ قيمة الوجبات (${subtotal} ج.م) أقل من الحد الأدنى للطلب لمنطقة ${selectedZoneObj.name} (${selectedZoneObj.minOrderAmount} ج.م). يرجى إضافة المزيد من الأصناف للسلة.`;
+        setErrorMessage(msg);
+        alert(msg);
+        return;
+      }
+
+      // Keyword Mismatch Detection (prevents choosing cheap zone and writing distant zone)
+      if (selectedZone) {
+        const currentZoneClean = selectedZone.replace(/[\/\-]/g, ' ').trim();
+        const addressLower = (formData.deliveryAddress || '').toLowerCase();
+
+        for (const otherZone of deliveryZones) {
+          if (otherZone.name === selectedZone) continue;
+          const cleanOtherName = (otherZone.name || '').replace(/[\/\-]/g, ' ').trim();
+          const otherTokens = cleanOtherName.split(/\s+/).filter(t => t.length > 2);
+          
+          const mismatch = otherTokens.some(tok => {
+            if (currentZoneClean.includes(tok)) return false;
+            return addressLower.includes(tok.toLowerCase());
+          });
+
+          if (mismatch) {
+            const msg = `⚠️ تنبيه أمني: العنوان المكتوب يحتوي على منطقة (${otherZone.name}) تختلف عن منطقة التوصيل المحسوبة (${selectedZone}). يرجى التأكد من اختيار منطقتك السكنية الصحيحة لتجنب إلغاء الطلب.`;
+            setErrorMessage(msg);
+            alert(msg);
+            return;
+          }
+        }
+      }
     }
     
     setErrorMessage('');
@@ -215,8 +264,9 @@ export default function CheckoutPage({ menuData }) {
   const handleFileSelect = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (!file.type.startsWith('image/')) {
-        alert(lang === 'en' ? 'Only image files are allowed.' : 'يسمح فقط برفع الصور.');
+      const check = validateReceiptFile(file);
+      if (!check.isValid) {
+        alert(check.error);
         return;
       }
       try {
@@ -225,6 +275,7 @@ export default function CheckoutPage({ menuData }) {
         setReceiptFile(compressed);
       } catch (error) {
         console.error('Error compressing image:', error);
+        setReceiptFile(file);
       }
     }
   };
@@ -257,8 +308,41 @@ export default function CheckoutPage({ menuData }) {
       return;
     }
 
+    // Rate Limiting (anti-spam 30s)
+    const nowTimestamp = Date.now();
+    const lastOrderTime = Number(localStorage.getItem('last_order_submitted_timestamp') || 0);
+    if (nowTimestamp - lastOrderTime < 30000 && !localStorage.getItem('editingOrderId')) {
+      const waitSec = Math.ceil((30000 - (nowTimestamp - lastOrderTime)) / 1000);
+      const msg = `يرجى الانتظار ${waitSec} ثانية قبل إرسال طلب جديد لمنع تكرار الطلبات.`;
+      setErrorMessage(msg);
+      alert(msg);
+      return;
+    }
+
+    // Min Order check on submit
+    if (formData.orderType === 'delivery' && selectedZoneObj && selectedZoneObj.minOrderAmount > 0 && subtotal < selectedZoneObj.minOrderAmount) {
+      setErrorMessage(`قيمة الوجبات أقل من الحد الأدنى للطلب (${selectedZoneObj.minOrderAmount} ج.م)`);
+      return;
+    }
+
     setIsSubmitting(true);
     setErrorMessage("");
+
+    // Verify receipt with OCR and check for duplicates in Firebase
+    let ocrCheckResult = null;
+    if (receiptFile) {
+      try {
+        ocrCheckResult = await scanAndVerifyReceipt(receiptFile, grandTotal);
+        if (!ocrCheckResult.isValid) {
+          setErrorMessage(ocrCheckResult.error);
+          alert(ocrCheckResult.error);
+          setIsSubmitting(false);
+          return;
+        }
+      } catch (ocrErr) {
+        console.warn('OCR Check error:', ocrErr);
+      }
+    }
 
     try {
       // 1. Prepare Order Data
@@ -456,6 +540,12 @@ export default function CheckoutPage({ menuData }) {
       } catch(e) {}
 
       clearCart();
+      localStorage.setItem('last_order_submitted_timestamp', Date.now().toString());
+
+      if (ocrCheckResult && ocrCheckResult.refNumber) {
+        await registerUsedReceipt(ocrCheckResult.refNumber, displayOrderId, formData.customerPhone, grandTotal);
+      }
+
       const currentPhone = (formData.customerPhone || '').trim();
       if (currentPhone) {
         localStorage.setItem('activeOrder_' + currentPhone, cleanId);
@@ -855,9 +945,12 @@ export default function CheckoutPage({ menuData }) {
                 <button 
                     type="button" 
                     onClick={handleContinueToPayment}
-                    className="w-full mt-8 py-4 rounded-xl font-bold text-lg text-text-light transition-all shadow-lg bg-brand-red hover:bg-brand-red-dark shadow-brand-red/30"
+                    disabled={formData.orderType === 'delivery' && selectedZoneObj && selectedZoneObj.minOrderAmount > 0 && subtotal < selectedZoneObj.minOrderAmount}
+                    className="w-full mt-8 py-4 rounded-xl font-bold text-lg text-text-light transition-all shadow-lg bg-brand-red hover:bg-brand-red-dark shadow-brand-red/30 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {lang === 'en' ? 'Continue to Payment' : 'المتابعة للدفع'}
+                    {formData.orderType === 'delivery' && selectedZoneObj && selectedZoneObj.minOrderAmount > 0 && subtotal < selectedZoneObj.minOrderAmount
+                      ? `الحد الأدنى للطلب ${selectedZoneObj.minOrderAmount} ج.م`
+                      : (lang === 'en' ? 'Continue to Payment' : 'المتابعة للدفع')}
                   </button>
                   </>
                 ) : (

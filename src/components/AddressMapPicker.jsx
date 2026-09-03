@@ -38,6 +38,7 @@ export default function AddressMapPicker({
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markerRef = useRef(null);
+  const debounceTimerRef = useRef(null);
 
   const [locatingGps, setLocatingGps] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
@@ -79,10 +80,16 @@ export default function AddressMapPicker({
     }
   };
 
-  // Reverse geocoding function
+  // Reverse geocoding function with Alexandria Geofencing
   const reverseGeocode = async (lat, lng) => {
     setGeocoding(true);
     setGpsError('');
+
+    // Check Alexandria bounds (Lat ~ 30.85 to 31.45, Lng ~ 29.50 to 30.40)
+    const isInsideAlexandria = lat >= 30.85 && lat <= 31.45 && lng >= 29.50 && lng <= 30.40;
+    if (!isInsideAlexandria) {
+      setGpsError('⚠️ موقع الدبوس يقع خارج نطاق محافظة الإسكندرية ومناطق توصيل المطعم.');
+    }
     try {
       const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=ar`, {
         headers: { 'Accept-Language': 'ar' }
@@ -160,12 +167,18 @@ export default function AddressMapPicker({
 
     marker.on('dragend', () => {
       const pos = marker.getLatLng();
-      reverseGeocode(pos.lat, pos.lng);
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = setTimeout(() => {
+        reverseGeocode(pos.lat, pos.lng);
+      }, 500);
     });
 
     map.on('click', (e) => {
       marker.setLatLng(e.latlng);
-      reverseGeocode(e.latlng.lat, e.latlng.lng);
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = setTimeout(() => {
+        reverseGeocode(e.latlng.lat, e.latlng.lng);
+      }, 500);
     });
 
     mapInstanceRef.current = map;
