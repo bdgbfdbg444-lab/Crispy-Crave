@@ -29,18 +29,15 @@ export default function CartSidebar() {
       fetch(`${APP_CONFIG.firebaseDbUrl}OrderTracking/${cleanId}.json`)
         .then(res => res.json())
         .then(data => {
-          // ONLY clear if confirmed Completed or Cancelled!
-          if (data && (data.Status === 'Completed' || data.Status === 'Cancelled')) {
+          if (!data || data.Status === 'Completed' || data.Status === 'Cancelled') {
             localStorage.removeItem('activeOrderId');
             setActiveOrderId(null);
           } else {
-            // Keep active
             setActiveOrderId(cleanId);
           }
         })
         .catch(() => {
-          // Keep active on network error
-          setActiveOrderId(cleanId);
+          setActiveOrderId(null);
         });
     } else {
       setActiveOrderId(null);
