@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { ShoppingBag, ArrowRight, Wallet, CheckCircle, AlertCircle } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { validateReceiptFile, scanAndVerifyReceipt, registerUsedReceipt, computeFileHash } from '../services/receiptValidator';
+import { validateReceiptFile } from '../services/receiptValidator';
 import { checkZoneMismatch } from '../components/AddressMapPicker';
 import { APP_CONFIG } from '../config/appConfig';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -247,7 +247,7 @@ export default function CheckoutPage({ menuData }) {
     setShowPayment(true);
   };
 
-  const handleFileSelect = async (e) => {
+  const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
       const check = validateReceiptFile(file);
@@ -256,24 +256,6 @@ export default function CheckoutPage({ menuData }) {
         e.target.value = '';
         return;
       }
-
-      // Check SHA-256 hash immediately on upload!
-      try {
-        const hash = await computeFileHash(file);
-        const { db } = await import('../firebase');
-        const { ref, get } = await import('firebase/database');
-        const hashSnap = await get(ref(db, `UsedReceipts/hashes/${hash}`));
-        if (hashSnap.exists()) {
-          const hData = hashSnap.val();
-          alert(`❌ إيصال مكرر! تم رفع نفس صورة هذا الإيصال مسبقاً في الطلب رقم #${hData.orderId || ''}. يرجى إرفاق إيصال التحويل الفعلي لهذا الطلب.`);
-          e.target.value = '';
-          setReceiptFile(null);
-          return;
-        }
-      } catch (hErr) {
-        console.warn('Immediate hash check warning:', hErr);
-      }
-
       setReceiptFile(file);
     }
   };
@@ -326,21 +308,7 @@ export default function CheckoutPage({ menuData }) {
     setIsSubmitting(true);
     setErrorMessage("");
 
-    // Verify receipt with OCR and check for duplicates in Firebase
-    let ocrCheckResult = null;
-    if (receiptFile) {
-      try {
-        ocrCheckResult = await scanAndVerifyReceipt(receiptFile, grandTotal);
-        if (!ocrCheckResult.isValid) {
-          setErrorMessage(ocrCheckResult.error);
-          alert(ocrCheckResult.error);
-          setIsSubmitting(false);
-          return;
-        }
-      } catch (ocrErr) {
-        console.warn('OCR Check error:', ocrErr);
-      }
-    }
+
 
     try {
       // 1. Prepare Order Data
@@ -540,10 +508,7 @@ export default function CheckoutPage({ menuData }) {
       clearCart();
       localStorage.setItem('last_order_submitted_timestamp', Date.now().toString());
 
-      if (receiptFile) {
-        const fileHash = ocrCheckResult?.fileHash || await computeFileHash(receiptFile);
-        await registerUsedReceipt(fileHash, ocrCheckResult?.refNumber, displayOrderId, formData.customerPhone, grandTotal);
-      }
+
 
       const currentPhone = (formData.customerPhone || '').trim();
       if (currentPhone) {

@@ -185,8 +185,8 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
 
   const handleAddAddress = async () => {
     const fullAddr = newAddress.fullAddress || formatAddressDetails(newAddress);
-    if (!newAddress.zone) {
-      alert(lang === 'en' ? 'Please select your delivery area' : 'يرجى اختيار منطقة التوصيل السكنية');
+    if (!newAddress.zone || newAddress.isOutOfZone) {
+      alert(lang === 'en' ? 'Selected location is outside delivery areas' : '⚠️ لا يمكن الحفظ: هذا الموقع يقع خارج نطاق مناطق التوصيل المتاحة للمطعم.');
       return;
     }
     if (!newAddress.street?.trim() && !fullAddr.trim()) {
@@ -507,7 +507,7 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
                   >
                     {lang === 'en' ? 'Cancel' : 'إلغاء'}
                   </button>
-                  <button onClick={handleAddAddress} disabled={isSavingAddress || !newAddress.fullAddress.trim()} className="bg-brand-red text-white px-6 py-2 rounded-lg disabled:opacity-50 font-bold">
+                  <button onClick={handleAddAddress} disabled={isSavingAddress || !newAddress.fullAddress.trim() || !newAddress.zone || newAddress.isOutOfZone} className="bg-brand-red text-white px-6 py-2 rounded-lg disabled:opacity-50 font-bold">
                     {isSavingAddress ? '...' : (editingAddressId ? (lang === 'en' ? 'Update' : 'حفظ التعديلات') : (lang === 'en' ? 'Save' : 'حفظ العنوان'))}
                   </button>
                 </div>

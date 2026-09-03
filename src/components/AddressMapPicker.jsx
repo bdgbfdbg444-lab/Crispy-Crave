@@ -79,6 +79,9 @@ export default function AddressMapPicker({
   const [geocoding, setGeocoding] = useState(false);
   const [gpsError, setGpsError] = useState('');
   const [detectedZoneName, setDetectedZoneName] = useState('');
+  const [rawAreaName, setRawAreaName] = useState('');
+  const [isOutOfZone, setIsOutOfZone] = useState(false);
+  const [allowManualOverride, setAllowManualOverride] = useState(false);
 
   // Local state for individual fields initialized from value
   const combinedText = `${value?.street || ''} ${value?.landmark || ''} ${value?.fullAddress || ''}`;
@@ -135,11 +138,14 @@ export default function AddressMapPicker({
       let streetName = '';
       let zoneDetected = '';
 
+      let neighborhoodName = '';
       if (data && data.address) {
         const addr = data.address;
-        streetName = addr.road || addr.pedestrian || addr.street || addr.neighbourhood || '';
+        streetName = addr.road || addr.pedestrian || addr.street || '';
+        neighborhoodName = addr.suburb || addr.neighbourhood || addr.quarter || addr.city_district || addr.district || '';
+        setRawAreaName(neighborhoodName);
         
-        // Match against zonesList
+        // Match against zonesList using normalizeArabic
         const searchPool = [
           addr.suburb,
           addr.neighbourhood,
@@ -149,10 +155,12 @@ export default function AddressMapPicker({
           data.display_name
         ].filter(Boolean).join(' ');
 
+        const normSearchPool = normalizeArabic(searchPool);
+
         for (const z of zonesList) {
-          const cleanZone = (z.name || '').replace(/[\/\-]/g, ' ').trim();
-          const tokens = cleanZone.split(/\s+/).filter(t => t.length > 2);
-          const matched = tokens.some(t => searchPool.includes(t));
+          const normZoneName = normalizeArabic(z.name || '');
+          const tokens = normZoneName.split(/\s+/).filter(t => t.length > 2);
+          const matched = tokens.length > 0 && tokens.some(t => normSearchPool.includes(t));
           if (matched) {
             zoneDetected = z.name;
             break;
@@ -162,13 +170,24 @@ export default function AddressMapPicker({
 
       setDetectedZoneName(zoneDetected);
 
+      if (!zoneDetected) {
+        setIsOutOfZone(true);
+        setGpsError(neighborhoodName 
+          ? `⚠️ هذا الموقع يقع في (${neighborhoodName}) وهي خارج نطاق التوصيل المتاح حالياً للمطعم.` 
+          : '⚠️ هذا الموقع خارج نطاق مناطق التوصيل المتاحة للمطعم.');
+      } else {
+        setIsOutOfZone(false);
+        setGpsError('');
+      }
+
       const next = {
         ...formData,
         lat,
         lng,
         mapsUrl: `https://maps.google.com/?q=${lat},${lng}`,
         street: streetName || formData.street,
-        zone: zoneDetected || formData.zone
+        zone: zoneDetected || (allowManualOverride ? formData.zone : ''),
+        isOutOfZone: !zoneDetected
       };
       updateParent(next);
     } catch (err) {
@@ -328,23 +347,64 @@ export default function AddressMapPicker({
 
       {/* Structured Address Fields Grid */}
       <div className="space-y-3">
-        {/* Zone Selector */}
+        {/* Smart Zone Box (Driven by Map Pin) */}
         <div>
-          <label className="block text-xs font-bold text-text-light mb-1.5">
-            {lang === 'en' ? 'Delivery Area / Zone *' : 'منطقة التوصيل السكنية *'}
-          </label>
-          <select
-            required
-            disabled={disabled}
-            value={formData.zone}
-            onChange={(e) => handleFieldChange('zone', e.target.value)}
-            className="w-full bg-black-surface border border-brand-red-dark/30 text-text-light p-2.5 rounded-xl font-bold text-sm focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red"
-          >
-            <option value="">{lang === 'en' ? '-- Select Area --' : '-- اختر المنطقة السكنية --'}</option>
-            {zonesList.map(z => (
-              <option key={z.id || z.name} value={z.name}>{z.name}</option>
-            ))}
-          </select>
+          <div className="flex justify-between items-center mb-1.5">
+            <label className="block text-xs font-bold text-text-light">
+              {lang === 'en' ? 'Delivery Zone (Auto-detected from Map) *' : 'منطقة التوصيل (تُحدد تلقائياً من الخريطة 📍) *'}
+            </label>
+            <button 
+              type="button" 
+              onClick={() => setAllowManualOverride(!allowManualOverride)} 
+              className="text-[11px] text-text-muted hover:text-brand-red underline"
+            >
+              {allowManualOverride ? 'إلغاء التعديل اليدوي' : 'تعديل يدوي للمنطقة'}
+            </button>
+          </div>
+
+          {allowManualOverride ? (
+            <select
+              required
+              disabled={disabled}
+              value={formData.zone}
+              onChange={(e) => {
+                handleFieldChange('zone', e.target.value);
+                setIsOutOfZone(!e.target.value);
+              }}
+              className="w-full bg-black-surface border border-brand-red-dark/30 text-text-light p-2.5 rounded-xl font-bold text-sm focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red"
+            >
+              <option value="">{lang === 'en' ? '-- Select Area --' : '-- اختر المنطقة السكنية --'}</option>
+              {zonesList.map(z => (
+                <option key={z.id || z.name} value={z.name}>{z.name}</option>
+              ))}
+            </select>
+          ) : (
+            <div>
+              {formData.zone ? (
+                <div className="flex items-center justify-between bg-emerald-950/40 border border-emerald-500/40 px-3.5 py-2.5 rounded-xl">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="text-emerald-400" size={18} />
+                    <span className="text-emerald-300 font-bold text-sm">{formData.zone}</span>
+                  </div>
+                  <span className="text-[11px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded font-bold">
+                    مغطاة بالتوصيل ✓
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between bg-red-950/40 border border-red-500/40 px-3.5 py-2.5 rounded-xl">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="text-red-400 shrink-0" size={18} />
+                    <span className="text-red-300 font-bold text-xs">
+                      {rawAreaName ? `خارج نطاق التوصيل (${rawAreaName})` : 'حرك الدبوس لتحديد منطقتك'}
+                    </span>
+                  </div>
+                  <span className="text-[11px] bg-red-500/20 text-red-300 px-2 py-0.5 rounded font-bold">
+                    غير متاح ✕
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Street Name */}
