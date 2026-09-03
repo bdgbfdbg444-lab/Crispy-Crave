@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MapPin, Navigation, Building2, Home, Layers, Check, AlertCircle } from 'lucide-react';
+import { MapPin, Navigation, Building2, Home, Layers, Check, AlertCircle, Search } from 'lucide-react';
 
 // Custom SVG Leaflet Pin Icon to avoid missing asset paths
 const pinIconSvg = `
@@ -258,6 +258,53 @@ export default function AddressMapPicker({
   const [rawAreaName, setRawAreaName] = useState('');
   const [isOutOfZone, setIsOutOfZone] = useState(false);
   const [allowManualOverride, setAllowManualOverride] = useState(false);
+
+  // Search Bar State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchDebounceRef = useRef(null);
+
+  const handleSearchChange = (val) => {
+    setSearchQuery(val);
+    if (!val || val.trim().length < 3) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    setIsSearching(true);
+
+    searchDebounceRef.current = setTimeout(async () => {
+      try {
+        const q = val.trim() + ' الإسكندرية';
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&accept-language=ar&countrycodes=eg&limit=5`, {
+          headers: { 'Accept-Language': 'ar' }
+        });
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setSearchResults(data);
+        }
+      } catch (err) {
+        console.warn('Map search error:', err);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 400);
+  };
+
+  const handleSelectSearchResult = (item) => {
+    const lat = parseFloat(item.lat);
+    const lng = parseFloat(item.lon);
+    if (mapInstanceRef.current && markerRef.current) {
+      mapInstanceRef.current.setView([lat, lng], 17);
+      markerRef.current.setLatLng([lat, lng]);
+    }
+    setSearchQuery(item.display_name.split(',')[0]);
+    setSearchResults([]);
+    reverseGeocode(lat, lng);
+  };
 
   // Local state for individual fields initialized from value
   const combinedText = `${value?.street || ''} ${value?.landmark || ''} ${value?.fullAddress || ''}`;
@@ -525,6 +572,49 @@ export default function AddressMapPicker({
             <Navigation size={13} className={locatingGps ? 'animate-spin' : ''} />
             <span>{locatingGps ? 'جاري تحديد موقعك...' : (lang === 'en' ? 'Use Current GPS' : '📍 مكاني الحالي')}</span>
           </button>
+        </div>
+
+        {/* Interactive Alexandria Street Search Bar */}
+        <div className="relative mb-2.5">
+          <div className="relative flex items-center">
+            <Search size={15} className="absolute right-3 text-text-muted pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder={lang === 'en' ? '🔍 Search street, square, or landmark in Alexandria...' : '🔍 ابحث عن اسم الشارع، الميدان، أو المعلم في الإسكندرية...'}
+              className="w-full bg-black-primary border border-brand-red-dark/40 text-text-light text-xs pr-9 pl-8 py-2.5 rounded-xl focus:outline-none focus:border-brand-red placeholder:text-text-muted/60 transition-all shadow-inner"
+            />
+            {isSearching && (
+              <div className="absolute left-3 w-3.5 h-3.5 border-2 border-brand-red border-t-transparent rounded-full animate-spin"></div>
+            )}
+            {searchQuery && !isSearching && (
+              <button 
+                type="button" 
+                onClick={() => { setSearchQuery(''); setSearchResults([]); }}
+                className="absolute left-3 text-text-muted hover:text-white text-xs font-bold p-1"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {/* Autocomplete Suggestions Dropdown */}
+          {searchResults.length > 0 && (
+            <div className="absolute top-full right-0 left-0 mt-1.5 bg-black-primary border border-brand-red/40 rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto divide-y divide-brand-red-dark/20 backdrop-blur-md">
+              {searchResults.map((result, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleSelectSearchResult(result)}
+                  className="w-full text-right px-3.5 py-2.5 hover:bg-black-surface text-xs text-text-light flex items-center gap-2 transition-colors group cursor-pointer"
+                >
+                  <MapPin size={13} className="text-brand-red shrink-0 group-hover:scale-125 transition-transform" />
+                  <span className="truncate">{result.display_name}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* The Leaflet Map Canvas */}
