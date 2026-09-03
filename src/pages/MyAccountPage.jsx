@@ -109,7 +109,8 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
 
   const [addresses, setAddresses] = React.useState(customerData.addresses || []);
   const [showAddForm, setShowAddForm] = React.useState(false);
-  const [newAddress, setNewAddress] = React.useState({ label: 'المنزل', fullAddress: '' });
+  const [editingAddressId, setEditingAddressId] = React.useState(null);
+  const [newAddress, setNewAddress] = React.useState({ label: 'المنزل', zone: '', fullAddress: '' });
   const [isSavingAddress, setIsSavingAddress] = React.useState(false);
 
   React.useEffect(() => {
@@ -175,30 +176,65 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
       alert(lang === 'en' ? 'Address is too long (max 200 characters)' : 'العنوان طويل جداً (الحد الأقصى 200 حرف)');
       return;
     }
-    const now = Date.now();
-    if (now - window.lastAddTimestamp < 3000) {
-      alert(lang === 'en' ? 'Please wait a moment before adding another address' : 'الرجاء الانتظار قليلاً قبل إضافة عنوان آخر');
-      return;
-    }
-    window.lastAddTimestamp = now;
-
-    if (addresses.length >= 5) {
-      alert(lang === 'en' ? 'You have reached the maximum limit of 5 addresses' : 'لقد وصلت للحد الأقصى (5 عناوين)');
-      return;
-    }
-
-    setIsSavingAddress(true);
-    const addressToSave = {
-      id: Date.now().toString(),
-      label: newAddress.label,
-      fullAddress: newAddress.fullAddress.trim(),
-      isDefault: addresses.length === 0
-    };
-
-    const updatedAddresses = [...addresses, addressToSave];
-    await saveAddressesToFirebase(updatedAddresses);
     
-    setNewAddress({ label: 'المنزل', fullAddress: '' });
+    setIsSavingAddress(true);
+
+    if (editingAddressId) {
+      const updatedAddresses = addresses.map(a => a.id === editingAddressId ? {
+        ...a,
+        label: newAddress.label,
+        zone: newAddress.zone || a.zone || '',
+        fullAddress: newAddress.fullAddress.trim()
+      } : a);
+      await saveAddressesToFirebase(updatedAddresses);
+
+      if (newAddress.zone) {
+        const phoneToUse = customerData.Phone || customerData.phone || userPhone;
+        await update(ref(db, `PublicCustomers/${phoneToUse}`), {
+          Zone: newAddress.zone,
+          zone: newAddress.zone
+        });
+        await refreshCustomerData(phoneToUse);
+      }
+
+      setEditingAddressId(null);
+    } else {
+      const now = Date.now();
+      if (now - (window.lastAddTimestamp || 0) < 3000) {
+        alert(lang === 'en' ? 'Please wait a moment before adding another address' : 'الرجاء الانتظار قليلاً قبل إضافة عنوان آخر');
+        setIsSavingAddress(false);
+        return;
+      }
+      window.lastAddTimestamp = now;
+
+      if (addresses.length >= 5) {
+        alert(lang === 'en' ? 'You have reached the maximum limit of 5 addresses' : 'لقد وصلت للحد الأقصى (5 عناوين)');
+        setIsSavingAddress(false);
+        return;
+      }
+
+      const addressToSave = {
+        id: Date.now().toString(),
+        label: newAddress.label,
+        zone: newAddress.zone || '',
+        fullAddress: newAddress.fullAddress.trim(),
+        isDefault: addresses.length === 0
+      };
+
+      const updatedAddresses = [...addresses, addressToSave];
+      await saveAddressesToFirebase(updatedAddresses);
+
+      if (newAddress.zone && (!customerData.Zone && !customerData.zone)) {
+        const phoneToUse = customerData.Phone || customerData.phone || userPhone;
+        await update(ref(db, `PublicCustomers/${phoneToUse}`), {
+          Zone: newAddress.zone,
+          zone: newAddress.zone
+        });
+        await refreshCustomerData(phoneToUse);
+      }
+    }
+    
+    setNewAddress({ label: 'المنزل', zone: '', fullAddress: '' });
     setShowAddForm(false);
     setIsSavingAddress(false);
   };
@@ -389,7 +425,7 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
 
             {showAddForm && (
               <div className="bg-black-primary border border-brand-red/30 p-4 rounded-xl mb-6">
-                <h4 className="font-bold text-text-light mb-4">{lang === 'en' ? 'New Address' : 'عنوان جديد'}</h4>
+                <h4 className="font-bold text-text-light mb-4">{editingAddressId ? (lang === 'en' ? 'Edit Address' : 'تعديل العنوان') : (lang === 'en' ? 'New Address' : 'عنوان جديد')}</h4>
                 <div className="flex gap-2 mb-4">
                   {['المنزل', 'العمل', 'أخرى'].map((lbl) => (
                     <button 
@@ -402,6 +438,26 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
                     </button>
                   ))}
                 </div>
+                {/* Zone Selector for this address */}
+                <div className="mb-4">
+                  <label className="block text-text-light text-sm font-bold mb-2">
+                    {lang === 'en' ? 'Select Delivery Area / Zone *' : 'منطقة التوصيل السكنية *'}
+                  </label>
+                  <select 
+                    value={newAddress.zone || ''}
+                    onChange={(e) => setNewAddress({...newAddress, zone: e.target.value})}
+                    className="w-full bg-black-surface border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red font-bold"
+                  >
+                    <option value="">{lang === 'en' ? '-- Select Area --' : '-- اختر المنطقة السكنية --'}</option>
+                    {zonesList.map(z => (
+                      <option key={z.id || z.name} value={z.name}>{z.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <label className="block text-text-light text-sm font-bold mb-2">
+                  {lang === 'en' ? 'Detailed Address *' : 'العنوان التفصيلي (الشارع، العمارة، الشقة) *'}
+                </label>
                 <textarea 
                   value={newAddress.fullAddress}
                   onChange={(e) => setNewAddress({...newAddress, fullAddress: e.target.value})}
@@ -410,11 +466,18 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
                   placeholder={lang === 'en' ? 'Enter full address details...' : 'اكتب تفاصيل العنوان بالكامل...'}
                 />
                 <div className="flex justify-end gap-3">
-                  <button onClick={() => setShowAddForm(false)} className="px-4 py-2 text-text-muted hover:text-text-light">
+                  <button 
+                    onClick={() => {
+                      setShowAddForm(false);
+                      setEditingAddressId(null);
+                      setNewAddress({ label: 'المنزل', zone: '', fullAddress: '' });
+                    }} 
+                    className="px-4 py-2 text-text-muted hover:text-text-light"
+                  >
                     {lang === 'en' ? 'Cancel' : 'إلغاء'}
                   </button>
                   <button onClick={handleAddAddress} disabled={isSavingAddress || !newAddress.fullAddress.trim()} className="bg-brand-red text-white px-6 py-2 rounded-lg disabled:opacity-50 font-bold">
-                    {isSavingAddress ? '...' : (lang === 'en' ? 'Save' : 'حفظ العنوان')}
+                    {isSavingAddress ? '...' : (editingAddressId ? (lang === 'en' ? 'Update' : 'حفظ التعديلات') : (lang === 'en' ? 'Save' : 'حفظ العنوان'))}
                   </button>
                 </div>
               </div>
@@ -441,7 +504,14 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
                                 <span className="text-[10px] bg-brand-red text-white px-2 py-0.5 rounded-full uppercase tracking-wider">{lang === 'en' ? 'Default' : 'الافتراضي'}</span>
                               )}
                            </div>
-                           <p className="text-text-muted text-sm whitespace-pre-wrap">{addr.fullAddress}</p>
+                           {addr.zone && (
+                                <div className="mb-1.5">
+                                  <span className="inline-flex items-center gap-1 text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-md font-bold">
+                                    <MapPin size={12} /> {addr.zone}
+                                  </span>
+                                </div>
+                              )}
+                              <p className="text-text-muted text-sm whitespace-pre-wrap">{addr.fullAddress}</p>
                         </div>
                      </div>
                      <div className="flex flex-col gap-2 items-end shrink-0">
@@ -450,6 +520,16 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
                             <CheckCircle2 size={14} /> {lang === 'en' ? 'Set Default' : 'تعيين كافتراضي'}
                           </button>
                         )}
+                        <button 
+                          onClick={() => {
+                            setEditingAddressId(addr.id);
+                            setNewAddress({ label: addr.label, zone: addr.zone || '', fullAddress: addr.fullAddress });
+                            setShowAddForm(true);
+                          }} 
+                          className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer"
+                        >
+                          <Edit3 size={14} /> {lang === 'en' ? 'Edit' : 'تعديل'}
+                        </button>
                         <button onClick={() => handleDeleteAddress(addr.id)} className="text-xs text-red-500 hover:text-red-400 flex items-center gap-1">
                           <Trash2 size={14} /> {lang === 'en' ? 'Delete' : 'حذف'}
                         </button>

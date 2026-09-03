@@ -22,6 +22,26 @@ export default function CheckoutPage({ menuData }) {
     notes: '',
     orderType: tableNumber ? 'DineIn' : 'takeaway', deliveryAddress: customerData?.addresses?.find(a => a.isDefault)?.fullAddress || customerData?.Address || '', tableNumber: tableNumber || ''
   });
+  const deliveryZones = menuData?.deliveryZones || [
+    { id: 1, name: "محرم بك / الشاطبي", deliveryFee: 20 },
+    { id: 2, name: "سموحة", deliveryFee: 30 },
+    { id: 3, name: "سيدي جابر / كليوباترا", deliveryFee: 25 },
+    { id: 4, name: "ميامي / العصافرة", deliveryFee: 35 },
+    { id: 5, name: "العجمي", deliveryFee: 60, minOrderAmount: 150 }
+  ];
+  const taxPercentage = Number(menuData?.restaurant?.defaultTaxPercentage || 0);
+
+  const defaultAddr = customerData?.addresses?.find(a => a.isDefault);
+  const [selectedZone, setSelectedZone] = useState(() => {
+    return defaultAddr?.zone || customerData?.Zone || customerData?.zone || '';
+  });
+
+  const subtotal = cartTotal;
+  const selectedZoneObj = deliveryZones.find(z => z.name === selectedZone);
+  const deliveryFee = formData?.orderType === 'delivery' && selectedZoneObj ? Number(selectedZoneObj.deliveryFee) : 0;
+  const taxAmount = taxPercentage > 0 ? Math.round((subtotal * (taxPercentage / 100)) * 100) / 100 : 0;
+  const grandTotal = Math.round((subtotal + taxAmount + deliveryFee) * 100) / 100;
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderStatus, setOrderStatus] = useState("New");
   const [isSuccess, setIsSuccess] = useState(false);
@@ -724,11 +744,21 @@ export default function CheckoutPage({ menuData }) {
                                     name="deliveryAddressSelection"
                                     value={addr.fullAddress}
                                     checked={isSelected}
-                                    onChange={(e) => setFormData(prev => ({...prev, deliveryAddress: e.target.value}))}
+                                    onChange={(e) => {
+                                      setFormData(prev => ({...prev, deliveryAddress: e.target.value}));
+                                      if (addr.zone) setSelectedZone(addr.zone);
+                                    }}
                                     className="mt-1 shrink-0 accent-brand-red"
                                   />
                                   <div>
-                                    <span className="font-bold text-text-light block">{lang === 'en' ? (addr.label === 'المنزل' ? 'Home' : addr.label === 'العمل' ? 'Work' : 'Other') : addr.label}</span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-bold text-text-light block">{lang === 'en' ? (addr.label === 'المنزل' ? 'Home' : addr.label === 'العمل' ? 'Work' : 'Other') : addr.label}</span>
+                                      {addr.zone && (
+                                        <span className="text-[11px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-bold">
+                                          📍 {addr.zone}
+                                        </span>
+                                      )}
+                                    </div>
                                     <span className="text-text-muted text-sm">{addr.fullAddress}</span>
                                   </div>
                                </label>
