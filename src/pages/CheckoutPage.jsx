@@ -53,7 +53,28 @@ export default function CheckoutPage({ menuData }) {
   const selectedZoneObj = deliveryZones.find(z => (z.name || '').trim() === (selectedZone || '').trim());
   const deliveryFee = formData?.orderType === 'delivery' && selectedZoneObj ? Number(selectedZoneObj.deliveryFee || 0) : 0;
   const taxAmount = taxPercentage > 0 ? Math.round((subtotal * (taxPercentage / 100)) * 100) / 100 : 0;
-  const grandTotal = Math.round((subtotal + taxAmount + deliveryFee) * 100) / 100;
+
+  // Coupon State
+  const [couponInput, setCouponInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponError, setCouponError] = useState('');
+  const [isCheckingCoupon, setIsCheckingCoupon] = useState(false);
+
+  // Safe Coupon Discount Calculation
+  let couponDiscount = 0;
+  if (appliedCoupon) {
+    if (appliedCoupon.discountType === 'Percentage') {
+      const calculated = subtotal * (Number(appliedCoupon.discountValue || 0) / 100);
+      const maxCap = Number(appliedCoupon.maxDiscountAmount || 0) > 0 ? Number(appliedCoupon.maxDiscountAmount) : 9999;
+      couponDiscount = Math.min(calculated, maxCap, subtotal);
+    } else {
+      couponDiscount = Math.min(subtotal, Number(appliedCoupon.discountValue || 0));
+    }
+  }
+  couponDiscount = Math.round(couponDiscount * 100) / 100;
+
+  // Grand Total can NEVER be negative!
+  const grandTotal = Math.max(0, Math.round((subtotal - couponDiscount + taxAmount + deliveryFee) * 100) / 100);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderStatus, setOrderStatus] = useState("New");
@@ -148,11 +169,22 @@ export default function CheckoutPage({ menuData }) {
       fetch(`${APP_CONFIG.firebaseDbUrl}OrderTracking/${editingId}.json`)
         .then(res => res.json())
         .then(data => {
-          if (data && (data.Status === 'Cancelled' || data.Status === 'Completed')) {
+          if (!data || data.Status === 'Cancelled' || data.Status === 'Completed') {
             // Order was cancelled or completed! Auto-clear editing session immediately!
             localStorage.removeItem('editingOrderId');
             localStorage.removeItem('editingOrderDetails');
             setShowPayment(false);
+            return;
+          }
+
+          // Security Guard: Prevent order modification hijacking
+          const activePhone = userPhone || formData.customerPhone;
+          if (data.CustomerPhone && activePhone && data.CustomerPhone.trim() !== activePhone.trim()) {
+            console.warn('[Security Guard] Attempted to modify order belonging to another customer!');
+            localStorage.removeItem('editingOrderId');
+            localStorage.removeItem('editingOrderDetails');
+            setShowPayment(false);
+            return;
           } else {
             try {
               const details = JSON.parse(editingDetailsStr);
@@ -195,6 +227,68 @@ export default function CheckoutPage({ menuData }) {
   const walletNumber = marketing.walletNumber;
   const whatsappNumber = marketing.orderWhatsAppNumber || '201000000000'; // Default fallback
 
+  const handleApplyCoupon = async () => {
+    if (!couponInput.trim()) return;
+    setCouponError('');
+    setIsCheckingCoupon(true);
+    try {
+      const code = couponInput.trim().toUpperCase();
+      const res = await fetch(`${APP_CONFIG.firebaseDbUrl}menu/coupons.json`);
+      const couponsData = await res.json();
+      let foundCoupon = null;
+
+      if (Array.isArray(couponsData)) {
+        foundCoupon = couponsData.find(c => c && c.code && c.code.toUpperCase() === code);
+      } else if (couponsData && typeof couponsData === 'object') {
+        foundCoupon = Object.values(couponsData).find(c => c && c.code && c.code.toUpperCase() === code);
+      }
+
+      if (!foundCoupon || !foundCoupon.isActive) {
+        setCouponError(lang === 'en' ? 'Invalid or inactive coupon code' : 'كوبون الخصم غير صحيح أو غير مفعل');
+        setIsCheckingCoupon(false);
+        return;
+      }
+
+      // Check expiry date
+      if (foundCoupon.expiryDate) {
+        const exp = new Date(foundCoupon.expiryDate);
+        if (new Date() > exp) {
+          setCouponError(lang === 'en' ? 'This coupon has expired' : 'هذا الكوبون منتهي الصلاحية');
+          setIsCheckingCoupon(false);
+          return;
+        }
+      }
+
+      // Check min order
+      if (foundCoupon.minOrderAmount > 0 && subtotal < foundCoupon.minOrderAmount) {
+        setCouponError(lang === 'en' 
+          ? `Minimum order amount for this coupon is ${foundCoupon.minOrderAmount} EGP`
+          : `الحد الأدنى للطلب لتفعيل هذا الكوبون هو ${foundCoupon.minOrderAmount} ج.م`);
+        setIsCheckingCoupon(false);
+        return;
+      }
+
+      // Check if already used by this customer
+      const activePhone = (formData.customerPhone || userPhone || '').trim();
+      if (activePhone) {
+        const usageRes = await fetch(`${APP_CONFIG.firebaseDbUrl}UsedCoupons/${code}/${activePhone}.json`);
+        const usageData = await usageRes.json();
+        if (usageData) {
+          setCouponError(lang === 'en' ? 'You have already used this coupon' : 'لقد قمت باستخدام هذا الكوبون مسبقاً');
+          setIsCheckingCoupon(false);
+          return;
+        }
+      }
+
+      setAppliedCoupon(foundCoupon);
+      setCouponError('');
+    } catch (err) {
+      setCouponError(lang === 'en' ? 'Error validating coupon' : 'حدث خطأ أثناء فحص الكوبون');
+    } finally {
+      setIsCheckingCoupon(false);
+    }
+  };
+
   const handleChange = (e) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
@@ -214,6 +308,13 @@ export default function CheckoutPage({ menuData }) {
       const msg = lang === 'en' 
         ? 'Please enter a valid 11-digit Egyptian mobile number (e.g. 010xxxxxxxx)' 
         : 'يرجى إدخال رقم موبايل مصري صحيح مكون من 11 رقماً يبدأ بـ (010, 011, 012, 015)';
+      setErrorMessage(msg);
+      alert(msg);
+      return;
+    }
+
+    if (formData.orderType === 'DineIn' && !tableNumber && (!formData.tableNumber || parseInt(formData.tableNumber, 10) <= 0)) {
+      const msg = lang === 'en' ? 'Please enter your table number' : 'يرجى إدخال رقم الطاولة التي تجلس عليها في الصالة';
       setErrorMessage(msg);
       alert(msg);
       return;
@@ -275,6 +376,20 @@ export default function CheckoutPage({ menuData }) {
 
     if (cartItems.length === 0) {
       setErrorMessage(lang === "en" ? "The cart cannot be empty. Please add at least one item." : "لا يمكن أن تكون السلة فارغة. يرجى إضافة صنف واحد على الأقل أو إلغاء التعديل.");
+      return;
+    }
+
+    // Security Check: Guard against invalid or negative quantities/prices
+    const hasTamperedItem = cartItems.some(i => {
+      const q = parseInt(i.quantity, 10);
+      const p = parseFloat(i.product.calculatedPrice || i.product.sellingPrice || 0);
+      return isNaN(q) || q <= 0 || isNaN(p) || p <= 0;
+    });
+
+    if (hasTamperedItem) {
+      const msg = '⚠️ تم رصد بيانات غير صالحة في السلة (كميات أو أسعار غير صحيحة). يرجى مراجعة الأصناف.';
+      setErrorMessage(msg);
+      alert(msg);
       return;
     }
 
@@ -375,6 +490,8 @@ export default function CheckoutPage({ menuData }) {
         subtotal: subtotal,
         taxPercentage: taxPercentage,
         taxAmount: taxAmount,
+        couponCode: appliedCoupon ? appliedCoupon.code : '',
+        discountAmount: couponDiscount,
         totalAmount: grandTotal,
         paymentMethod: 'Cash',
         status: 'New',
@@ -504,6 +621,18 @@ export default function CheckoutPage({ menuData }) {
           })
         });
       } catch(e) {}
+
+      // Record coupon usage
+      if (appliedCoupon) {
+        const activePhone = (formData.customerPhone || userPhone || '').trim();
+        if (activePhone) {
+          fetch(`${APP_CONFIG.firebaseDbUrl}UsedCoupons/${appliedCoupon.code}/${activePhone}.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(true)
+          }).catch(() => {});
+        }
+      }
 
       clearCart();
       localStorage.setItem('last_order_submitted_timestamp', Date.now().toString());
@@ -748,6 +877,25 @@ export default function CheckoutPage({ menuData }) {
                 ) : (
                   <div className="bg-brand-red/10 border border-brand-red text-brand-red p-4 rounded-xl text-center">
                     <span className="font-bold text-lg">أنت تطلب من طاولة رقم {tableNumber}</span>
+                  </div>
+                )}
+
+                {/* Manual Table Number Input if DineIn and not scanned by QR */}
+                {formData.orderType === 'DineIn' && !tableNumber && (
+                  <div className="mt-4 p-4 bg-brand-red/5 border border-brand-red/30 rounded-2xl animate-in fade-in">
+                    <label className="block text-sm font-bold text-text-light mb-2">
+                      {lang === 'en' ? 'Table Number in Dining Hall *' : 'رقم الطاولة في الصالة *'}
+                    </label>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      max="50"
+                      required
+                      value={formData.tableNumber || ''} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, tableNumber: e.target.value }))}
+                      placeholder={lang === 'en' ? 'e.g. 5' : 'اكتب رقم الطاولة التي تجلس عليها (مثال: 5)'}
+                      className="w-full bg-black-primary border border-brand-red-dark/30 rounded-xl px-4 py-3 text-text-light focus:outline-none focus:ring-2 focus:ring-brand-red font-bold"
+                    />
                   </div>
                 )}
 
@@ -1043,9 +1191,53 @@ export default function CheckoutPage({ menuData }) {
                     </span>
                   </div>
                 )}
+                {couponDiscount > 0 && (
+                  <div className="flex justify-between items-center text-sm font-bold text-emerald-400">
+                    <span>🏷️ {lang === 'en' ? 'Coupon Discount:' : 'خصم الكوبون:'} ({appliedCoupon?.code})</span>
+                    <span>-{couponDiscount.toFixed(2)} {lang === 'en' ? 'EGP' : 'ج.م'}</span>
+                  </div>
+                )}
                 <div className="pt-3 border-t border-brand-red-dark/30 flex justify-between items-center text-xl">
                   <span className="font-bold text-text-muted">{lang === 'en' ? 'Grand Total' : 'الإجمالي'}</span>
                   <span className="font-black text-brand-red">{grandTotal.toFixed(2)} {lang === 'en' ? 'EGP' : 'ج.م'}</span>
+                </div>
+
+                {/* Promo / Coupon Box */}
+                <div className="mt-4 pt-4 border-t border-brand-red-dark/20">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={couponInput}
+                      onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                      placeholder={lang === 'en' ? '🎟️ Promo / Coupon Code' : '🎟️ كود الخصم (كوبون)'}
+                      className="flex-1 bg-black-primary border border-brand-red-dark/30 rounded-xl px-3 py-2.5 text-xs font-bold text-text-light focus:outline-none focus:border-brand-red placeholder:text-text-muted/60 uppercase"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleApplyCoupon}
+                      disabled={isCheckingCoupon || !couponInput.trim()}
+                      className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-md"
+                    >
+                      {isCheckingCoupon ? '...' : (lang === 'en' ? 'Apply' : 'تطبيق')}
+                    </button>
+                  </div>
+                  {couponError && (
+                    <p className="mt-1.5 text-[11px] text-brand-red font-bold flex items-center gap-1 animate-in fade-in">
+                      ⚠️ {couponError}
+                    </p>
+                  )}
+                  {appliedCoupon && (
+                    <div className="mt-2 p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center justify-between text-xs font-bold text-emerald-400 animate-in fade-in">
+                      <span>✅ تم تفعيل كود الخصم ({appliedCoupon.code})</span>
+                      <button
+                        type="button"
+                        onClick={() => { setAppliedCoupon(null); setCouponInput(''); }}
+                        className="text-text-muted hover:text-white ml-2 text-sm p-1"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

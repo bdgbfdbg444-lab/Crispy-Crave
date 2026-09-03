@@ -33,6 +33,7 @@ export const CartProvider = ({ children }) => {
   }, [tableNumber]);
 
   const addToCart = (customProduct, quantity) => {
+    const validQty = Math.max(1, Math.min(99, parseInt(quantity, 10) || 1));
     setCartItems(prev => {
       const existingItemIndex = prev.findIndex(item => {
         if (item.product.id !== customProduct.id) return false;
@@ -50,12 +51,12 @@ export const CartProvider = ({ children }) => {
       if (existingItemIndex >= 0) {
         return prev.map((item, i) => 
           i === existingItemIndex 
-            ? { ...item, quantity: item.quantity + quantity }
+            ? { ...item, quantity: Math.min(99, item.quantity + validQty) }
             : item
         );
       }
 
-      return [...prev, { product: customProduct, quantity }];
+      return [...prev, { product: customProduct, quantity: validQty }];
     });
     
     setIsCartOpen(true);
@@ -68,15 +69,17 @@ export const CartProvider = ({ children }) => {
   const updateQuantity = (index, delta) => {
     setCartItems(prev => prev.map((item, i) => {
       if (i === index) {
-        const newQuantity = item.quantity + delta;
-        return { ...item, quantity: Math.max(1, newQuantity) };
+        const newQuantity = Math.max(1, Math.min(99, (parseInt(item.quantity, 10) || 1) + delta));
+        return { ...item, quantity: newQuantity };
       }
       return item;
     }));
   };
 
   const cartTotal = cartItems.reduce((total, item) => {
-    const basePrice = item.product.calculatedPrice || item.product.sellingPrice;
+    const qty = Math.max(0, parseInt(item.quantity, 10) || 0);
+    const rawPrice = item.product.calculatedPrice || item.product.sellingPrice || 0;
+    const basePrice = Math.max(0, parseFloat(rawPrice) || 0);
     
     // Add modifiers price
     let modifiersPrice = 0;
@@ -84,7 +87,7 @@ export const CartProvider = ({ children }) => {
       modifiersPrice = item.product.selectedModifiers.reduce((sum, mod) => sum + (mod.chargedPrice || 0), 0);
     }
     
-    return total + ((basePrice + modifiersPrice) * item.quantity);
+    return total + ((basePrice + modifiersPrice) * qty);
   }, 0);
 
   const clearCart = () => {
