@@ -54,6 +54,11 @@ export default function CheckoutPage({ menuData }) {
   const deliveryFee = formData?.orderType === 'delivery' && selectedZoneObj ? Number(selectedZoneObj.deliveryFee || 0) : 0;
   const taxAmount = taxPercentage > 0 ? Math.round((subtotal * (taxPercentage / 100)) * 100) / 100 : 0;
 
+  // Store Status (Open / Closed)
+  const isStoreOpen = menuData?.storeStatus ? menuData.storeStatus.isOpen !== false : true;
+  const storeClosedMessage = (lang === 'en' ? menuData?.storeStatus?.closedMessageEn : menuData?.storeStatus?.closedMessage) || 
+    (lang === 'en' ? 'The restaurant is currently closed and not receiving online orders.' : 'المطعم مغلق حالياً ولا يستقبل طلبات أونلاين مؤقتاً.');
+
   // Coupon State
   const [couponInput, setCouponInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
@@ -293,8 +298,14 @@ export default function CheckoutPage({ menuData }) {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleContinueToPayment = (e) => {
+  const handleContinueToPayment = async (e) => {
     e.preventDefault();
+
+    if (!isStoreOpen) {
+      setErrorMessage(storeClosedMessage);
+      alert(storeClosedMessage);
+      return;
+    }
 
     if (!formData.customerName.trim() || !formData.customerPhone.trim()) { 
       setErrorMessage(lang === 'en' ? 'Please fill required fields' : 'يرجى ملء الحقول الإجبارية (الاسم ورقم الهاتف)'); 
@@ -312,6 +323,20 @@ export default function CheckoutPage({ menuData }) {
       alert(msg);
       return;
     }
+
+    // Blacklist check
+    try {
+      const blRes = await fetch(`${APP_CONFIG.firebaseDbUrl}Blacklist/${phoneClean}.json`);
+      const blData = await blRes.json();
+      if (blData && blData.isBlacklisted) {
+        const blMsg = lang === 'en'
+          ? '⚠️ This mobile number is restricted from placing online orders. Please contact restaurant management.'
+          : '⚠️ هذا الرقم محظور من تقديم طلبات عبر الموقع. يرجى التواصل مع إدارة المطعم مباشرة.';
+        setErrorMessage(blMsg);
+        alert(blMsg);
+        return;
+      }
+    } catch (e) {}
 
     if (formData.orderType === 'DineIn' && !tableNumber && (!formData.tableNumber || parseInt(formData.tableNumber, 10) <= 0)) {
       const msg = lang === 'en' ? 'Please enter your table number' : 'يرجى إدخال رقم الطاولة التي تجلس عليها في الصالة';
@@ -854,7 +879,22 @@ export default function CheckoutPage({ menuData }) {
 
               {!showPayment ? (
                   <>
-                  {/* Order Type */}
+                  {/* Store Closed Banner */}
+              {!isStoreOpen && (
+                <div className="mb-6 p-4 bg-red-500/10 border-2 border-red-500/50 rounded-2xl flex items-center gap-3">
+                  <AlertCircle className="text-red-500 shrink-0" size={26} />
+                  <div>
+                    <h4 className="font-black text-red-400 text-base">
+                      {lang === 'en' ? 'Restaurant is Currently Closed' : '⛔ المطعم مغلق حالياً'}
+                    </h4>
+                    <p className="text-sm font-semibold text-text-light mt-0.5">
+                      {storeClosedMessage}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Order Type */}
               <div className="mb-8">
                 <h3 className="text-xl font-bold text-text-light mb-4">{lang === 'en' ? 'Order Type' : 'نوع الطلب'}</h3>
                 
@@ -1057,7 +1097,7 @@ export default function CheckoutPage({ menuData }) {
                 <button 
                     type="button" 
                     onClick={handleContinueToPayment}
-                    disabled={formData.orderType === 'delivery' && selectedZoneObj && selectedZoneObj.minOrderAmount > 0 && subtotal < selectedZoneObj.minOrderAmount}
+                    disabled={!isStoreOpen || (formData.orderType === 'delivery' && selectedZoneObj && selectedZoneObj.minOrderAmount > 0 && subtotal < selectedZoneObj.minOrderAmount)}
                     className="w-full mt-8 py-4 rounded-xl font-bold text-lg text-text-light transition-all shadow-lg bg-brand-red hover:bg-brand-red-dark shadow-brand-red/30 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {formData.orderType === 'delivery' && selectedZoneObj && selectedZoneObj.minOrderAmount > 0 && subtotal < selectedZoneObj.minOrderAmount
@@ -1133,7 +1173,7 @@ export default function CheckoutPage({ menuData }) {
 
                     <button 
                       type="submit" 
-                      disabled={isSubmitting}
+                      disabled={!isStoreOpen || isSubmitting}
                       className={`w-full mt-8 py-4 rounded-xl font-bold text-lg text-text-light transition-all shadow-lg ${isSubmitting ? 'bg-brand-red-dark/50 text-text-muted cursor-not-allowed' : 'bg-brand-red hover:bg-brand-red-dark shadow-brand-red/30'}`}
                     >
                       {isSubmitting ? 'جاري الإرسال...' : (lang === 'en' ? 'Confirm and Submit Order' : 'تأكيد وإرسال الطلب')}
