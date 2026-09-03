@@ -44,8 +44,9 @@ export default function ModificationBanner() {
         setEditingOrderId(null);
         if (setIsCartOpen) setIsCartOpen(false);
 
-        // Update Firebase that modification has expired permanently
+        // Update Firebase that modification has expired permanently and release KDS hold!
         try {
+          fetch(`${APP_CONFIG.firebaseDbUrl}ActiveHoldRequests/${orderId}.json`, { method: 'DELETE' });
           fetch(`${APP_CONFIG.firebaseDbUrl}OrderTracking/${orderId}.json`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -56,6 +57,7 @@ export default function ModificationBanner() {
             })
           });
         } catch(e) {}
+        if (clearCart) clearCart();
 
         alert(lang === 'en' 
           ? 'The 3-minute modification window has expired. Your original order will be prepared.' 
@@ -99,6 +101,7 @@ export default function ModificationBanner() {
       if (setIsCartOpen) setIsCartOpen(false);
 
       try {
+        fetch(`${APP_CONFIG.firebaseDbUrl}ActiveHoldRequests/${orderId}.json`, { method: 'DELETE' });
         fetch(`${APP_CONFIG.firebaseDbUrl}OrderTracking/${orderId}.json`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -109,6 +112,7 @@ export default function ModificationBanner() {
           })
         });
       } catch(e) {}
+      if (clearCart) clearCart();
 
       navigate(`/track/${encodeURIComponent(orderId)}`);
     }

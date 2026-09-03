@@ -79,8 +79,25 @@ export default function CheckoutPage({ menuData }) {
     }
   }, []);
   const handleCancelEditing = () => {
+    const editingId = localStorage.getItem('editingOrderId');
+    if (editingId) {
+      try {
+        fetch(`${APP_CONFIG.firebaseDbUrl}ActiveHoldRequests/${editingId}.json`, { method: 'DELETE' });
+        fetch(`${APP_CONFIG.firebaseDbUrl}OrderTracking/${editingId}.json`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            IsModifying: false, 
+            ModificationExpired: true, 
+            ModificationCount: 1 
+          })
+        });
+      } catch(e) {}
+    }
     localStorage.removeItem('editingOrderId');
     localStorage.removeItem('editingOrderDetails');
+    localStorage.removeItem('modificationExpiresAt');
+    clearCart();
     setShowPayment(false);
   };
 

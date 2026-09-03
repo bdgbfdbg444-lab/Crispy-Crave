@@ -66,8 +66,10 @@ export default function TrackOrderPage({ menuData }) {
     }
 
     const currentStatus = orderData?.Status || 'Pending';
-    if (currentStatus !== 'Pending' && currentStatus !== 'New') {
-       alert(lang === 'en' ? 'Order is already being prepared and cannot be edited.' : 'عذراً، الأوردر قيد التحضير ولا يمكن تعديله الآن.');
+    if (currentStatus === 'Ready' || currentStatus === 'OutForDelivery' || currentStatus === 'Completed' || currentStatus === 'Cancelled') {
+       alert(lang === 'en' 
+         ? 'Order is already completed, ready, or out for delivery and cannot be edited.' 
+         : 'عذراً، طلبك أصبح جاهزاً أو خرج مع الطيار بالفعل ولا يمكن تعديله.');
        return;
     }
 
