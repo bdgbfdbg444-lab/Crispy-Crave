@@ -58,26 +58,32 @@ export default function CheckoutPage({ menuData }) {
       fetch(`${APP_CONFIG.firebaseDbUrl}OrderTracking/${cleanId}.json`)
         .then(res => res.json())
         .then(data => {
-          // ONLY clear if confirmed Completed or Cancelled!
-          if (data && (data.Status === 'Completed' || data.Status === 'Cancelled')) {
+          const currentPhone = (userPhone || formData.customerPhone || '').trim();
+          // If the order in localStorage belongs to a different account/phone, clear it!
+          if (data && currentPhone && data.CustomerPhone && data.CustomerPhone.trim() !== currentPhone) {
+            localStorage.removeItem('activeOrderId');
+            setActiveOrderWarning(null);
+            return;
+          }
+
+          if (!data || data.Status === 'Completed' || data.Status === 'Cancelled') {
             localStorage.removeItem('activeOrderId');
             setActiveOrderWarning(null);
           } else {
-            // Still active (Pending, New, InKitchen, etc., or null meaning pending POS pick)
             setActiveOrderWarning({
               orderId: activeId,
               cleanId: cleanId,
-              status: data?.Status || 'Pending'
+              status: data.Status || 'Pending'
             });
           }
         })
         .catch(() => {
-          // In case of network error, preserve the local lock!
+          setActiveOrderWarning(null);
         });
     } else {
       setActiveOrderWarning(null);
     }
-  }, []);
+  }, [userPhone, formData.customerPhone]);
   const handleCancelEditing = () => {
     const editingId = localStorage.getItem('editingOrderId');
     if (editingId) {
@@ -194,71 +200,34 @@ export default function CheckoutPage({ menuData }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log("[Checkout Submit] Form submit button clicked!");
 
-
-  if (activeOrderWarning && !localStorage.getItem('editingOrderId')) {
-    return (
-      <div className="pt-24 min-h-screen bg-black-surface flex flex-col items-center justify-center p-6 text-center" style={{ direction: lang === 'ar' ? 'rtl' : 'ltr' }}>
-        <div className="max-w-md w-full bg-black-primary border border-brand-red/30 rounded-3xl p-8 shadow-2xl flex flex-col items-center">
-          <div className="w-20 h-20 bg-amber-500/10 text-amber-500 rounded-full flex items-center justify-center mb-6 border border-amber-500/30">
-            <AlertCircle size={44} />
-          </div>
-          <h2 className="text-2xl font-display font-black text-text-light mb-3">
-            {lang === 'en' ? 'Active Order in Progress' : 'لديك طلب نشط قيد التنفيذ!'}
-          </h2>
-          <p className="text-text-muted leading-relaxed mb-6 text-sm">
-            {lang === 'en' 
-              ? `You already have order #${activeOrderWarning.cleanId} in progress. You cannot place a new order until your current order is completed.`
-              : `لديك طلب حالي برقم #${activeOrderWarning.cleanId} جاري مراجعته أو تجهيزه في المطعم. لضمان عدم تداخل الطلبات وسرعة وصولها، لا يمكنك إنشاء طلب جديد قبل استلام طلبك الحالي.`}
-          </p>
-          <button 
-            type="button"
-            onClick={() => navigate(`/track/${encodeURIComponent(activeOrderWarning.cleanId)}`)}
-            className="w-full py-4 rounded-xl font-bold text-text-light bg-brand-red hover:bg-brand-red-dark transition-all shadow-lg shadow-brand-red/30 flex items-center justify-center gap-2 cursor-pointer mb-3"
-          >
-            <span>{lang === 'en' ? 'Track My Active Order' : `متابعة طلبي الحالي #${activeOrderWarning.cleanId}`}</span>
-            <ArrowRight size={18} className={lang === 'ar' ? 'rotate-180' : ''} />
-          </button>
-          <button 
-            type="button"
-            onClick={() => navigate('/menu')}
-            className="w-full py-3 rounded-xl font-bold text-text-muted hover:text-text-light transition-colors text-sm cursor-pointer"
-          >
-            {lang === 'en' ? 'Back to Menu' : 'العودة للمنيو'}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (cartItems.length === 0) {
-      setErrorMessage(lang === 'en' ? 'The cart cannot be empty. Please add at least one item.' : 'لا يمكن أن تكون السلة فارغة. يرجى إضافة صنف واحد على الأقل أو إلغاء التعديل.');
+    if (activeOrderWarning && !localStorage.getItem("editingOrderId")) {
+      const msg = lang === "en" 
+        ? `You already have order #${activeOrderWarning.cleanId} in progress.`
+        : `لديك طلب نشط حالياً برقم #${activeOrderWarning.cleanId} قيد التنفيذ، لا يمكنك إنشاء طلب جديد حتى استلامه.`;
+      setErrorMessage(msg);
+      alert(msg);
       return;
     }
 
-    const currentActiveId = localStorage.getItem('activeOrderId');
-    const currentEditingId = localStorage.getItem('editingOrderId');
-    if (currentActiveId && !currentEditingId) {
-      const cleanAId = currentActiveId.replace('#', '').trim();
-      setErrorMessage(lang === 'en' 
-        ? `You already have an active order (#${cleanAId}) in progress. You cannot create a new order until it is delivered.` 
-        : `لديك طلب نشط حالياً برقم #${cleanAId} قيد التحضير، لا يمكنك إنشاء طلب جديد حتى استلامه.`);
-      setIsSubmitting(false);
+    if (cartItems.length === 0) {
+      setErrorMessage(lang === "en" ? "The cart cannot be empty. Please add at least one item." : "لا يمكن أن تكون السلة فارغة. يرجى إضافة صنف واحد على الأقل أو إلغاء التعديل.");
       return;
     }
 
-    if (cartItems.length === 0) return;
+    if (formData.orderType === "delivery" && !formData.deliveryAddress.trim()) {
+      setErrorMessage("يُرجى إدخال عنوان التوصيل بالتفصيل");
+      return;
+    }
 
-    if (formData.orderType === 'delivery' && !formData.deliveryAddress.trim()) { setErrorMessage('يُرجى إدخال عنوان التوصيل بالتفصيل'); setIsSubmitting(false); return; }
-    
     if (!receiptFile) {
-      setErrorMessage(lang === 'en' ? 'Please upload the payment receipt before confirming.' : 'يرجى إرفاق صورة إيصال الدفع لتأكيد الطلب.');
-      setIsSubmitting(false);
+      setErrorMessage(lang === "en" ? "Please upload the payment receipt before confirming." : "يرجى إرفاق صورة إيصال الدفع لتأكيد الطلب.");
       return;
     }
 
     setIsSubmitting(true);
-    setErrorMessage('');
+    setErrorMessage("");
 
     try {
       // 1. Prepare Order Data
@@ -503,6 +472,41 @@ export default function CheckoutPage({ menuData }) {
           isOpen={isReviewModalOpen} 
           onClose={() => setIsReviewModalOpen(false)} 
         />
+      </div>
+    );
+  }
+
+  if (activeOrderWarning && !localStorage.getItem("editingOrderId")) {
+    return (
+      <div className="pt-24 min-h-screen bg-black-surface flex flex-col items-center justify-center p-6 text-center" style={{ direction: lang === "ar" ? "rtl" : "ltr" }}>
+        <div className="max-w-md w-full bg-black-primary border border-brand-red/30 rounded-3xl p-8 shadow-2xl flex flex-col items-center">
+          <div className="w-20 h-20 bg-amber-500/10 text-amber-500 rounded-full flex items-center justify-center mb-6 border border-amber-500/30">
+            <AlertCircle size={44} />
+          </div>
+          <h2 className="text-2xl font-display font-black text-text-light mb-3">
+            {lang === "en" ? "Active Order in Progress" : "لديك طلب نشط قيد التنفيذ!"}
+          </h2>
+          <p className="text-text-muted leading-relaxed mb-6 text-sm">
+            {lang === "en" 
+              ? `You already have order #${activeOrderWarning.cleanId} in progress. You cannot place a new order until your current order is completed.`
+              : `لديك طلب حالي برقم #${activeOrderWarning.cleanId} جاري مراجعته أو تجهيزه في المطعم. لضمان عدم تداخل الطلبات وسرعة وصولها، لا يمكنك إنشاء طلب جديد قبل استلام طلبك الحالي.`}
+          </p>
+          <button 
+            type="button"
+            onClick={() => navigate(`/track/${encodeURIComponent(activeOrderWarning.cleanId)}`)}
+            className="w-full py-4 rounded-xl font-bold text-text-light bg-brand-red hover:bg-brand-red-dark transition-all shadow-lg shadow-brand-red/30 flex items-center justify-center gap-2 cursor-pointer mb-3"
+          >
+            <span>{lang === "en" ? "Track My Active Order" : `متابعة طلبي الحالي #${activeOrderWarning.cleanId}`}</span>
+            <ArrowRight size={18} className={lang === "ar" ? "rotate-180" : ""} />
+          </button>
+          <button 
+            type="button"
+            onClick={() => navigate("/menu")}
+            className="w-full py-3 rounded-xl font-bold text-text-muted hover:text-text-light transition-colors text-sm cursor-pointer"
+          >
+            {lang === "en" ? "Back to Menu" : "العودة للمنيو"}
+          </button>
+        </div>
       </div>
     );
   }
