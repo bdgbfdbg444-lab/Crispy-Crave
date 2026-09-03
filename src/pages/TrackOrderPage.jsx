@@ -180,8 +180,20 @@ export default function TrackOrderPage({ menuData }) {
          setCartItems(savedItems);
       }
 
-      // 5. Update Firebase that modification has started (hold kitchen)
+      // 5. Update Firebase that modification has started (hold kitchen & cashier)
       try {
+        await fetch(`${APP_CONFIG.firebaseDbUrl}ActiveHoldRequests/${safeOrderId}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            OrderId: safeOrderId,
+            CustomerName: details.customerName || orderData?.CustomerName || currentUser?.displayName || '',
+            CustomerPhone: details.customerPhone || orderData?.CustomerPhone || currentUser?.phoneNumber || '',
+            StartedAt: Date.now(),
+            ExpiresAt: expiresAt
+          })
+        });
+
         fetch(`${APP_CONFIG.firebaseDbUrl}OrderTracking/${safeOrderId}.json`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
