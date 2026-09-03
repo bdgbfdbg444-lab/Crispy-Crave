@@ -18,6 +18,41 @@ const customIcon = L.divIcon({
   popupAnchor: [0, -36]
 });
 
+export const normalizeArabic = (text) => {
+  if (!text) return '';
+  return text
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/[ً-ٟ]/g, '')
+    .replace(/[^\w\s\u0600-\u06FF]/gi, ' ')
+    .replace(/\s+/g, ' ');
+};
+
+export const checkZoneMismatch = (addressText, selectedZone, zonesList) => {
+  if (!addressText || !selectedZone || !zonesList || zonesList.length === 0) return null;
+  const normAddress = normalizeArabic(addressText);
+  const normSelected = normalizeArabic(selectedZone);
+
+  for (const z of zonesList) {
+    const zoneName = typeof z === 'string' ? z : (z.name || '');
+    if (!zoneName) continue;
+    const normZ = normalizeArabic(zoneName);
+    if (!normZ || normZ === normSelected) continue;
+
+    // Check if the other zone name appears in address
+    const tokens = normZ.split(/\s+/).filter(t => t.length > 2);
+    const hasMismatch = tokens.length > 0 && tokens.every(tok => normAddress.includes(tok));
+    if (hasMismatch && !normSelected.includes(normZ)) {
+      return zoneName;
+    }
+  }
+  return null;
+};
+
 export const formatAddressDetails = (data) => {
   const parts = [];
   if (data.street) parts.push(`شارع ${data.street.trim()}`);
@@ -46,6 +81,7 @@ export default function AddressMapPicker({
   const [detectedZoneName, setDetectedZoneName] = useState('');
 
   // Local state for individual fields initialized from value
+  const combinedText = `${value?.street || ''} ${value?.landmark || ''} ${value?.fullAddress || ''}`;
   const [formData, setFormData] = useState({
     street: value?.street || '',
     building: value?.building || '',

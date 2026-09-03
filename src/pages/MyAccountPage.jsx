@@ -7,7 +7,7 @@ import { auth, db, googleProvider } from '../firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, sendPasswordResetEmail, signOut } from 'firebase/auth';
 import { ref, get, set, update } from 'firebase/database';
 import { Package, MapPin, Edit3, LogOut, ChevronLeft, Navigation, ChevronDown, ChevronUp, Home, Briefcase, Plus, Trash2, Settings, User, CheckCircle2, RotateCcw } from 'lucide-react';
-import AddressMapPicker, { formatAddressDetails } from '../components/AddressMapPicker';
+import AddressMapPicker, { formatAddressDetails, checkZoneMismatch } from '../components/AddressMapPicker';
 import { APP_CONFIG } from '../config/appConfig';
 import { fetchMenuData } from '../services/firebaseService';
 
@@ -195,6 +195,15 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
     }
     if (!newAddress.building?.trim() && !fullAddr.trim()) {
       alert(lang === 'en' ? 'Please enter building name or number' : 'يرجى إدخال رقم أو اسم العمارة');
+      return;
+    }
+
+    // Keyword Mismatch check
+    const mismatchZone = checkZoneMismatch(`${newAddress.street || ''} ${newAddress.landmark || ''} ${fullAddr}`, newAddress.zone, zonesList);
+    if (mismatchZone) {
+      alert(lang === 'en' 
+        ? `Cannot save: The address mentions (${mismatchZone}) which conflicts with selected zone (${newAddress.zone}).` 
+        : `⚠️ تنبيه أمني: لا يمكن حفظ العنوان لأن تفاصيل الشارع تحتوي على منطقة (${mismatchZone}) تختلف عن منطقة التوصيل المحددة (${newAddress.zone}). يرجى اختيار منطقتك الصحيحة.`);
       return;
     }
     

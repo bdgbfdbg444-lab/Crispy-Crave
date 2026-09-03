@@ -5,7 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import { ShoppingBag, ArrowRight, Wallet, CheckCircle, AlertCircle } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { validateReceiptFile, scanAndVerifyReceipt, registerUsedReceipt } from '../services/receiptValidator';
+import { validateReceiptFile, scanAndVerifyReceipt, registerUsedReceipt, computeFileHash } from '../services/receiptValidator';
+import { checkZoneMismatch } from '../components/AddressMapPicker';
 import { APP_CONFIG } from '../config/appConfig';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReviewModal from '../components/ReviewModal';
@@ -233,27 +234,12 @@ export default function CheckoutPage({ menuData }) {
       }
 
       // Keyword Mismatch Detection (prevents choosing cheap zone and writing distant zone)
-      if (selectedZone) {
-        const currentZoneClean = selectedZone.replace(/[\/\-]/g, ' ').trim();
-        const addressLower = (formData.deliveryAddress || '').toLowerCase();
-
-        for (const otherZone of deliveryZones) {
-          if (otherZone.name === selectedZone) continue;
-          const cleanOtherName = (otherZone.name || '').replace(/[\/\-]/g, ' ').trim();
-          const otherTokens = cleanOtherName.split(/\s+/).filter(t => t.length > 2);
-          
-          const mismatch = otherTokens.some(tok => {
-            if (currentZoneClean.includes(tok)) return false;
-            return addressLower.includes(tok.toLowerCase());
-          });
-
-          if (mismatch) {
-            const msg = `⚠️ تنبيه أمني: العنوان المكتوب يحتوي على منطقة (${otherZone.name}) تختلف عن منطقة التوصيل المحسوبة (${selectedZone}). يرجى التأكد من اختيار منطقتك السكنية الصحيحة لتجنب إلغاء الطلب.`;
-            setErrorMessage(msg);
-            alert(msg);
-            return;
-          }
-        }
+      const mismatch = checkZoneMismatch(formData.deliveryAddress, selectedZone, deliveryZones);
+      if (mismatch) {
+        const msg = `⚠️ تنبيه أمني: العنوان المكتوب يحتوي على منطقة (${mismatch}) تختلف عن منطقة التوصيل المحددة (${selectedZone}). يرجى التأكد من اختيار منطقتك السكنية الصحيحة لتجنب إلغاء الطلب.`;
+        setErrorMessage(msg);
+        alert(msg);
+        return;
       }
     }
     
@@ -267,16 +253,28 @@ export default function CheckoutPage({ menuData }) {
       const check = validateReceiptFile(file);
       if (!check.isValid) {
         alert(check.error);
+        e.target.value = '';
         return;
       }
+
+      // Check SHA-256 hash immediately on upload!
       try {
-        const options = { maxSizeMB: 0.5, maxWidthOrHeight: 1200, useWebWorker: true };
-        const compressed = await imageCompression(file, options);
-        setReceiptFile(compressed);
-      } catch (error) {
-        console.error('Error compressing image:', error);
-        setReceiptFile(file);
+        const hash = await computeFileHash(file);
+        const { db } = await import('../firebase');
+        const { ref, get } = await import('firebase/database');
+        const hashSnap = await get(ref(db, `UsedReceipts/hashes/${hash}`));
+        if (hashSnap.exists()) {
+          const hData = hashSnap.val();
+          alert(`❌ إيصال مكرر! تم رفع نفس صورة هذا الإيصال مسبقاً في الطلب رقم #${hData.orderId || ''}. يرجى إرفاق إيصال التحويل الفعلي لهذا الطلب.`);
+          e.target.value = '';
+          setReceiptFile(null);
+          return;
+        }
+      } catch (hErr) {
+        console.warn('Immediate hash check warning:', hErr);
       }
+
+      setReceiptFile(file);
     }
   };
 
@@ -542,8 +540,9 @@ export default function CheckoutPage({ menuData }) {
       clearCart();
       localStorage.setItem('last_order_submitted_timestamp', Date.now().toString());
 
-      if (ocrCheckResult && ocrCheckResult.refNumber) {
-        await registerUsedReceipt(ocrCheckResult.refNumber, displayOrderId, formData.customerPhone, grandTotal);
+      if (receiptFile) {
+        const fileHash = ocrCheckResult?.fileHash || await computeFileHash(receiptFile);
+        await registerUsedReceipt(fileHash, ocrCheckResult?.refNumber, displayOrderId, formData.customerPhone, grandTotal);
       }
 
       const currentPhone = (formData.customerPhone || '').trim();
