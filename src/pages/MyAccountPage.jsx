@@ -7,6 +7,7 @@ import { auth, db, googleProvider } from '../firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, sendPasswordResetEmail, signOut } from 'firebase/auth';
 import { ref, get, set, update } from 'firebase/database';
 import { Package, MapPin, Edit3, LogOut, ChevronLeft, Navigation, ChevronDown, ChevronUp, Home, Briefcase, Plus, Trash2, Settings, User, CheckCircle2, RotateCcw } from 'lucide-react';
+import AddressMapPicker, { formatAddressDetails } from '../components/AddressMapPicker';
 import { APP_CONFIG } from '../config/appConfig';
 import { fetchMenuData } from '../services/firebaseService';
 
@@ -110,7 +111,19 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
   const [addresses, setAddresses] = React.useState(customerData.addresses || []);
   const [showAddForm, setShowAddForm] = React.useState(false);
   const [editingAddressId, setEditingAddressId] = React.useState(null);
-  const [newAddress, setNewAddress] = React.useState({ label: 'المنزل', zone: '', fullAddress: '' });
+  const [newAddress, setNewAddress] = React.useState({ 
+    label: 'المنزل', 
+    zone: '', 
+    street: '', 
+    building: '', 
+    floor: '', 
+    apartment: '', 
+    landmark: '', 
+    lat: null, 
+    lng: null, 
+    mapsUrl: '', 
+    fullAddress: '' 
+  });
   const [isSavingAddress, setIsSavingAddress] = React.useState(false);
 
   React.useEffect(() => {
@@ -171,28 +184,48 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
   };
 
   const handleAddAddress = async () => {
-    if (!newAddress.fullAddress.trim()) return;
-    if (newAddress.fullAddress.length > 200) {
-      alert(lang === 'en' ? 'Address is too long (max 200 characters)' : 'العنوان طويل جداً (الحد الأقصى 200 حرف)');
+    const fullAddr = newAddress.fullAddress || formatAddressDetails(newAddress);
+    if (!newAddress.zone) {
+      alert(lang === 'en' ? 'Please select your delivery area' : 'يرجى اختيار منطقة التوصيل السكنية');
+      return;
+    }
+    if (!newAddress.street?.trim() && !fullAddr.trim()) {
+      alert(lang === 'en' ? 'Please enter street name' : 'يرجى إدخال اسم الشارع');
+      return;
+    }
+    if (!newAddress.building?.trim() && !fullAddr.trim()) {
+      alert(lang === 'en' ? 'Please enter building name or number' : 'يرجى إدخال رقم أو اسم العمارة');
       return;
     }
     
     setIsSavingAddress(true);
 
+    const addressData = {
+      label: newAddress.label || 'المنزل',
+      zone: newAddress.zone,
+      street: (newAddress.street || '').trim(),
+      building: (newAddress.building || '').trim(),
+      floor: (newAddress.floor || '').trim(),
+      apartment: (newAddress.apartment || '').trim(),
+      landmark: (newAddress.landmark || '').trim(),
+      lat: newAddress.lat || null,
+      lng: newAddress.lng || null,
+      mapsUrl: newAddress.mapsUrl || (newAddress.lat && newAddress.lng ? `https://maps.google.com/?q=${newAddress.lat},${newAddress.lng}` : ''),
+      fullAddress: fullAddr.trim()
+    };
+
     if (editingAddressId) {
       const updatedAddresses = addresses.map(a => a.id === editingAddressId ? {
         ...a,
-        label: newAddress.label,
-        zone: newAddress.zone || a.zone || '',
-        fullAddress: newAddress.fullAddress.trim()
+        ...addressData
       } : a);
       await saveAddressesToFirebase(updatedAddresses);
 
-      if (newAddress.zone) {
+      if (addressData.zone) {
         const phoneToUse = customerData.Phone || customerData.phone || userPhone;
         await update(ref(db, `PublicCustomers/${phoneToUse}`), {
-          Zone: newAddress.zone,
-          zone: newAddress.zone
+          Zone: addressData.zone,
+          zone: addressData.zone
         });
         await refreshCustomerData(phoneToUse);
       }
@@ -215,26 +248,36 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
 
       const addressToSave = {
         id: Date.now().toString(),
-        label: newAddress.label,
-        zone: newAddress.zone || '',
-        fullAddress: newAddress.fullAddress.trim(),
+        ...addressData,
         isDefault: addresses.length === 0
       };
 
       const updatedAddresses = [...addresses, addressToSave];
       await saveAddressesToFirebase(updatedAddresses);
 
-      if (newAddress.zone && (!customerData.Zone && !customerData.zone)) {
+      if (addressData.zone && (!customerData.Zone && !customerData.zone)) {
         const phoneToUse = customerData.Phone || customerData.phone || userPhone;
         await update(ref(db, `PublicCustomers/${phoneToUse}`), {
-          Zone: newAddress.zone,
-          zone: newAddress.zone
+          Zone: addressData.zone,
+          zone: addressData.zone
         });
         await refreshCustomerData(phoneToUse);
       }
     }
     
-    setNewAddress({ label: 'المنزل', zone: '', fullAddress: '' });
+    setNewAddress({ 
+      label: 'المنزل', 
+      zone: '', 
+      street: '', 
+      building: '', 
+      floor: '', 
+      apartment: '', 
+      landmark: '', 
+      lat: null, 
+      lng: null, 
+      mapsUrl: '', 
+      fullAddress: '' 
+    });
     setShowAddForm(false);
     setIsSavingAddress(false);
   };
@@ -438,32 +481,11 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
                     </button>
                   ))}
                 </div>
-                {/* Zone Selector for this address */}
-                <div className="mb-4">
-                  <label className="block text-text-light text-sm font-bold mb-2">
-                    {lang === 'en' ? 'Select Delivery Area / Zone *' : 'منطقة التوصيل السكنية *'}
-                  </label>
-                  <select 
-                    value={newAddress.zone || ''}
-                    onChange={(e) => setNewAddress({...newAddress, zone: e.target.value})}
-                    className="w-full bg-black-surface border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red font-bold"
-                  >
-                    <option value="">{lang === 'en' ? '-- Select Area --' : '-- اختر المنطقة السكنية --'}</option>
-                    {zonesList.map(z => (
-                      <option key={z.id || z.name} value={z.name}>{z.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <label className="block text-text-light text-sm font-bold mb-2">
-                  {lang === 'en' ? 'Detailed Address *' : 'العنوان التفصيلي (الشارع، العمارة، الشقة) *'}
-                </label>
-                <textarea 
-                  value={newAddress.fullAddress}
-                  onChange={(e) => setNewAddress({...newAddress, fullAddress: e.target.value})}
-                  maxLength={200}
-                  className="w-full bg-black-surface border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red min-h-[100px] mb-4"
-                  placeholder={lang === 'en' ? 'Enter full address details...' : 'اكتب تفاصيل العنوان بالكامل...'}
+                <AddressMapPicker 
+                  value={newAddress} 
+                  onChange={setNewAddress} 
+                  zonesList={zonesList} 
+                  lang={lang} 
                 />
                 <div className="flex justify-end gap-3">
                   <button 
@@ -505,13 +527,31 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
                               )}
                            </div>
                            {addr.zone && (
-                                <div className="mb-1.5">
+                                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                                   <span className="inline-flex items-center gap-1 text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-md font-bold">
                                     <MapPin size={12} /> {addr.zone}
                                   </span>
+                                  {addr.mapsUrl && (
+                                    <a 
+                                      href={addr.mapsUrl} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer" 
+                                      className="inline-flex items-center gap-1 text-[11px] bg-blue-500/20 text-blue-400 hover:text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-md font-bold transition-colors"
+                                    >
+                                      🗺️ خريطة الموقع
+                                    </a>
+                                  )}
                                 </div>
                               )}
-                              <p className="text-text-muted text-sm whitespace-pre-wrap">{addr.fullAddress}</p>
+                              <p className="text-text-light text-sm font-semibold mb-1">{addr.fullAddress}</p>
+                              {(addr.building || addr.floor || addr.apartment) && (
+                                <p className="text-xs text-text-muted">
+                                  {addr.building && <span>عمارة: {addr.building} </span>}
+                                  {addr.floor && <span>| دور: {addr.floor} </span>}
+                                  {addr.apartment && <span>| شقة: {addr.apartment} </span>}
+                                  {addr.landmark && <span>| علامة: {addr.landmark}</span>}
+                                </p>
+                              )}
                         </div>
                      </div>
                      <div className="flex flex-col gap-2 items-end shrink-0">
@@ -523,7 +563,19 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
                         <button 
                           onClick={() => {
                             setEditingAddressId(addr.id);
-                            setNewAddress({ label: addr.label, zone: addr.zone || '', fullAddress: addr.fullAddress });
+                            setNewAddress({ 
+                              label: addr.label, 
+                              zone: addr.zone || '', 
+                              street: addr.street || '',
+                              building: addr.building || '',
+                              floor: addr.floor || '',
+                              apartment: addr.apartment || '',
+                              landmark: addr.landmark || '',
+                              lat: addr.lat || null,
+                              lng: addr.lng || null,
+                              mapsUrl: addr.mapsUrl || '',
+                              fullAddress: addr.fullAddress || '' 
+                            });
                             setShowAddForm(true);
                           }} 
                           className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer"

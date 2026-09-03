@@ -303,6 +303,8 @@ export default function CheckoutPage({ menuData }) {
         }
       }
 
+      const matchedAddr = customerData?.addresses?.find(a => a.fullAddress === formData.deliveryAddress);
+
       const orderPayload = {
         orderDate: new Date().toISOString(),
         customerName: formData.customerName,
@@ -312,6 +314,14 @@ export default function CheckoutPage({ menuData }) {
         deliveryAddress: formData.orderType === 'delivery' ? `[منطقة: ${selectedZone}] ${formData.deliveryAddress}` : '',
         deliveryZone: formData.orderType === 'delivery' ? selectedZone : '',
         deliveryFee: formData.orderType === 'delivery' ? deliveryFee : 0,
+        mapsUrl: formData.orderType === 'delivery' ? (matchedAddr?.mapsUrl || '') : '',
+        lat: formData.orderType === 'delivery' ? (matchedAddr?.lat || null) : null,
+        lng: formData.orderType === 'delivery' ? (matchedAddr?.lng || null) : null,
+        street: formData.orderType === 'delivery' ? (matchedAddr?.street || '') : '',
+        building: formData.orderType === 'delivery' ? (matchedAddr?.building || '') : '',
+        floor: formData.orderType === 'delivery' ? (matchedAddr?.floor || '') : '',
+        apartment: formData.orderType === 'delivery' ? (matchedAddr?.apartment || '') : '',
+        landmark: formData.orderType === 'delivery' ? (matchedAddr?.landmark || '') : '',
         subtotal: subtotal,
         taxPercentage: taxPercentage,
         taxAmount: taxAmount,
@@ -426,6 +436,13 @@ export default function CheckoutPage({ menuData }) {
             CustomerPhone: formData.customerPhone,
             OrderType: formData.orderType,
             DeliveryAddress: formData.orderType === 'delivery' ? formData.deliveryAddress : '',
+            MapsUrl: formData.orderType === 'delivery' ? (matchedAddr?.mapsUrl || '') : '',
+            Lat: formData.orderType === 'delivery' ? (matchedAddr?.lat || null) : null,
+            Lng: formData.orderType === 'delivery' ? (matchedAddr?.lng || null) : null,
+            Building: formData.orderType === 'delivery' ? (matchedAddr?.building || '') : '',
+            Floor: formData.orderType === 'delivery' ? (matchedAddr?.floor || '') : '',
+            Apartment: formData.orderType === 'delivery' ? (matchedAddr?.apartment || '') : '',
+            Landmark: formData.orderType === 'delivery' ? (matchedAddr?.landmark || '') : '',
             TableNumber: formData.orderType === 'DineIn' ? formData.tableNumber : '',
             Subtotal: subtotal,
             DeliveryFee: formData.orderType === 'delivery' ? deliveryFee : 0,
@@ -781,7 +798,15 @@ export default function CheckoutPage({ menuData }) {
                                         </span>
                                       )}
                                     </div>
-                                    <span className="text-text-muted text-sm">{addr.fullAddress}</span>
+                                    <span className="text-text-light text-sm block font-semibold">{addr.fullAddress}</span>
+                                      {(addr.building || addr.floor || addr.apartment) && (
+                                        <span className="text-xs text-text-muted block mt-0.5">
+                                          {addr.building && <span>عمارة: {addr.building} </span>}
+                                          {addr.floor && <span>| دور: {addr.floor} </span>}
+                                          {addr.apartment && <span>| شقة: {addr.apartment} </span>}
+                                          {addr.landmark && <span>| علامة: {addr.landmark}</span>}
+                                        </span>
+                                      )}
                                   </div>
                                </label>
                              )})}
