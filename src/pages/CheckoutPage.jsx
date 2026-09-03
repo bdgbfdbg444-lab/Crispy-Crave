@@ -35,9 +35,17 @@ export default function CheckoutPage({ menuData }) {
   const taxPercentage = Number(menuData?.restaurant?.defaultTaxPercentage || 0);
 
   const defaultAddr = customerData?.addresses?.find(a => a.isDefault);
-  const [selectedZone, setSelectedZone] = useState(() => {
-    return defaultAddr?.zone || customerData?.Zone || customerData?.zone || '';
-  });
+  const selectedAddressObj = customerData?.addresses?.find(a => a.fullAddress === formData.deliveryAddress);
+  const currentFixedZone = selectedAddressObj?.zone || defaultAddr?.zone || customerData?.Zone || customerData?.zone || '';
+  const hasFixedZone = Boolean(currentFixedZone);
+
+  const [selectedZone, setSelectedZone] = useState(() => currentFixedZone);
+
+  useEffect(() => {
+    if (currentFixedZone && selectedZone !== currentFixedZone) {
+      setSelectedZone(currentFixedZone);
+    }
+  }, [currentFixedZone]);
 
   const subtotal = cartTotal;
   const selectedZoneObj = deliveryZones.find(z => (z.name || '').trim() === (selectedZone || '').trim());
@@ -708,38 +716,41 @@ export default function CheckoutPage({ menuData }) {
                         exit={{ opacity: 0, height: 0 }}
                         className="overflow-hidden"
                       >
-                        {/* Delivery Zone Selector */}
-                        <div className="mt-6 mb-4">
-                          <label className="block text-sm font-bold text-text-light mb-2">
-                            {lang === 'en' ? 'Delivery Area / Zone *' : 'منطقة التوصيل السكنية *'}
-                          </label>
-                          <select
-                            required
-                            value={selectedZone}
-                            onChange={e => setSelectedZone(e.target.value)}
-                            className="w-full bg-black-primary border border-brand-red-dark/30 rounded-xl px-4 py-3 text-text-light focus:outline-none focus:ring-2 focus:ring-brand-red/50 focus:border-brand-red font-bold"
-                          >
-                            <option value="">{lang === 'en' ? '-- Select your delivery area --' : '-- اختر منطقة التوصيل السكنية --'}</option>
-                            {deliveryZones.map(z => (
-                              <option key={z.id || z.name} value={z.name}>{z.name}</option>
-                            ))}
-                          </select>
-                          {selectedZoneObj && (
-                            <div className="mt-2 flex items-center justify-between text-xs font-semibold px-2">
-                              
-                              {selectedZoneObj.minOrderAmount > 0 && (
-                                <span className={subtotal < selectedZoneObj.minOrderAmount ? "text-amber-400 font-bold" : "text-text-muted"}>
-                                  الحد الأدنى للطلب: {selectedZoneObj.minOrderAmount} ج.م
-                                </span>
-                              )}
-                            </div>
-                          )}
-                          {selectedZoneObj && selectedZoneObj.minOrderAmount > 0 && subtotal < selectedZoneObj.minOrderAmount && (
-                            <div className="mt-2 p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-400 text-xs font-bold">
-                              ⚠️ قيمة الوجبات ({subtotal} ج.م) أقل من الحد الأدنى للطلب لمنطقة {selectedZoneObj.name} ({selectedZoneObj.minOrderAmount} ج.م). يرجى إضافة المزيد من الأصناف.
-                            </div>
-                          )}
-                        </div>
+                        {/* Delivery Zone Selector (Hidden if already defined in saved account/address) */}
+                        {!hasFixedZone ? (
+                          <div className="mt-6 mb-4">
+                            <label className="block text-sm font-bold text-text-light mb-2">
+                              {lang === 'en' ? 'Delivery Area / Zone *' : 'منطقة التوصيل السكنية *'}
+                            </label>
+                            <select
+                              required
+                              value={selectedZone}
+                              onChange={e => setSelectedZone(e.target.value)}
+                              className="w-full bg-black-primary border border-brand-red-dark/30 rounded-xl px-4 py-3 text-text-light focus:outline-none focus:ring-2 focus:ring-brand-red/50 focus:border-brand-red font-bold"
+                            >
+                              <option value="">{lang === 'en' ? '-- Select your delivery area --' : '-- اختر منطقة التوصيل السكنية --'}</option>
+                              {deliveryZones.map(z => (
+                                <option key={z.id || z.name} value={z.name}>{z.name}</option>
+                              ))}
+                            </select>
+                            {selectedZoneObj && (
+                              <div className="mt-2 flex items-center justify-between text-xs font-semibold px-2">
+                                {selectedZoneObj.minOrderAmount > 0 && (
+                                  <span className={subtotal < selectedZoneObj.minOrderAmount ? "text-amber-400 font-bold" : "text-text-muted"}>
+                                    الحد الأدنى للطلب: {selectedZoneObj.minOrderAmount} ج.م
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ) : null}
+
+                        {/* Minimum Order Warning if applicable */}
+                        {selectedZoneObj && selectedZoneObj.minOrderAmount > 0 && subtotal < selectedZoneObj.minOrderAmount && (
+                          <div className="mt-4 mb-2 p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-400 text-xs font-bold">
+                            ⚠️ قيمة الوجبات ({subtotal} ج.م) أقل من الحد الأدنى للطلب لمنطقة {selectedZoneObj.name} ({selectedZoneObj.minOrderAmount} ج.م). يرجى إضافة المزيد من الأصناف.
+                          </div>
+                        )}
 
                         <label className="block text-sm font-bold text-text-light mt-4 mb-2">{lang === 'en' ? 'Detailed Delivery Address' : 'العنوان التفصيلي (الشارع، العمارة، الشقة)'} *</label>
                         
