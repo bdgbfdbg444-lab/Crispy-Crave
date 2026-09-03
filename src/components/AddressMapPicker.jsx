@@ -32,6 +32,182 @@ export const normalizeArabic = (text) => {
     .replace(/\s+/g, ' ');
 };
 
+export const calculateDistanceKm = (lat1, lon1, lat2, lon2) => {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return 9999;
+  const R = 6371; // Earth radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
+export const ALEXANDRIA_DISTRICTS = {
+  'سيدي بشر': {
+    aliases: ['سيدي بشر', 'سيدى بشر', 'sidi bishr'],
+    subAreas: [
+      'سيدي بشر', 'سيدى بشر', 'سيدي بشر بحري', 'سيدي بشر قبلي', 'سيدى بشر بحرى', 'سيدى بشر قبلى',
+      'خالد بن الوليد', 'العيسوي', 'العيسوى', 'جمال عبد الناصر', 'ملك حفني', 'ملك حفنى',
+      'بير مسعود', 'المحروسة', 'المحروسه', 'شاطئ إدوارد خراط', 'شاطئ سيدي بشر', 'خليل حمادة', 'خليل حماده',
+      'مساكن الضباط', 'شارع 45', 'شارع خمسة واربعين', 'الفلكي', 'الفلكى', 'عزبة الشامي', 'عزبة الشامى',
+      'حي أول المنتزه', 'حي اول المنتزه', 'منتزه أول', 'منتزه اول'
+    ],
+    center: { lat: 31.2598, lng: 29.9868 },
+    radiusKm: 3.5
+  },
+  'سموحة': {
+    aliases: ['سموحة', 'سموحه', 'smouha'],
+    subAreas: [
+      'سموحة', 'سموحه', 'فوزي معاذ', 'فوزى معاذ', 'فيكتور عمانويل', 'جرين بلازا', 'زهران',
+      'مصطفى كامل', 'شارع النصر', 'ألبرت الأول', 'البرت الاول', 'توت عنخ آمون', 'توت عنخ امون',
+      'عزبة سعد', 'نادي سموحة', 'نادى سموحه', 'حدائق النزهة', 'حدائق النزهه', 'سيدي جابر محطة',
+      'سيدي جابر المحطة', 'سيدى جابر محطه', 'قسم سيدي جابر', 'قسم سيدى جابر'
+    ],
+    center: { lat: 31.2156, lng: 29.9452 },
+    radiusKm: 3.2
+  },
+  'ميامي': {
+    aliases: ['ميامي', 'ميامى', 'miami'],
+    subAreas: [
+      'ميامي', 'ميامى', 'اسكندر ابراهيم', 'إسكندر إبراهيم', 'الأكاديمية', 'الاكاديميه',
+      'شاطئ ميامي', 'شاطئ ميامى', 'جمال عبد الناصر ميامي', 'خالد بن الوليد ميامي'
+    ],
+    center: { lat: 31.2687, lng: 29.9965 },
+    radiusKm: 2.2
+  },
+  'العصافرة': {
+    aliases: ['العصافرة', 'العصافره', 'asafra'],
+    subAreas: [
+      'العصافرة', 'العصافره', 'العصافرة بحري', 'العصافرة قبلي', 'العصافره بحرى', 'العصافره قبلى',
+      'شارع 45', 'سليمان الفارسي', 'المعهد الديني', 'شارع الملازم بسيوني', 'شاطئ العصافرة'
+    ],
+    center: { lat: 31.2750, lng: 30.0070 },
+    radiusKm: 2.5
+  },
+  'المندرة': {
+    aliases: ['المندرة', 'المندره', 'mandara'],
+    subAreas: [
+      'المندرة', 'المندره', 'المندرة بحري', 'المندرة قبلي', 'المندره بحرى', 'المندره قبلى',
+      'كوبري المندرة', 'شاطئ المندرة', 'شارع النبوي المهندس', 'حي ثان المنتزه'
+    ],
+    center: { lat: 31.2825, lng: 30.0175 },
+    radiusKm: 2.5
+  },
+  'المعمورة': {
+    aliases: ['المعمورة', 'المعموره', 'mamoura'],
+    subAreas: [
+      'المعمورة', 'المعموره', 'المعمورة الشاطئ', 'المعمورة البلد', 'المعموره الشاطئ', 'المعموره البلد',
+      'بوابة المعمورة', 'طريق الطابية'
+    ],
+    center: { lat: 31.2950, lng: 30.0350 },
+    radiusKm: 3.0
+  },
+  'أبو قير': {
+    aliases: ['أبو قير', 'ابو قير', 'abu qir'],
+    subAreas: ['أبو قير', 'ابو قير', 'طوسون', 'كلية التربية الرياضية', 'الأكاديمية البحرية'],
+    center: { lat: 31.3150, lng: 30.0650 },
+    radiusKm: 4.0
+  },
+  'لوران': {
+    aliases: ['لوران', 'lauran'],
+    subAreas: ['لوران', 'شارع الإقبال', 'شارع الاقبال', 'شاطئ لوران', 'طريق الكورنيش لوران'],
+    center: { lat: 31.2480, lng: 29.9720 },
+    radiusKm: 2.0
+  },
+  'سان ستيفانو': {
+    aliases: ['سان ستيفانو', 'san stefano'],
+    subAreas: ['سان ستيفانو', 'مول سان ستيفانو', 'فندق ريكسوس', 'طريق الحرية سان ستيفانو'],
+    center: { lat: 31.2430, lng: 29.9650 },
+    radiusKm: 1.8
+  },
+  'جليم': {
+    aliases: ['جليم', 'gleem'],
+    subAreas: ['جليم', 'شاطئ جليم', 'شارع عبد السلام عارف', 'طريق الكورنيش جليم'],
+    center: { lat: 31.2380, lng: 29.9570 },
+    radiusKm: 1.8
+  },
+  'كفر عبده': {
+    aliases: ['كفر عبده', 'kafr abdo'],
+    subAreas: ['كفر عبده', 'شارع خليل باشا', 'شارع أبو قير كفر عبده'],
+    center: { lat: 31.2280, lng: 29.9520 },
+    radiusKm: 1.8
+  },
+  'رشدي': {
+    aliases: ['رشدي', 'roushdy'],
+    subAreas: ['رشدي', 'شارع أحمد شوقي', 'شارع سوريا رشدي'],
+    center: { lat: 31.2320, lng: 29.9480 },
+    radiusKm: 1.8
+  },
+  'سيدي جابر': {
+    aliases: ['سيدي جابر', 'سيدى جابر', 'sidi gaber'],
+    subAreas: ['سيدي جابر', 'سيدى جابر', 'محطة سيدي جابر', 'شارع المشير أحمد إسماعيل', 'شارع بورسعيد'],
+    center: { lat: 31.2210, lng: 29.9380 },
+    radiusKm: 2.2
+  },
+  'كليوباترا': {
+    aliases: ['كليوباترا', 'cleopatra'],
+    subAreas: ['كليوباترا', 'كليوباترا حمامات', 'كليوباترا صغرى'],
+    center: { lat: 31.2180, lng: 29.9320 },
+    radiusKm: 1.8
+  },
+  'سبورتنج': {
+    aliases: ['سبورتنج', 'sporting'],
+    subAreas: ['سبورتنج', 'نادي سبورتنج', 'شارع الدلتا', 'شارع بورسعيد سبورتنج'],
+    center: { lat: 31.2140, lng: 29.9260 },
+    radiusKm: 1.8
+  },
+  'الإبراهيمية': {
+    aliases: ['الإبراهيمية', 'الابراهيميه', 'ibrahimya'],
+    subAreas: ['الإبراهيمية', 'الابراهيميه', 'شارع لاجيتيه', 'شارع عمر لطفي', 'ميدان سبورتنج'],
+    center: { lat: 31.2090, lng: 29.9200 },
+    radiusKm: 1.8
+  },
+  'الشاطبي': {
+    aliases: ['الشاطبي', 'الشاطبى', 'shatby'],
+    subAreas: ['الشاطبي', 'الشاطبى', 'مكتبة الإسكندرية', 'جامعة الإسكندرية', 'مستشفى الشاطبي'],
+    center: { lat: 31.2060, lng: 29.9120 },
+    radiusKm: 1.8
+  },
+  'الأزاريطة': {
+    aliases: ['الأزاريطة', 'الازاريطه', 'azarita'],
+    subAreas: ['الأزاريطة', 'الازاريطه', 'كلية الطب', 'المجمع النظري', 'شارع شامبليون'],
+    center: { lat: 31.2040, lng: 29.9080 },
+    radiusKm: 1.8
+  },
+  'محطة الرمل': {
+    aliases: ['محطة الرمل', 'محطه الرمل', 'raml station'],
+    subAreas: ['محطة الرمل', 'محطه الرمل', 'سعد زغلول', 'شارع النبي دانيال', 'شارع صفية زغلول', 'ميدان الرمل'],
+    center: { lat: 31.2000, lng: 29.9000 },
+    radiusKm: 2.0
+  },
+  'المنشية': {
+    aliases: ['المنشية', 'المنشيه', 'mansheya'],
+    subAreas: ['المنشية', 'المنشيه', 'ميدان التحرير', 'سوق الميدان', 'شارع فرنسا', 'السبع بنات', 'بحري'],
+    center: { lat: 31.1960, lng: 29.8920 },
+    radiusKm: 2.2
+  },
+  'محرم بك': {
+    aliases: ['محرم بك', 'moharram bek'],
+    subAreas: ['محرم بك', 'الرصافة', 'شارع بوالينو', 'شارع منشا', 'قنال السويس', 'أمبروزو', 'بشاير الخير', 'ميدان الرصافة'],
+    center: { lat: 31.1920, lng: 29.9140 },
+    radiusKm: 2.8
+  },
+  'كرموز': {
+    aliases: ['كرموز', 'karmouz'],
+    subAreas: ['كرموز', 'عمود السواري', 'شارع راغب', 'غيط العنب', 'بشاير الخير 1', 'بشاير الخير 2'],
+    center: { lat: 31.1820, lng: 29.8980 },
+    radiusKm: 2.5
+  },
+  'العجمي': {
+    aliases: ['العجمي', 'العجمى', 'agami'],
+    subAreas: ['العجمي', 'العجمى', 'البيطاش', 'الهانوفيل', 'أبو تلات', 'الكيلو 21', 'الدخيلة', 'الدخيله'],
+    center: { lat: 31.1200, lng: 29.7700 },
+    radiusKm: 6.0
+  }
+};
+
 export const checkZoneMismatch = (addressText, selectedZone, zonesList) => {
   if (!addressText || !selectedZone || !zonesList || zonesList.length === 0) return null;
   const normAddress = normalizeArabic(addressText);
@@ -145,8 +321,10 @@ export default function AddressMapPicker({
         neighborhoodName = addr.suburb || addr.neighbourhood || addr.quarter || addr.city_district || addr.district || '';
         setRawAreaName(neighborhoodName);
         
-        // Match against zonesList using normalizeArabic
+        // Match against zonesList using ALEXANDRIA_DISTRICTS + subAreas + radius + searchPool
         const searchPool = [
+          streetName,
+          addr.road,
           addr.suburb,
           addr.neighbourhood,
           addr.quarter,
@@ -157,13 +335,46 @@ export default function AddressMapPicker({
 
         const normSearchPool = normalizeArabic(searchPool);
 
+        // Tier 1: Match by district knowledge base (subAreas & radius)
         for (const z of zonesList) {
-          const normZoneName = normalizeArabic(z.name || '');
-          const tokens = normZoneName.split(/\s+/).filter(t => t.length > 2);
-          const matched = tokens.length > 0 && tokens.some(t => normSearchPool.includes(t));
-          if (matched) {
-            zoneDetected = z.name;
-            break;
+          const normZName = normalizeArabic(z.name || '');
+          
+          const districtKey = Object.keys(ALEXANDRIA_DISTRICTS).find(k => {
+            const d = ALEXANDRIA_DISTRICTS[k];
+            return normalizeArabic(k) === normZName || d.aliases.some(a => normalizeArabic(a) === normZName);
+          });
+
+          if (districtKey) {
+            const districtInfo = ALEXANDRIA_DISTRICTS[districtKey];
+            
+            // 1. Check if any subArea matches the street or address pool
+            const hasSubAreaMatch = districtInfo.subAreas.some(sub => normSearchPool.includes(normalizeArabic(sub)));
+            if (hasSubAreaMatch) {
+              zoneDetected = z.name;
+              break;
+            }
+
+            // 2. Check if pin coordinates are within district radius
+            if (lat && lng && districtInfo.center) {
+              const dist = calculateDistanceKm(lat, lng, districtInfo.center.lat, districtInfo.center.lng);
+              if (dist <= districtInfo.radiusKm) {
+                zoneDetected = z.name;
+                break;
+              }
+            }
+          }
+        }
+
+        // Tier 2: Fallback to token text matching if not matched by district knowledge base
+        if (!zoneDetected) {
+          for (const z of zonesList) {
+            const normZoneName = normalizeArabic(z.name || '');
+            const tokens = normZoneName.split(/\s+/).filter(t => t.length > 2);
+            const matched = tokens.length > 0 && tokens.some(t => normSearchPool.includes(t));
+            if (matched) {
+              zoneDetected = z.name;
+              break;
+            }
           }
         }
       }
