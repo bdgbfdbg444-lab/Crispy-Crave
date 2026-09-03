@@ -690,14 +690,12 @@ export default function CheckoutPage({ menuData }) {
                           >
                             <option value="">{lang === 'en' ? '-- Select your delivery area --' : '-- اختر منطقة التوصيل السكنية --'}</option>
                             {deliveryZones.map(z => (
-                              <option key={z.id || z.name} value={z.name}>
-                                📍 {z.name} (توصيل: {z.deliveryFee} ج.م {z.minOrderAmount > 0 ? `| حد أدنى: ${z.minOrderAmount} ج.م` : ''})
-                              </option>
+                              <option key={z.id || z.name} value={z.name}>{z.name}</option>
                             ))}
                           </select>
                           {selectedZoneObj && (
                             <div className="mt-2 flex items-center justify-between text-xs font-semibold px-2">
-                              <span className="text-emerald-400">سعر التوصيل للمنطقة: {selectedZoneObj.deliveryFee} ج.م</span>
+                              
                               {selectedZoneObj.minOrderAmount > 0 && (
                                 <span className={subtotal < selectedZoneObj.minOrderAmount ? "text-amber-400 font-bold" : "text-text-muted"}>
                                   الحد الأدنى للطلب: {selectedZoneObj.minOrderAmount} ج.م

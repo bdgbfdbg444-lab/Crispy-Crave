@@ -274,7 +274,7 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
                 >
                   <option value="">-- اختر منطقتك السكنية --</option>
                   {zonesList.map(z => (
-                    <option key={z.id || z.name} value={z.name}>{z.name} ({z.deliveryFee} ج.م)</option>
+                    <option key={z.id || z.name} value={z.name}>{z.name}</option>
                   ))}
                 </select>
                 <button 
@@ -866,7 +866,7 @@ export default function MyAccountPage({ menuData }) {
             >
               <option value="">-- اختر منطقتك السكنية --</option>
               {zonesForAuth.map(z => (
-                <option key={z.id || z.name} value={z.name}>📍 {z.name} (توصيل: {z.deliveryFee} ج.م)</option>
+                <option key={z.id || z.name} value={z.name}>{z.name}</option>
               ))}
             </select>
           </div>
