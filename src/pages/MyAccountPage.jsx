@@ -14,6 +14,7 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
   const { lang } = useLanguage();
   const navigate = useNavigate();
   const { addToCart, setIsCartOpen } = useCart();
+  const { refreshCustomerData } = useAuth();
 
   const handleOrderAgain = (order) => {
     let itemsList = order.Items || order.items;
