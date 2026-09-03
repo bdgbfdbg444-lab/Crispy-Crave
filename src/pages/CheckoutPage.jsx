@@ -354,7 +354,7 @@ export default function CheckoutPage({ menuData }) {
 
       // 3. Success Handling (ONLY runs if fetch succeeded and threw no errors)
       setGeneratedOrderId(displayOrderId);
-      setFinalTotal(cartTotal);
+      setFinalTotal(grandTotal);
 
       // Save order items & details for future modifications
       const existingDetailsStr = localStorage.getItem(`order_${displayOrderId}_details`);
@@ -405,7 +405,7 @@ export default function CheckoutPage({ menuData }) {
         localStorage.setItem('activeOrder_' + currentPhone, cleanId);
       }
       localStorage.setItem('activeOrderId', cleanId);
-      localStorage.setItem('activeOrderTotal', cartTotal);
+      localStorage.setItem('activeOrderTotal', grandTotal);
       setIsSubmitting(false);
       sessionStorage.setItem('placed_order_' + cleanId, 'true');
       // Navigate cleanly without '#' symbol so HashRouter does not double-hash!
@@ -677,7 +677,42 @@ export default function CheckoutPage({ menuData }) {
                         exit={{ opacity: 0, height: 0 }}
                         className="overflow-hidden"
                       >
-                        <label className="block text-sm font-bold text-text-light mt-6 mb-2">{lang === 'en' ? 'Delivery Address' : 'عنوان التوصيل'} *</label>
+                        {/* Delivery Zone Selector */}
+                        <div className="mt-6 mb-4">
+                          <label className="block text-sm font-bold text-text-light mb-2">
+                            {lang === 'en' ? 'Delivery Area / Zone *' : 'منطقة التوصيل السكنية *'}
+                          </label>
+                          <select
+                            required
+                            value={selectedZone}
+                            onChange={e => setSelectedZone(e.target.value)}
+                            className="w-full bg-black-primary border border-brand-red-dark/30 rounded-xl px-4 py-3 text-text-light focus:outline-none focus:ring-2 focus:ring-brand-red/50 focus:border-brand-red font-bold"
+                          >
+                            <option value="">{lang === 'en' ? '-- Select your delivery area --' : '-- اختر منطقة التوصيل السكنية --'}</option>
+                            {deliveryZones.map(z => (
+                              <option key={z.id || z.name} value={z.name}>
+                                📍 {z.name} (توصيل: {z.deliveryFee} ج.م {z.minOrderAmount > 0 ? `| حد أدنى: ${z.minOrderAmount} ج.م` : ''})
+                              </option>
+                            ))}
+                          </select>
+                          {selectedZoneObj && (
+                            <div className="mt-2 flex items-center justify-between text-xs font-semibold px-2">
+                              <span className="text-emerald-400">سعر التوصيل للمنطقة: {selectedZoneObj.deliveryFee} ج.م</span>
+                              {selectedZoneObj.minOrderAmount > 0 && (
+                                <span className={subtotal < selectedZoneObj.minOrderAmount ? "text-amber-400 font-bold" : "text-text-muted"}>
+                                  الحد الأدنى للطلب: {selectedZoneObj.minOrderAmount} ج.م
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {selectedZoneObj && selectedZoneObj.minOrderAmount > 0 && subtotal < selectedZoneObj.minOrderAmount && (
+                            <div className="mt-2 p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-400 text-xs font-bold">
+                              ⚠️ قيمة الوجبات ({subtotal} ج.م) أقل من الحد الأدنى للطلب لمنطقة {selectedZoneObj.name} ({selectedZoneObj.minOrderAmount} ج.م). يرجى إضافة المزيد من الأصناف.
+                            </div>
+                          )}
+                        </div>
+
+                        <label className="block text-sm font-bold text-text-light mt-4 mb-2">{lang === 'en' ? 'Detailed Delivery Address' : 'العنوان التفصيلي (الشارع، العمارة، الشقة)'} *</label>
                         
                         {/* Address Cards Selector */}
                         {customerData?.addresses?.length > 0 && (
@@ -757,7 +792,7 @@ export default function CheckoutPage({ menuData }) {
                       const editingDetails = JSON.parse(localStorage.getItem('editingOrderDetails') || '{}');
                       const activeTotal = parseFloat(localStorage.getItem('activeOrderTotal') || '0');
                       const origTotal = editingDetails.originalTotal || (activeTotal > 0 ? activeTotal : 0);
-                      const priceDiff = cartTotal - origTotal;
+                      const priceDiff = grandTotal - origTotal;
                       return (
                         <div className="mb-6 p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 shadow-lg">
                           <div className="flex items-center justify-between mb-3">
@@ -779,7 +814,7 @@ export default function CheckoutPage({ menuData }) {
                           </div>
                           <div className="flex justify-between text-sm text-text-muted mb-2">
                             <span>الحساب الجديد بعد التعديل:</span>
-                            <span className="font-bold text-text-light">{cartTotal.toFixed(2)} ج.م</span>
+                            <span className="font-bold text-text-light">{grandTotal.toFixed(2)} ج.م</span>
                           </div>
                           <div className="pt-3 border-t border-amber-500/20 flex justify-between font-bold">
                             <span className="text-text-light text-base">

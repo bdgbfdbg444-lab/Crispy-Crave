@@ -72,6 +72,35 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
   };
 
   const [activeTab, setActiveTab] = React.useState('overview');
+  const [zoneUpdateInput, setZoneUpdateInput] = React.useState(customerData.Zone || customerData.zone || '');
+  const [savingZone, setSavingZone] = React.useState(false);
+
+  const zonesList = menuData?.deliveryZones || [
+    { id: 1, name: "محرم بك / الشاطبي", deliveryFee: 20 },
+    { id: 2, name: "سموحة", deliveryFee: 30 },
+    { id: 3, name: "سيدي جابر / كليوباترا", deliveryFee: 25 },
+    { id: 4, name: "ميامي / العصافرة", deliveryFee: 35 },
+    { id: 5, name: "العجمي", deliveryFee: 60 }
+  ];
+
+  const handleSaveExistingZone = async () => {
+    if (!zoneUpdateInput) return;
+    setSavingZone(true);
+    try {
+      const phoneToUse = customerData.Phone || customerData.phone || userPhone;
+      if (phoneToUse) {
+        await update(ref(db, `PublicCustomers/${phoneToUse}`), {
+          Zone: zoneUpdateInput,
+          zone: zoneUpdateInput
+        });
+        await refreshCustomerData(phoneToUse);
+        alert('✅ تم حفظ وتحديث منطقتك السكنية بنجاح!');
+      }
+    } catch (err) {
+      alert('فشل حفظ المنطقة: ' + err.message);
+    }
+    setSavingZone(false);
+  };
   const [editingEmail, setEditingEmail] = React.useState(false);
   const [newEmail, setNewEmail] = React.useState(customerData.Email || '');
   const [savingEmail, setSavingEmail] = React.useState(false);
@@ -225,6 +254,42 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
       </div>
 
       <div className="flex-1 bg-black-surface p-6 rounded-xl border border-brand-red/10 min-h-[400px]">
+        {/* Missing Zone Alert for Existing Users */}
+        {(!customerData.Zone && !customerData.zone) && (
+          <div className="mb-6 p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 shadow-lg">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <h4 className="font-bold text-base flex items-center gap-2">
+                  <span>📍</span> يرجى تحديد منطقتك السكنية لتفعيل خدمة الدليفري
+                </h4>
+                <p className="text-xs text-text-muted mt-1 leading-relaxed">
+                  حدد منطقتك لحساب رسوم التوصيل الصحيحة لطلباتك بدقة وضمان سرعة التوصيل.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <select 
+                  className="bg-black-primary border border-amber-500/50 text-text-light text-sm p-2.5 rounded-xl font-bold focus:outline-none"
+                  value={zoneUpdateInput}
+                  onChange={e => setZoneUpdateInput(e.target.value)}
+                >
+                  <option value="">-- اختر منطقتك السكنية --</option>
+                  {zonesList.map(z => (
+                    <option key={z.id || z.name} value={z.name}>{z.name} ({z.deliveryFee} ج.م)</option>
+                  ))}
+                </select>
+                <button 
+                  type="button"
+                  onClick={handleSaveExistingZone}
+                  disabled={!zoneUpdateInput || savingZone}
+                  className="px-5 py-2.5 bg-amber-500 text-black font-black text-sm rounded-xl hover:bg-amber-400 disabled:opacity-50 shrink-0 transition-colors"
+                >
+                  {savingZone ? 'جاري الحفظ...' : 'حفظ المنطقة'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'overview' && (
           <div>
             <div className="flex justify-between items-center mb-6">
@@ -446,6 +511,15 @@ export default function MyAccountPage({ menuData }) {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
+  const [selectedZone, setSelectedZone] = useState('');
+  
+  const zonesForAuth = menuData?.deliveryZones || [
+    { id: 1, name: "محرم بك / الشاطبي", deliveryFee: 20 },
+    { id: 2, name: "سموحة", deliveryFee: 30 },
+    { id: 3, name: "سيدي جابر / كليوباترا", deliveryFee: 25 },
+    { id: 4, name: "ميامي / العصافرة", deliveryFee: 35 },
+    { id: 5, name: "العجمي", deliveryFee: 60 }
+  ];
   const [email, setEmail] = useState('');
   const [resetCode, setResetCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -528,6 +602,7 @@ export default function MyAccountPage({ menuData }) {
   const handleRegister = async (e) => {
     e.preventDefault();
     if (!name) return setError('يرجى إدخال اسمك');
+    if (!selectedZone) return setError('يرجى اختيار منطقتك السكنية (إجباري لتوصيل الطلبات)');
     if (password.length < 6) return setError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
     setError('');
     setLoading(true);
@@ -542,6 +617,8 @@ export default function MyAccountPage({ menuData }) {
         Phone: phone,
         Email: email.trim() || null,
         Address: address.trim() || null,
+        Zone: selectedZone,
+        zone: selectedZone,
         uid: res.user.uid,
         RegisteredDate: new Date().toISOString(),
         Points: 0,
@@ -780,8 +857,22 @@ export default function MyAccountPage({ menuData }) {
             <input type="text" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={name} onChange={e => setName(e.target.value)} />
           </div>
           <div className="mb-4">
-            <label className="block text-text-light mb-2">العنوان (اختياري لتسهيل ال{lang === 'en' ? 'Order' : 'طلب'})</label>
-            <input type="text" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={address} onChange={e => setAddress(e.target.value)} />
+            <label className="block text-text-light mb-2 font-bold">منطقتك السكنية (إجباري للتوصيل) *</label>
+            <select 
+              required
+              className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold"
+              value={selectedZone}
+              onChange={e => setSelectedZone(e.target.value)}
+            >
+              <option value="">-- اختر منطقتك السكنية --</option>
+              {zonesForAuth.map(z => (
+                <option key={z.id || z.name} value={z.name}>📍 {z.name} (توصيل: {z.deliveryFee} ج.م)</option>
+              ))}
+            </select>
+          </div>
+          <div className="mb-4">
+            <label className="block text-text-light mb-2">العنوان التفصيلي (اسم الشارع، رقم العمارة، الشقة) *</label>
+            <input type="text" placeholder="مثال: شارع مصطفى كامل، عمارة 12، الدور 3" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={address} onChange={e => setAddress(e.target.value)} />
           </div>
           <div className="mb-4">
             <label className="block text-text-light mb-2">{lang === 'en' ? 'Email Address' : 'البريد الإلكتروني'} (اختياري)</label>
