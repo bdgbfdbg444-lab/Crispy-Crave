@@ -290,9 +290,29 @@ export default function CheckoutPage({ menuData }) {
 
       const editingOrderId = localStorage.getItem('editingOrderId');
       if (editingOrderId) {
+        const cleanEditId = editingOrderId.replace(/#/g, '').trim();
         orderPayload.displayOrderId = editingOrderId;
         orderPayload.isModification = true;
-        
+
+        // Retrieve original items and details for diff comparison
+        const rawOrigItems = localStorage.getItem(`order_${cleanEditId}_items`) || localStorage.getItem(`order_#${cleanEditId}_items`);
+        const rawOrigDetails = localStorage.getItem(`order_${cleanEditId}_details`) || localStorage.getItem(`order_#${cleanEditId}_details`);
+        let origDetails = {};
+        try { origDetails = JSON.parse(rawOrigDetails || '{}'); } catch(e) {}
+
+        if (rawOrigItems) {
+           try {
+              const parsedOrigItems = JSON.parse(rawOrigItems);
+              orderPayload.originalItems = parsedOrigItems.map(i => ({
+                 productName: i.product?.name || i.productName || 'صنف',
+                 quantity: i.quantity || 1,
+                 unitPrice: (i.product?.calculatedPrice || i.product?.sellingPrice || i.unitPrice || 0)
+              }));
+           } catch(e) {}
+        }
+        orderPayload.originalTotal = origDetails.originalTotal || 0;
+        orderPayload.originalPaymentReceiptUrl = origDetails.paymentReceiptUrl || '';
+
         // Push modification request to Firebase Orders node! (To bypass security rules)
         const modResponse = await fetch(`${APP_CONFIG.firebaseDbUrl}OrderModificationRequests.json`, {
           method: 'POST',
@@ -305,6 +325,11 @@ export default function CheckoutPage({ menuData }) {
            console.error("Firebase Error:", errText);
            throw new Error(`فشل في إرسال طلب التعديل: ${errText}`);
         }
+
+        // Release the Active Hold in Firebase immediately!
+        try {
+          await fetch(`${APP_CONFIG.firebaseDbUrl}ActiveHoldRequests/${cleanEditId}.json`, { method: 'DELETE' });
+        } catch(e) {}
         
         localStorage.removeItem('editingOrderId');
         displayOrderId = editingOrderId;
@@ -346,6 +371,7 @@ export default function CheckoutPage({ menuData }) {
         notes: formData.notes,
         createdAt: existingDetails.createdAt || Date.now(),
         originalTotal: cartTotal,
+        paymentReceiptUrl: paymentReceiptUrl || existingDetails.paymentReceiptUrl || '',
         modificationCount: newModCount
       }));
 
