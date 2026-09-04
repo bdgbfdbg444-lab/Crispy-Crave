@@ -8,7 +8,7 @@ export default function ProductCard({ product, onClick }) {
   const { lang, t } = useLanguage();
   if (!product) return null;
 
-  const isSoldOut = Boolean(isSoldOut || product.IsSoldOut || product.isAvailable === false || product.IsAvailable === false);
+  const isSoldOut = Boolean(product?.isSoldOut || product?.IsSoldOut || product?.isAvailable === false || product?.IsAvailable === false);
 
   return (
     <motion.div
