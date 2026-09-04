@@ -8,6 +8,8 @@ export default function ProductCard({ product, onClick }) {
   const { lang, t } = useLanguage();
   if (!product) return null;
 
+  const isSoldOut = Boolean(isSoldOut || product.IsSoldOut || product.isAvailable === false || product.IsAvailable === false);
+
   return (
     <motion.div
       layout
@@ -24,7 +26,7 @@ export default function ProductCard({ product, onClick }) {
           <img 
             src={product.imagePath} 
             alt={lang === 'en' && product.nameEn ? product.nameEn : product.name} 
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+            className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${isSoldOut ? "grayscale opacity-50" : ""}`}
             loading="lazy"
           />
         ) : (
@@ -41,7 +43,7 @@ export default function ProductCard({ product, onClick }) {
               {lang === 'en' ? 'Best Seller' : 'الأكثر مبيعاً'}
             </div>
           )}
-          {product.isSoldOut && (
+          {isSoldOut && (
             <div className="bg-black-primary text-text-light text-xs font-bold px-2 py-1 rounded-md shadow-md">
               {lang === 'en' ? 'Out of Stock' : 'نفدت الكمية'}
             </div>
@@ -70,14 +72,14 @@ export default function ProductCard({ product, onClick }) {
         {/* Add Button */}
         <div className="mt-auto pt-4 border-t border-brand-red-dark/30">
           <button 
-            disabled={product.isSoldOut}
+            disabled={isSoldOut}
             className={`w-full py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors ${
-              product.isSoldOut 
+              isSoldOut 
                 ? 'bg-black-primary text-text-muted cursor-not-allowed' 
                 : 'bg-black-surface text-brand-red hover:bg-brand-red hover:text-text-light'
             }`}
           >
-            {product.isSoldOut ? (
+            {isSoldOut ? (
               lang === 'en' ? 'Currently Unavailable' : 'غير متوفر حالياً'
             ) : (
               <>

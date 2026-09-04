@@ -33,6 +33,11 @@ export const CartProvider = ({ children }) => {
   }, [tableNumber]);
 
   const addToCart = (customProduct, quantity) => {
+    const isSoldOut = Boolean(customProduct?.isSoldOut || customProduct?.IsSoldOut || customProduct?.isAvailable === false || customProduct?.IsAvailable === false);
+    if (isSoldOut) {
+      alert('عذراً، هذا الصنف نفدت كميته في المطعم حالياً ولا يمكن إضافته للطلب.');
+      return;
+    }
     const validQty = Math.max(1, Math.min(99, parseInt(quantity, 10) || 1));
     setCartItems(prev => {
       const existingItemIndex = prev.findIndex(item => {

@@ -307,6 +307,27 @@ export default function CheckoutPage({ menuData }) {
       return;
     }
 
+    // Out-of-Stock Cart Check
+    if (menuData && menuData.categories && cart && cart.length > 0) {
+      const allProducts = menuData.categories.flatMap(c => c.products || []);
+      for (const item of cart) {
+        const prodId = item.product?.id || item.id;
+        const liveProd = allProducts.find(p => p.id === prodId);
+        if (liveProd) {
+          const isSoldOut = Boolean(liveProd.isSoldOut || liveProd.IsSoldOut || liveProd.isAvailable === false || liveProd.IsAvailable === false);
+          if (isSoldOut) {
+            const name = lang === 'en' ? (liveProd.nameEn || liveProd.name) : liveProd.name;
+            const msg = lang === 'en'
+              ? `⚠️ Item "${name}" has run out of stock. Please remove it from your cart to proceed.`
+              : `⚠️ الصنف "${name}" نفدت كميته في المطعم حالياً. يرجى حذفه من السلة لمتابعة الطلب.`;
+            setErrorMessage(msg);
+            alert(msg);
+            return;
+          }
+        }
+      }
+    }
+
     if (!formData.customerName.trim() || !formData.customerPhone.trim()) { 
       setErrorMessage(lang === 'en' ? 'Please fill required fields' : 'يرجى ملء الحقول الإجبارية (الاسم ورقم الهاتف)'); 
       return; 

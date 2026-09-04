@@ -27,6 +27,8 @@ export default function ProductModal({ product, category, menuData, isOpen, onCl
 
   if (!isOpen || !product) return null;
 
+  const isSoldOut = Boolean(product.isSoldOut || product.IsSoldOut || product.isAvailable === false || product.IsAvailable === false);
+
   // 1. Calculate Base Price based on weight if applicable
   let basePrice = product.sellingPrice;
   if (product.isSoldByWeight) {
@@ -93,6 +95,7 @@ export default function ProductModal({ product, category, menuData, isOpen, onCl
 
   // 5. Add to Cart Handler
   const handleAddToCart = () => {
+    if (isSoldOut) return;
     const customProduct = {
       ...product,
       calculatedPrice: basePrice,
@@ -267,14 +270,14 @@ export default function ProductModal({ product, category, menuData, isOpen, onCl
               {/* Quantity */}
               <div className="flex items-center gap-4 bg-black-surface p-2 rounded-xl">
                 <button 
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  disabled={isSoldOut} onClick={() => setQuantity(Math.max(1, quantity - 1))}
                   className="w-10 h-10 flex items-center justify-center rounded-lg bg-black-surface text-text-light shadow-sm hover:bg-black-primary"
                 >
                   <Minus size={18} />
                 </button>
                 <span className="font-bold text-lg w-6 text-center">{quantity}</span>
                 <button 
-                  onClick={() => setQuantity(quantity + 1)}
+                  disabled={isSoldOut} onClick={() => setQuantity(quantity + 1)}
                   className="w-10 h-10 flex items-center justify-center rounded-lg bg-black-surface text-text-light shadow-sm hover:bg-black-primary"
                 >
                   <Plus size={18} />
@@ -284,13 +287,14 @@ export default function ProductModal({ product, category, menuData, isOpen, onCl
               {/* Add Button */}
               <button 
                 onClick={handleAddToCart}
-                className="flex-grow w-full bg-brand-red hover:bg-brand-red-dark text-text-light py-4 px-6 rounded-xl font-bold flex items-center justify-between transition-all shadow-lg shadow-brand-red/30"
+                disabled={isSoldOut}
+                className={"flex-grow w-full py-4 px-6 rounded-xl font-bold flex items-center justify-between transition-all shadow-lg " + (isSoldOut ? "bg-black-primary text-text-muted border border-brand-red-dark/30 cursor-not-allowed opacity-80" : "bg-brand-red hover:bg-brand-red-dark text-text-light shadow-brand-red/30")}
               >
                 <div className="flex items-center gap-2">
                   <ShoppingBag size={20} />
-                  <span>{lang === 'en' ? 'Add to Order' : 'إضافة للطلب'}</span>
+                  <span>{isSoldOut ? (lang === 'en' ? 'Out of Stock - Unavailable' : 'نفدت الكمية - غير متاح للطلب') : (lang === 'en' ? 'Add to Order' : 'إضافة للطلب')}</span>
                 </div>
-                <span className="text-lg">{totalPrice} {lang === 'en' ? 'EGP' : 'ج.م'}</span>
+                {!isSoldOut && <span className="text-lg">{totalPrice} {lang === 'en' ? 'EGP' : 'ج.م'}</span>}
               </button>
             </div>
           </div>
