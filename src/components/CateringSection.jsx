@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, ArrowLeft, Send, CheckCircle, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import DOMPurify from 'dompurify';
 
 export default function CateringSection({ websiteData }) {
   const { lang } = useLanguage();
@@ -106,7 +107,7 @@ export default function CateringSection({ websiteData }) {
               <span className="text-sm font-bold tracking-wide">{lang === 'en' ? 'Events & Gatherings' : 'عزومات وحفلات'}</span>
             </div>
             
-            <h2 className="text-4xl md:text-5xl font-display font-black text-text-light mb-6 leading-tight" dangerouslySetInnerHTML={{ __html: (lang === 'en' && websiteData?.cateringTitleEn ? websiteData?.cateringTitleEn : websiteData?.cateringTitle) || 'اجعل تجمعاتك <span class="text-brand-red">أكثر متعة</span>' }} />
+            <h2 className="text-4xl md:text-5xl font-display font-black text-text-light mb-6 leading-tight" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize((lang === 'en' && websiteData?.cateringTitleEn ? websiteData?.cateringTitleEn : websiteData?.cateringTitle) || 'اجعل تجمعاتك <span class="text-brand-red">أكثر متعة</span>', { ALLOWED_TAGS: ['span', 'br', 'b', 'strong', 'em'], ALLOWED_ATTR: ['class'] }) }} />
             
             <AnimatePresence mode="wait">
               {!showForm ? (

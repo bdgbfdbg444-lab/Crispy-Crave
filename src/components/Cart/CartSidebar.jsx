@@ -26,7 +26,7 @@ export default function CartSidebar() {
     const actId = localStorage.getItem('activeOrderId');
     if (actId) {
       const cleanId = actId.replace('#', '').trim();
-      fetch(`${APP_CONFIG.firebaseDbUrl}OrderTracking/${cleanId}.json`)
+      fetch(`${APP_CONFIG.firebaseDbUrl}PublicTracking/${cleanId}.json`)
         .then(res => res.json())
         .then(data => {
           if (!data || data.Status === 'Completed' || data.Status === 'Cancelled') {

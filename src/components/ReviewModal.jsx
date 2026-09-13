@@ -3,6 +3,9 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Star, Upload, Loader2, CheckCircle2 } from 'lucide-react';
 import { APP_CONFIG } from '../config/appConfig';
+import { sanitizeText } from '../utils/sanitizer';
+import { db } from '../firebase';
+import { ref, push, set } from 'firebase/database';
 
 export default function ReviewModal({ isOpen, onClose, onReviewSubmitted }) {
   const { lang } = useLanguage();
@@ -26,14 +29,15 @@ export default function ReviewModal({ isOpen, onClose, onReviewSubmitted }) {
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      // 1. Basic Type Validation
-      if (!file.type.startsWith('image/')) {
-        alert(lang === 'en' ? 'Only image files are allowed.' : 'يسمح فقط برفع الصور.');
+      // 1. Strict MIME Type Validation (whitelist safe raster formats, block SVG / HTML / scripts)
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        alert(lang === 'en' ? 'Only JPG, PNG, and WebP images are allowed.' : 'يسمح فقط برفع الصور بصيغ (JPG, PNG, WebP).');
         return;
       }
 
-      // 2. Absolute sanity check (reject ridiculous files > 20MB)
-      if (file.size > 20 * 1024 * 1024) {
+      // 2. Absolute sanity check (reject files > 10MB)
+      if (file.size > 10 * 1024 * 1024) {
         alert(lang === 'en' ? 'File is too large.' : 'الصورة كبيرة جداً.');
         return;
       }
@@ -94,24 +98,27 @@ export default function ReviewModal({ isOpen, onClose, onReviewSubmitted }) {
         imageUrl = await uploadToCloudinary(selectedFile);
       }
 
-      // 2. Prepare Review Data
+      // 2. Prepare Review Data (Sanitized - Thoghra 28)
       const reviewData = {
-        customerName: formData.customerName || 'عميل مميز',
-        rating: formData.rating,
-        comment: formData.comment,
+        customerName: sanitizeText(formData.customerName || 'عميل مميز', 80),
+        rating: Math.min(5, Math.max(1, Number(formData.rating) || 5)),
+        comment: sanitizeText(formData.comment, 500),
         imageUrl: imageUrl, // null if no image or upload failed
         status: 'pending', // Requires admin approval
-        date: new Date().toISOString()
+        date: (() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + 'T' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0'); })()
       };
 
       // 3. Save to Firebase
-      const response = await fetch(`${APP_CONFIG.firebaseDbUrl}PendingReviews.json`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(reviewData)
+      // 3. Save to Firebase using SDK (includes auth token automatically)
+      const newReviewRef = push(ref(db, 'PendingReviews'));
+      await set(newReviewRef, {
+        customerName: reviewData.customerName,
+        rating: reviewData.rating,
+        comment: reviewData.comment,
+        imageUrl: reviewData.imageUrl,
+        status: reviewData.status,
+        createdAt: reviewData.date
       });
-
-      if (!response.ok) throw new Error('فشل حفظ التقييم');
       
       setSubmitStatus('success');
       
@@ -249,7 +256,7 @@ export default function ReviewModal({ isOpen, onClose, onReviewSubmitted }) {
                   <div className="relative">
                     <input 
                       type="file" 
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/webp"
                       onChange={handleFileChange}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                     />

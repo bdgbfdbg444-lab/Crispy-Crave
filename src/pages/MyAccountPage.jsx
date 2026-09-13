@@ -4,8 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { auth, db, googleProvider } from '../firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, sendPasswordResetEmail, signOut } from 'firebase/auth';
-import { ref, get, set, update } from 'firebase/database';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, sendPasswordResetEmail, signOut, signInAnonymously } from 'firebase/auth';
+import { ref, get, set, update, onValue, off } from 'firebase/database';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ShieldCheck } from 'lucide-react';
 import { Package, MapPin, Edit3, LogOut, ChevronLeft, Navigation, ChevronDown, ChevronUp, Home, Briefcase, Plus, Trash2, Settings, User, CheckCircle2, RotateCcw } from 'lucide-react';
 import AddressMapPicker, { formatAddressDetails, checkZoneMismatch } from '../components/AddressMapPicker';
 import { APP_CONFIG } from '../config/appConfig';
@@ -667,6 +669,105 @@ export default function MyAccountPage({ menuData }) {
   const [newPassword, setNewPassword] = useState('');
   
   const [step, setStep] = useState('phone');
+
+  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
+  const [otpInput, setOtpInput] = useState('');
+  const [otpError, setOtpError] = useState('');
+  const [generatedOtp, setGeneratedOtp] = useState('');
+  const [otpExpiry, setOtpExpiry] = useState(0);
+
+  useEffect(() => {
+    let unsubscribe;
+    if (isOtpModalOpen && phone) {
+      const cleanPhone = normalizePhone(phone);
+      const verifyRef = ref(db, `OtpVerifications/${cleanPhone}`);
+      unsubscribe = onValue(verifyRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          if (data.code) {
+            setGeneratedOtp(data.code);
+            setOtpExpiry(data.expiresAt);
+            console.log('Received OTP from POS:', data.code);
+          }
+        }
+      });
+    }
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [isOtpModalOpen, phone]);
+
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isExistingCustomer, setIsExistingCustomer] = useState(false);
+  const [isForgotPasswordFlow, setIsForgotPasswordFlow] = useState(false);
+  
+  const normalizePhone = (p) => {
+    let cp = p.replace(/\D/g, '');
+    if (cp.startsWith('20') && cp.length === 12) cp = '0' + cp.substring(2);
+    else if (cp.startsWith('0020') && cp.length === 14) cp = '0' + cp.substring(4);
+    else if (cp.startsWith('+20') && cp.length === 13) cp = '0' + cp.substring(3);
+    else if (cp.length === 10 && !cp.startsWith('0')) cp = '0' + cp;
+    return cp;
+  };
+
+  const sendWhatsAppOtp = async (targetPhone) => {
+    const cleanPhone = normalizePhone(targetPhone);
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiry = Date.now() + 5 * 60 * 1000;
+    setGeneratedOtp(code);
+    console.log('OTP GENERATED:', code);
+    setOtpExpiry(expiry);
+    
+    if (!auth.currentUser) {
+        await signInAnonymously(auth);
+    }
+    
+    const reqId = `otp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    await set(ref(db, `PendingOtpRequests/${reqId}`), {
+      phone: cleanPhone,
+      uid: auth.currentUser.uid,
+      otp: code,
+      createdAt: Date.now()
+    });
+    return code;
+  };
+
+  const handleConfirmOtp = async (e) => {
+    if (e) e.preventDefault();
+    if (!otpInput || otpInput.trim().length !== 6) return setOtpError('يرجى إدخال الكود المكون من 6 أرقام.');
+    if (Date.now() > otpExpiry) return setOtpError('الكود منتهي الصلاحية، يرجى طلب كود جديد.');
+    console.log('Comparing:', { otpInput: otpInput.trim(), generatedOtp, type1: typeof otpInput, type2: typeof generatedOtp });
+    if (otpInput.trim() !== String(generatedOtp)) return setOtpError('الكود غير صحيح.');
+    
+    // OTP Success!
+    setIsOtpModalOpen(false);
+    setOtpError('');
+    setOtpInput('');
+    setLoading(true);
+    try {
+      const cleanPhone = normalizePhone(phone);
+      const custRef = ref(db, `CustomerLoginEmails/${cleanPhone}`);
+      const custSnap = await get(custRef);
+      if (custSnap.exists()) {
+        if (isForgotPasswordFlow) {
+          setStep('set_password');
+        } else {
+          await signInAnonymously(auth);
+          await set(ref(db, `UidToPhone/${auth.currentUser.uid}`), cleanPhone);
+          await refreshCustomerData(cleanPhone);
+          setStep('dashboard');
+        }
+      } else {
+        await signInAnonymously(auth);
+        setStep('register');
+      }
+    } catch (err) {
+      console.error(err);
+      setOtpError('حدث خطأ أثناء فحص الحساب.');
+    }
+    setLoading(false);
+  };
+
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -683,21 +784,22 @@ export default function MyAccountPage({ menuData }) {
 
   const handlePhoneSubmit = async (e) => {
     e.preventDefault();
-    if (phone.length < 10) return setError('رقم الهاتف غير صحيح');
-    setError('');
-    setLoading(true);
-
-    try {
-      const custRef = ref(db, `PublicCustomers/${phone}`);
-      const custSnap = await get(custRef);
-      if (custSnap.exists()) {
-        setStep('login');
-      } else {
-        setStep('register');
-      }
-    } catch (err) {
-      setError('حدث خطأ أثناء فحص الرقم');
+    let cleanPhone = phone.trim();
+    if (!/^01[0125][0-9]{8}$/.test(cleanPhone)) {
+       return setError('يجب إدخال رقم هاتف مصري صحيح مكون من 11 رقم (مثال: 01012345678)');
     }
+    setError('');
+    setIsSendingOtp(true);
+    setLoading(true);
+    try {
+      setIsForgotPasswordFlow(false);
+      await sendWhatsAppOtp(phone);
+      setIsOtpModalOpen(true);
+    } catch (err) {
+      console.error('OTP Send Error:', err);
+        setError('حدث خطأ أثناء إرسال كود واتساب');
+    }
+    setIsSendingOtp(false);
     setLoading(false);
   };
 
@@ -708,35 +810,24 @@ export default function MyAccountPage({ menuData }) {
     setLoading(true);
 
     try {
-      const custRef = ref(db, `PublicCustomers/${phone}`);
+      const cleanPhone = normalizePhone(phone);
+      const custRef = ref(db, `CustomerLoginEmails/${cleanPhone}`);
       const custSnap = await get(custRef);
-      
-      const internalEmail = getInternalEmail(phone);
-      const dbEmail = custSnap.exists() && custSnap.val().Email ? custSnap.val().Email.trim() : null;
-      const authEmail = custSnap.exists() && custSnap.val().AuthEmail ? custSnap.val().AuthEmail.trim() : null;
+      const authEmail = custSnap.exists() ? custSnap.val().trim() : null;
+      const internalEmail = getInternalEmail(cleanPhone);
       
       const emailToTry1 = authEmail || internalEmail;
       
       try {
-        // Try internal/auth email first (for accounts created with phone only or updated via reset)
         await signInWithEmailAndPassword(auth, emailToTry1, password);
       } catch (firstErr) {
-        // If it fails, and they have a real email, try that (for accounts created with real email)
-        if (dbEmail && dbEmail !== emailToTry1 && dbEmail.includes('@')) {
-          try {
-            await signInWithEmailAndPassword(auth, dbEmail, password);
-          } catch (secondErr) {
-            throw secondErr; // Both failed
-          }
-        } else {
-          throw firstErr; // Only had first email, and it failed
-        }
+        throw firstErr;
       }
       
-      await refreshCustomerData(phone);
+      await refreshCustomerData(cleanPhone);
       setStep('dashboard');
     } catch (err) {
-      setError('رقم الهاتف أو كلمة المرور غير صحيحة');
+      setError('كلمة المرور غير صحيحة أو الحساب غير موجود');
     }
     setLoading(false);
   };
@@ -754,7 +845,7 @@ export default function MyAccountPage({ menuData }) {
       const res = await createUserWithEmailAndPassword(auth, emailToUse, password);
       
       await set(ref(db, `UidToPhone/${res.user.uid}`), phone);
-      await set(ref(db, `PublicCustomers/${phone}`), {
+      await update(ref(db, `PublicCustomers/${phone}`), {
         Name: name,
         Phone: phone,
         Email: email.trim() || null,
@@ -797,7 +888,10 @@ export default function MyAccountPage({ menuData }) {
 
   const handleLinkPhone = async (e) => {
     e.preventDefault();
-    if (phone.length < 10) return setError('رقم الهاتف غير صحيح');
+    let cleanPhone = phone.trim();
+    if (!/^01[0125][0-9]{8}$/.test(cleanPhone)) {
+       return setError('يجب إدخال رقم هاتف مصري صحيح مكون من 11 رقم (مثال: 01012345678)');
+    }
     setError('');
     setLoading(true);
     try {
@@ -809,7 +903,7 @@ export default function MyAccountPage({ menuData }) {
       await set(ref(db, `UidToPhone/${auth.currentUser.uid}`), phone);
       
       if (!custSnap.exists()) {
-        await set(ref(db, `PublicCustomers/${phone}`), {
+        await update(ref(db, `PublicCustomers/${phone}`), {
           Name: auth.currentUser.displayName || 'عميل جوجل',
           Phone: phone,
           Email: auth.currentUser.email,
@@ -894,12 +988,69 @@ export default function MyAccountPage({ menuData }) {
 
   const handleLogout = () => {
     signOut(auth);
+    localStorage.removeItem('activeOrderId');
+    localStorage.removeItem('activeOrderNumber');
+    localStorage.removeItem('editingOrderId');
+    for (let key in localStorage) {
+      if (key.startsWith('order_') && key.endsWith('_details')) {
+        localStorage.removeItem(key);
+      }
+      if (key.startsWith('activeOrder_')) {
+        localStorage.removeItem(key);
+      }
+    }
     setStep('phone');
+    setIsForgotPasswordFlow(false);
     setPhone('');
     setPassword('');
   };
 
   return (
+    <>
+
+      <AnimatePresence>
+        {isOtpModalOpen && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" dir="rtl">
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-black-surface border border-brand-red/30 rounded-2xl max-w-md w-full p-6 shadow-2xl relative text-text-light">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                  <ShieldCheck size={26} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-text-light">تأكيد رقم الموبايل</h3>
+                  <p className="text-sm text-text-muted">أدخل الكود المرسل إليك عبر واتساب</p>
+                </div>
+              </div>
+
+              <form onSubmit={handleConfirmOtp}>
+                <div className="mb-4">
+                  <input
+                    type="text"
+                    maxLength={6}
+                    placeholder="رقم كود الواتساب (6 أرقام)"
+                    className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-4 rounded-xl text-center text-2xl font-black tracking-[0.5em] focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red"
+                    value={otpInput}
+                    onChange={e => setOtpInput(e.target.value.replace(/\D/g, ''))}
+                    disabled={loading}
+                    autoFocus
+                  />
+                  {otpError && <p className="text-red-400 text-sm mt-2 text-center">{otpError}</p>}
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  <button type="button" onClick={() => setIsOtpModalOpen(false)} className="flex-1 p-3 rounded-xl bg-black-primary text-text-muted hover:text-text-light transition-colors" disabled={loading}>
+                    إلغاء
+                  </button>
+                  <button type="submit" className="flex-1 bg-brand-red hover:bg-brand-red-dark text-text-light font-bold py-3 rounded-xl transition-colors disabled:opacity-50" disabled={loading || otpInput.length !== 6}>
+                    {loading ? 'جاري التحقق...' : 'تأكيد ومتابعة'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     <div className={`${step === "dashboard" ? "max-w-5xl md:max-w-6xl" : "max-w-md"} mx-auto mt-10 p-6 bg-black-surface rounded-xl shadow-lg`} dir="rtl">
       <h2 className="text-2xl font-bold mb-6 text-center text-text-light">{lang === 'en' ? 'My Account' : 'حسابي'}</h2>
       
@@ -912,21 +1063,14 @@ export default function MyAccountPage({ menuData }) {
               <label className="block text-text-light mb-2">رقم الموبايل</label>
               <input type="tel" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={phone} onChange={e => setPhone(e.target.value)} placeholder="01012345678" />
             </div>
-            <button type="submit" disabled={loading} className="w-full bg-brand-red text-text-light p-3 rounded hover:bg-brand-red-dark disabled:opacity-50">
-              {loading ? 'جاري التحقق...' : 'متابعة'}
+            <p className="text-xs text-text-muted mb-2 text-center">سيوصلك رمز تأكيد فوري عبر واتساب للتحقق من أمان حسابك.</p>
+            <button type="submit" disabled={loading} className="w-full bg-brand-red text-text-light font-bold p-3 rounded-xl hover:bg-brand-red-dark disabled:opacity-50 shadow-lg shadow-brand-red/20 mb-3">
+              {loading ? 'جاري التحقق...' : 'متابعة عبر كود واتساب (سريع وآمن)'}
+            </button>
+            <button type="button" onClick={() => setStep('login')} className="w-full text-center text-sm text-blue-400 hover:text-blue-800 transition-colors font-medium">
+              أو تسجيل الدخول بكلمة المرور مباشرة 🔑
             </button>
           </form>
-          
-          <div className="mt-6 flex items-center justify-center gap-2">
-            <div className="h-px bg-black-surface flex-1"></div>
-            <span className="text-text-muted text-sm">أو</span>
-            <div className="h-px bg-black-surface flex-1"></div>
-          </div>
-          
-          <button onClick={handleGoogleLogin} type="button" className="mt-6 w-full flex items-center justify-center gap-3 bg-black-surface border border-brand-red-dark/50 text-text-light p-3 rounded hover:bg-black-primary transition-colors">
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
-            تسجيل الدخول باستخدام Google
-          </button>
         </div>
       )}
 
@@ -1060,5 +1204,6 @@ export default function MyAccountPage({ menuData }) {
         />
       )}
     </div>
+  </>
   );
 }

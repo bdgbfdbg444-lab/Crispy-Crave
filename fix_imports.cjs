@@ -1,16 +1,15 @@
 ﻿const fs = require('fs');
+let content = fs.readFileSync('src/pages/MyAccountPage.jsx', 'utf8');
 
-function fixImport(fp) {
-    let content = fs.readFileSync(fp, 'utf8');
-    content = content.replace(
-        "import { useLanguage } from '../context/LanguageContext';",
-        "import { useLanguage } from '../../context/LanguageContext';"
-    );
-    fs.writeFileSync(fp, content, 'utf8');
+const target = "import { ref, get, set, update } from 'firebase/database';";
+const imports = `import { ref, get, set, update } from 'firebase/database';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ShieldCheck } from 'lucide-react';`;
+
+if (content.includes(target)) {
+    content = content.replace(target, imports);
+    fs.writeFileSync('src/pages/MyAccountPage.jsx', content, 'utf8');
+    console.log("Added missing imports!");
+} else {
+    console.log("Could not find import target.");
 }
-
-fixImport('src/components/Menu/MenuSection.jsx');
-fixImport('src/components/Menu/ProductModal.jsx');
-fixImport('src/components/Menu/ProductCard.jsx');
-
-console.log('Imports fixed');

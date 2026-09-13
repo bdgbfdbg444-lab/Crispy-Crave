@@ -239,6 +239,280 @@ export const formatAddressDetails = (data) => {
   return parts.join(' - ');
 };
 
+export const DESCRIPTOR_WORDS = new Set([
+  'street', 'st', 'str', 'road', 'rd', 'avenue', 'ave', 'lane', 'sq', 'square',
+  'building', 'bldg', 'floor', 'fl', 'apartment', 'apt', 'flat', 'block', 'blk',
+  'near', 'behind', 'opposite', 'beside', 'front',
+  'شارع', 'الشارع', 'طريق', 'ميدان', 'حارة', 'زقاق', 'عمارة', 'العمارة', 'برج', 
+  'البرج', 'بلوك', 'الدور', 'دور', 'شقة', 'الشقة', 'بجوار', 'خلف', 'أمام', 'امام', 
+  'ناصية', 'علامة', 'مميزة', 'مدخل', 'محل', 'مكتب', 'فيلا', 'كمبوند'
+]);
+
+export const KNOWN_SPAM_WORDS = new Set([
+  'test', 'testing', 'fake', 'asdf', 'qwer', 'zxcv', 'asdfgh', 'dsad', 'dsada', 
+  'asdasd', 'qweqwe', 'qwerty', 'zxcvbn', 'none', 'null', 'undefined', 'demo', 
+  'sample', 'home', 'house', 'city', 'xxx', 'yyy', 'zzz',
+  'تست', 'تجربة', 'تجربه', 'اي حاجة', 'اى حاجه', 'مش عارف', 'مفيش', 'عنوان', 'بيتي', 
+  'شقتي', 'شارعنا', 'البيت', 'اي كلام', 'كلام فاضي', 'مجهول', 'سري'
+]);
+
+export function isGibberishWord(word) {
+  if (!word) return false;
+  const w = word.toString().toLowerCase().trim();
+  if (w.length < 3) return false;
+
+  // 1. Direct spam word match
+  if (KNOWN_SPAM_WORDS.has(w)) return true;
+
+  // 2. Character repetition (e.g. "aaaa", ".....", "1111", "لللل")
+  if (/(.)\1{3,}/.test(w)) return true;
+
+  // 3. Repeated pattern spam (e.g. "ababab", "asdasd", "qweqwe")
+  // Note: Allow natural 4-letter words like "بابا", "ماما", "فلفل", "سمسم", "مشمش", "lulu", "papa"
+  if (/^(.{2})\1{2,}$/.test(w)) return true; // 2 chars repeated 3+ times (length 6+)
+  if (/^([a-z]{3})\1+$/i.test(w)) return true; // English 3-char keyboard repeat like "qweqwe", "asdasd"
+
+  // 4. English consonant & keyboard checks
+  const isEnglish = /^[a-z]+$/i.test(w);
+  if (isEnglish) {
+    const vowels = (w.match(/[aeiouy]/gi) || []).length;
+    const len = w.length;
+
+    // Word >= 4 with 0 vowels (e.g. "sdfg", "zxcv", "fghjk")
+    if (len >= 4 && vowels === 0) return true;
+
+    // Word >= 7 with low vowel ratio and 4+ consecutive consonants
+    if (len >= 7 && vowels / len <= 0.22) {
+      if (/[bcdfghjklmnpqrstvwxz]{4,}/i.test(w)) return true;
+    }
+
+    // 4+ consonants in a row anywhere in a word >= 6 chars
+    if (len >= 6 && /[bcdfghjklmnpqrstvwxz]{4,}/i.test(w)) {
+      const allowedClusters = ['strength', 'lengths', 'rights', 'nights'];
+      if (!allowedClusters.some(ac => w.includes(ac))) {
+        return true;
+      }
+    }
+
+    // Keyboard row mash: >= 75% of chars belong to a single keyboard cluster of <= 5 adjacent keys
+    const rowClusters = [
+      'asdfg', 'sdfgh', 'dfghj', 'fghjk', 'ghjkl',
+      'qwert', 'werty', 'ertyu', 'rtyui', 'tyuio', 'yuiop',
+      'zxcvb', 'xcvbn', 'cvbnm'
+    ];
+    for (const cluster of rowClusters) {
+      let matchCount = 0;
+      for (const char of w) {
+        if (cluster.includes(char)) matchCount++;
+      }
+      if (w.length >= 5 && matchCount / w.length >= 0.75) {
+        return true; // Catches "dsadafgsdg" 100%!
+      }
+    }
+
+    // Sequential keyboard or alphabet runs
+    const sequences = ['abcdef', 'bcdefg', 'cdefgh', 'qwerty', 'wertyu', 'asdfgh', 'sdfghj', 'zxcvbn'];
+    for (const seq of sequences) {
+      if (w.includes(seq)) return true;
+    }
+  }
+
+  // 5. Arabic Keyboard mash checks
+  const isArabic = /^[\u0600-\u06FF]+$/.test(w);
+  if (isArabic) {
+    const mashRuns = [
+      'ضصثق', 'صثقف', 'ثقفغ', 'قفغه', 'فغهخ', 'غهخح', 'هخحج', 'خحجد',
+      'دجحخ', 'جحخه', 'حخهغ', 'خهغف', 'هغفق', 'غفقث', 'فقثص', 'قثصض',
+      'شسيب', 'سيبلا', 'يبلات', 'بلاتن', 'لاتنم', 'اتنمك', 'تنمكط',
+      'طكمن', 'كمنت', 'منتا', 'نتال', 'تالب', 'البي', 'لبيس', 'بيسش',
+      'ئءؤر', 'ءؤرل', 'ؤرلا', 'رلاى', 'لاىة', 'ىةوز', 'ةوزظ',
+      'ظزوة', 'زوةى', 'وةىا', 'ىالر', 'الرؤ', 'لرؤء', 'رؤءئ'
+    ];
+
+    for (const run of mashRuns) {
+      if (w.includes(run)) return true;
+    }
+
+    // Repeated 3-character pattern (e.g. "شسيشسي", "ثقفثقف")
+    if (/^([\u0600-\u06FF]{3})\1+$/.test(w)) return true;
+
+    // Low unique char count in Arabic word >= 5 (e.g. "شسشسشس", "بليبلي")
+    const uniqueChars = new Set(w.split('')).size;
+    if (w.length >= 5 && uniqueChars <= 2) return true;
+  }
+
+  return false;
+}
+
+export function validateStreet(street, lang = 'ar') {
+  if (!street || typeof street !== 'string' || street.trim().length < 3) {
+    return {
+      isValid: false,
+      error: lang === 'en' ? 'Please enter a valid street name (at least 3 characters).' : 'يرجى إدخال اسم شارع صحيح (3 حروف على الأقل).'
+    };
+  }
+
+  const trimmed = street.trim();
+
+  // Repeated chars: e.g. "......", "aaaaa", "11111"
+  if (/(.)\1{3,}/.test(trimmed)) {
+    return {
+      isValid: false,
+      error: lang === 'en' ? 'Invalid street: contains repetitive characters.' : 'اسم الشارع غير صالح (يحتوي على حروف أو رموز مكررة عشوائياً).'
+    };
+  }
+
+  // Check words
+  const words = trimmed.split(/[\s,،\-]+/).filter(w => w.length > 0);
+  const nonDescriptorWords = words.filter(w => !DESCRIPTOR_WORDS.has(w.toLowerCase()));
+  if (nonDescriptorWords.length === 0) {
+    return {
+      isValid: false,
+      error: lang === 'en' ? 'Please specify the actual street name.' : 'يرجى كتابة اسم الشارع الفعلي، وليس كلمة "شارع" فقط.'
+    };
+  }
+
+  for (const word of words) {
+    if (DESCRIPTOR_WORDS.has(word.toLowerCase())) continue;
+    if (isGibberishWord(word)) {
+      return {
+        isValid: false,
+        error: lang === 'en' 
+          ? `Invalid or unrecognized street name: "${word}". Please enter a real street name.` 
+          : `اسم الشارع غير صالح أو غير مفهوم ("${word}"). يرجى إدخال اسم شارع حقيقي.`
+      };
+    }
+  }
+
+  // Must contain at least one readable word of at least 3 letters
+  if (!/[\u0600-\u06FFa-zA-Z]{3,}/.test(trimmed)) {
+    return {
+      isValid: false,
+      error: lang === 'en' ? 'Street must contain readable letters.' : 'يجب أن يحتوي اسم الشارع على حروف واضحة.'
+    };
+  }
+
+  return { isValid: true, error: '' };
+}
+
+export function validateLandmark(landmark, lang = 'ar') {
+  if (!landmark || typeof landmark !== 'string' || !landmark.trim()) {
+    return { isValid: true, error: '' }; // Landmark is optional!
+  }
+
+  const trimmed = landmark.trim();
+  if (trimmed.length < 3) {
+    return {
+      isValid: false,
+      error: lang === 'en' ? 'Landmark is too short (at least 3 characters).' : 'العلامة المميزة قصيرة جداً (3 حروف على الأقل).'
+    };
+  }
+
+  // Repeated chars: e.g. "......", "aaaaa", "11111"
+  if (/(.)\1{3,}/.test(trimmed)) {
+    return {
+      isValid: false,
+      error: lang === 'en' ? 'Invalid landmark: contains repetitive characters.' : 'العلامة المميزة غير صالحة (تحتوي على حروف أو رموز مكررة عشوائياً).'
+    };
+  }
+
+  // Check words
+  const words = trimmed.split(/[\s,،\-]+/).filter(w => w.length > 0);
+  for (const word of words) {
+    if (DESCRIPTOR_WORDS.has(word.toLowerCase())) continue;
+    if (isGibberishWord(word)) {
+      return {
+        isValid: false,
+        error: lang === 'en' 
+          ? `Invalid or unrecognized word in landmark: "${word}".` 
+          : `العلامة المميزة تحتوي على كلمة غير مفهومة ("${word}"). يرجى إدخال علامة مميزة حقيقية.`
+      };
+    }
+  }
+
+  return { isValid: true, error: '' };
+}
+
+export const validateDeliveryAddress = (addressText, lang = 'ar', isCashCod = false) => {
+  if (!addressText || typeof addressText !== 'string') {
+    return { 
+      isValid: false, 
+      error: lang === 'en' ? 'Please enter your detailed delivery address' : 'يرجى إدخال عنوان التوصيل بالتفصيل' 
+    };
+  }
+
+  const trimmed = addressText.trim();
+
+  // 1. Length check: at least 10 characters (15 for cash on delivery)
+  const minLength = isCashCod ? 15 : 10;
+  if (trimmed.length < minLength) {
+    return {
+      isValid: false,
+      error: lang === 'en'
+        ? `Address is too short (min ${minLength} chars). Please provide detailed street, building, and apartment info.`
+        : `العنوان غير مكتمل (يجب ألا يقل عن ${minLength} حرفاً). يرجى كتابة عنوان تفصيلي واضح (اسم الشارع، رقم العمارة، والدور أو علامة مميزة) لتأكيد التوصيل.`
+    };
+  }
+
+  // 2. Reject digits-only or punctuation-only addresses (e.g. "1234567890", "..... 12345")
+  if (/^[\d\s\-_.,،/\\#]+$/.test(trimmed)) {
+    return {
+      isValid: false,
+      error: lang === 'en'
+        ? 'Address cannot contain numbers and symbols only. Please include street and building names in letters.'
+        : 'العنوان غير صالح: لا يمكن أن يتكون العنوان من أرقام أو رموز فقط. يرجى كتابة اسم الشارع والعمارة بحروف واضحة.'
+    };
+  }
+
+  // 3. Repeated characters spam: e.g. "......", "aaaaa", "11111", "لللللل" (more than 3 consecutive repeats)
+  if (/(.)\1{3,}/.test(trimmed)) {
+    return {
+      isValid: false,
+      error: lang === 'en'
+        ? 'Invalid address: contains repetitive characters or punctuation.'
+        : 'العنوان غير صالح (يحتوي على حروف أو رموز مكررة بشكل عشوائي).'
+    };
+  }
+
+  // 4. Word count: at least 2 distinct words with meaningful length
+  const words = trimmed.split(/[\s,،\-]+/).filter(w => w.length >= 2);
+  const minWords = isCashCod ? 3 : 2;
+  if (words.length < minWords) {
+    return {
+      isValid: false,
+      error: lang === 'en'
+        ? 'Please specify more details (e.g. Street name, Building number, Landmark).'
+        : 'يرجى توضيح تفاصيل العنوان (مثال: شارع جمال عبد الناصر، عمارة 12، بجوار صيدلية...)'
+    };
+  }
+
+  // 5. Keyboard mash / Gibberish words check across all words
+  for (const word of words) {
+    if (/^\d+$/.test(word)) continue;
+    if (DESCRIPTOR_WORDS.has(word.toLowerCase())) continue;
+    if (isGibberishWord(word)) {
+      return {
+        isValid: false,
+        error: lang === 'en'
+          ? `Invalid or unrecognized word in address: "${word}". Please enter a real address.`
+          : `العنوان يحتوي على كلمات غير مفهومة أو عشوائية ("${word}"). يرجى إدخال عنوان حقيقي واضح.`
+      };
+    }
+  }
+
+  // 6. Must contain at least one readable word of at least 3 letters (Arabic or Latin)
+  if (!/[\u0600-\u06FFa-zA-Z]{3,}/.test(trimmed)) {
+    return {
+      isValid: false,
+      error: lang === 'en'
+        ? 'Address must contain street or area name in letters.'
+        : 'يرجى كتابة اسم الشارع أو المنطقة بحروف واضحة.'
+    };
+  }
+
+  return { isValid: true, error: '' };
+};
+
 export default function AddressMapPicker({
   value,
   onChange,

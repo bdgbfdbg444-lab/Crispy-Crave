@@ -1,10 +1,10 @@
 import { useLanguage } from '../context/LanguageContext';
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { CheckCircle, AlertCircle, ArrowRight, Star, MessageCircle, Edit3 } from 'lucide-react';
+import { CheckCircle, AlertCircle, ArrowRight, Star, MessageCircle, Edit3, ShieldCheck, Lock, MapPin, Phone, User } from 'lucide-react';
 import { APP_CONFIG } from '../config/appConfig';
 import ReviewModal from '../components/ReviewModal';
-import { ref, onValue, off } from 'firebase/database';
+import { ref, onValue, off, set, update } from 'firebase/database';
 import { db } from '../firebase';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
@@ -29,6 +29,11 @@ export default function TrackOrderPage({ menuData }) {
       setIsReviewModalOpen(true);
       setHasAutoOpenedReview(true);
     }
+    
+    if (orderData?.Status === 'Completed' || orderData?.Status === 'Cancelled') {
+      localStorage.removeItem('activeOrderId');
+    }
+
     // If order was cancelled, immediately clear any pending modification session!
     if (orderData?.Status === 'Cancelled') {
       const safeOrderId = (orderId || '').replace('#', '').trim();
@@ -40,8 +45,13 @@ export default function TrackOrderPage({ menuData }) {
   }, [orderData?.Status, hasAutoOpenedReview, orderId]);
 
   useEffect(() => {
-    const safeOrderId = orderId.replace(/#/g, '').trim();
-    const trackingRef = ref(db, `OrderTracking/${safeOrderId}`);
+    const safeOrderId = (orderId || '').replace(/#/g, '').trim();
+    if (!safeOrderId) {
+      setLoading(false);
+      return;
+    }
+
+    const trackingRef = ref(db, `PublicTracking/${safeOrderId}`);
     
     const unsubscribe = onValue(trackingRef, (snapshot) => {
       const data = snapshot.val();
@@ -50,7 +60,7 @@ export default function TrackOrderPage({ menuData }) {
       }
       setLoading(false);
     }, (error) => {
-      console.error('Error fetching tracking data', error);
+      console.error('Error fetching public tracking data', error);
       setLoading(false);
     });
 
@@ -59,22 +69,73 @@ export default function TrackOrderPage({ menuData }) {
     };
   }, [orderId]);
 
+  // Fallback listener: POS writes rejection to PublicTracking/{displayOrderId} (short number like "8053")
+  // but the primary listener above watches PublicTracking/{trackingToken} (long random string).
+  // When POS rejects BEFORE accepting, it doesn't know the trackingToken, so we must also listen on the short ID.
+  useEffect(() => {
+    // Get the short display order number from localStorage (saved by CheckoutPage on submit)
+    const activeOrderNumber = localStorage.getItem('activeOrderNumber');
+    const safeId = (orderId || '').replace(/#/g, '').trim();
+    
+    // Only set up fallback if orderId is a trackingToken (not already a short number)
+    // and we have the short number stored
+    if (!activeOrderNumber || safeId === activeOrderNumber) return;
+    
+    const dispRef = ref(db, `PublicTracking/${activeOrderNumber}`);
+    const unsub = onValue(dispRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data && data.Status) {
+        // Merge POS updates from the short-ID path into our state
+        setOrderData(prev => {
+          // Only update if the POS path has a more advanced status
+          if (!prev || prev.Status === 'Pending' || data.Status === 'Cancelled') {
+            return { ...prev, ...data };
+          }
+          return prev;
+        });
+      }
+    });
+    return () => off(dispRef, 'value', unsub);
+  }, [orderId]);
+
   const handleEditOrder = async () => {
-    // 1. Guest Lock: Only logged in users can self-edit
+    // 1. Guest & Ownership Lock: Only authenticated owner can self-edit
     if (!currentUser) {
        alert(lang === 'en' ? 'To edit an order as a guest, please contact the restaurant via WhatsApp.' : 'لتعديل الطلب كضيف، يرجى التواصل مباشرة مع الفرع عبر الواتساب.');
        return;
     }
 
-    const currentStatus = orderData?.Status || 'Pending';
-    if (currentStatus === 'Ready' || currentStatus === 'OutForDelivery' || currentStatus === 'Completed' || currentStatus === 'Cancelled') {
-       alert(lang === 'en' 
-         ? 'Order is already completed, ready, or out for delivery and cannot be edited.' 
-         : 'عذراً، طلبك أصبح جاهزاً أو خرج مع الطيار بالفعل ولا يمكن تعديله.');
+    const orderPhone = (orderData?.CustomerPhone || '').trim();
+    const userPhoneClean = (userPhone || '').trim();
+    if (orderPhone && userPhoneClean && orderPhone !== userPhoneClean) {
+       alert(lang === 'en' ? 'Security Alert: You can only edit your own orders.' : '⚠️ تنبيه أمني: لا يمكنك تعديل طلب لا يخص حسابك.');
        return;
     }
 
     const safeOrderId = (orderId || '').replace('#', '').trim();
+
+    // Pre-flight Check: Live status check to prevent race condition if status changed while viewing page
+    try {
+      const liveRes = await fetch(`${APP_CONFIG.firebaseDbUrl}PublicTracking/${safeOrderId}.json?t=${Date.now()}`);
+      if (liveRes.ok) {
+        const liveData = await liveRes.json();
+        if (liveData && ['InKitchen', 'Preparing', 'Ready', 'OutForDelivery', 'Completed', 'Cancelled'].includes(liveData.Status)) {
+          alert(lang === 'en' 
+            ? '👨‍🍳 Your order is already being prepared in the kitchen or on its way and cannot be modified or cancelled.' 
+            : '👨‍🍳 عذراً، بدأ الشيف في تجهيز وجباتك بالمطبخ بالفعل (أو خرجت للتوصيل)، ولا يمكن تعديل أو إلغاء الطلب الآن لضمان جودة وسرعة التسليم.');
+          return;
+        }
+      }
+    } catch(e) {}
+
+    const currentStatus = orderData?.Status || 'Pending';
+    if (['InKitchen', 'Preparing', 'Ready', 'OutForDelivery', 'Completed', 'Cancelled'].includes(currentStatus)) {
+       alert(lang === 'en' 
+         ? '👨‍🍳 Your order is already being prepared in the kitchen or on its way and cannot be modified.' 
+         : '👨‍🍳 عذراً، بدأ الشيف في تجهيز وجباتك بالمطبخ بالفعل (أو خرجت للتوصيل)، ولا يمكن تعديل أو إلغاء الطلب الآن لضمان جودة وسرعة التسليم.');
+       return;
+    }
+
     const rawDetails = localStorage.getItem(`order_${safeOrderId}_details`) 
                     || localStorage.getItem(`order_#${safeOrderId}_details`) 
                     || localStorage.getItem(`order_${orderId}_details`);
@@ -182,26 +243,18 @@ export default function TrackOrderPage({ menuData }) {
 
       // 5. Update Firebase that modification has started (hold kitchen & cashier)
       try {
-        await fetch(`${APP_CONFIG.firebaseDbUrl}ActiveHoldRequests/${safeOrderId}.json`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            OrderId: safeOrderId,
-            CustomerName: details.customerName || orderData?.CustomerName || currentUser?.displayName || '',
-            CustomerPhone: details.customerPhone || orderData?.CustomerPhone || currentUser?.phoneNumber || '',
-            StartedAt: Date.now(),
-            ExpiresAt: expiresAt
-          })
+        await set(ref(db, `ActiveHoldRequests/${safeOrderId}`), {
+          OrderId: safeOrderId,
+          CustomerName: details.customerName || orderData?.CustomerName || currentUser?.displayName || '',
+          CustomerPhone: details.customerPhone || orderData?.CustomerPhone || currentUser?.phoneNumber || '',
+          StartedAt: Date.now(),
+          ExpiresAt: expiresAt
         });
 
-        fetch(`${APP_CONFIG.firebaseDbUrl}OrderTracking/${safeOrderId}.json`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            IsModifying: true,
-            ModificationExpiresAt: expiresAt
-          })
-        });
+        update(ref(db, `PublicTracking/${safeOrderId}`), {
+          IsModifying: true,
+          ModificationExpiresAt: expiresAt
+        }).catch(() => {});
       } catch(e) {}
 
       // 6. Open cart and navigate to menu
@@ -223,13 +276,11 @@ export default function TrackOrderPage({ menuData }) {
   }
 
   // -------------------------------------------------------------
-  // IDOR & Privacy Protection Guard
+  // IDOR & Privacy Protection Guard (Thoghra 22)
   // -------------------------------------------------------------
-  const orderOwnerPhone = (orderData?.CustomerPhone || "").trim();
-  const currentLoggedInPhone = (userPhone || "").trim();
-
   // If orderData is not found in database at all:
   if (!orderData) {
+    localStorage.removeItem("activeOrderId");
     return (
       <div className="pt-24 min-h-screen bg-black-surface flex flex-col items-center justify-center p-6 text-center" style={{ direction: lang === "ar" ? "rtl" : "ltr" }}>
         <div className="max-w-md w-full bg-black-primary border border-brand-red/30 rounded-3xl p-8 shadow-2xl flex flex-col items-center">
@@ -241,8 +292,8 @@ export default function TrackOrderPage({ menuData }) {
           </h2>
           <p className="text-text-muted leading-relaxed mb-6 text-sm">
             {lang === "en" 
-              ? `Order #${orderId} was not found. Please check the order number.`
-              : `عفواً، لم يتم العثور على أي بيانات للطلب رقم #${orderId}. يرجى التأكد من كتابة الرقم الصحيح.`}
+              ? `Order was not found. Please verify the tracking link or order number.`
+              : `عفواً، لم يتم العثور على أي بيانات لهذا الطلب. يرجى التأكد من كتابة الرقم الصحيح أو استخدام رابط التتبع.`}
           </p>
           <button 
             type="button"
@@ -256,12 +307,32 @@ export default function TrackOrderPage({ menuData }) {
     );
   }
 
-  // If the user is logged in, verify they OWN this order:
-  const isSessionOwner = sessionStorage.getItem("placed_order_" + (orderId || "").replace("#", "").trim());
-  const isOwner = (currentLoggedInPhone && orderOwnerPhone && currentLoggedInPhone === orderOwnerPhone) || isSessionOwner;
+  const displayId = orderData?.DisplayOrderId || (orderId?.startsWith('trk_') ? '' : orderId);
+  const displayNum = (displayId || '').replace(/#/g, '').trim();
 
-  if (currentUser && !isOwner) {
-    // If it was wrongfully stored in local storage, purge it immediately
+  // Retrieve saved local details for owner verification & local rendering
+  const rawDetails = localStorage.getItem(`order_${safeOrderId}_details`) 
+                  || (displayNum && localStorage.getItem(`order_${displayNum}_details`))
+                  || (displayNum && localStorage.getItem(`order_#${displayNum}_details`))
+                  || localStorage.getItem(`order_${orderId}_details`);
+  let orderDetails = {};
+  try { if (rawDetails) orderDetails = JSON.parse(rawDetails); } catch(e) {}
+
+
+  
+  const isSessionOwner = Boolean(
+    sessionStorage.getItem("placed_order_" + safeOrderId) ||
+    (displayNum && sessionStorage.getItem("placed_order_" + displayNum)) ||
+    (rawDetails && Object.keys(orderDetails).length > 0)
+  );
+
+  const orderOwnerPhone = (orderDetails?.customerPhone || "").trim();
+  const currentLoggedInPhone = (userPhone || currentUser?.phoneNumber || "").trim();
+
+  const isOwner = isSessionOwner || (currentLoggedInPhone && orderOwnerPhone && currentLoggedInPhone === orderOwnerPhone);
+
+  if (currentUser && currentLoggedInPhone && orderOwnerPhone && currentLoggedInPhone !== orderOwnerPhone && !isSessionOwner) {
+    // Logged-in user trying to snoop on an order belonging to another customer
     localStorage.removeItem("activeOrderId");
     return (
       <div className="pt-24 min-h-screen bg-black-surface flex flex-col items-center justify-center p-6 text-center" style={{ direction: lang === "ar" ? "rtl" : "ltr" }}>
@@ -274,8 +345,8 @@ export default function TrackOrderPage({ menuData }) {
           </h2>
           <p className="text-text-muted leading-relaxed mb-6 text-sm">
             {lang === "en" 
-              ? `Order #${orderId} does not belong to your account (${currentLoggedInPhone}).`
-              : `الطلب رقم #${orderId} لا ينتمي لرقم الهاتف المسجل بحسابك الحالي (${currentLoggedInPhone}). لحماية خصوصية وسرية بيانات العملاء، لا يمكن عرض تفاصيل طلبات تخص حسابات أخرى.`}
+              ? `This order does not belong to your account (${currentLoggedInPhone}).`
+              : `هذا الطلب لا ينتمي لرقم الهاتف المسجل بحسابك الحالي (${currentLoggedInPhone}). لحماية خصوصية وسرية بيانات العملاء، لا يمكن عرض تفاصيل طلبات تخص حسابات أخرى.`}
           </p>
           <button 
             type="button"
@@ -354,6 +425,14 @@ export default function TrackOrderPage({ menuData }) {
     displayList = displayList.filter(s => s.id !== 'Cancelled');
   }
 
+  const isHandoverEnabled = menuData?.storeStatus?.requireDeliveryHandoverCode !== false;
+  // Fallback to orderDetails.handoverCode ONLY if orderData.DeliveryPIN isn't present yet, but prioritize Firebase payload!
+  const handoverCode = isHandoverEnabled && isOwner ? (orderData?.DeliveryPIN || orderDetails.handoverCode || '') : '';
+  const customerDisplayName = isOwner ? (orderDetails.customerName || '') : '';
+  const customerDisplayPhone = isOwner ? (orderDetails.customerPhone || '') : '';
+  const customerDisplayAddress = isOwner ? (orderDetails.deliveryAddress || '') : '';
+  const customerDisplayTotal = isOwner ? (orderDetails.originalTotal || 0) : null;
+
   return (
     <div className="pt-24 min-h-screen bg-black-surface flex flex-col items-center pb-20" style={{ direction: lang === 'ar' ? 'rtl' : 'ltr' }}>
       
@@ -371,8 +450,36 @@ export default function TrackOrderPage({ menuData }) {
         </h2>
       )}
       <p className="text-text-muted text-lg mb-8">
-        {lang === 'en' ? 'Your order number is' : 'رقم الطلب الخاص بك هو'} <span className="font-bold text-text-light">#{orderId?.replace('#', '')}</span>
+        {displayNum ? (
+          <>
+            {lang === 'en' ? 'Your order number is' : 'رقم الطلب الخاص بك هو'} <span className="font-bold text-text-light">#{displayNum}</span>
+          </>
+        ) : (
+          <span className="font-bold text-text-light">{lang === 'en' ? 'Order Tracking' : 'متابعة الطلب'}</span>
+        )}
       </p>
+
+      {/* Handover Code (OTP) for Delivery (Thoghra 25 - Toggleable via Settings) */}
+      {isHandoverEnabled && handoverCode && (orderType || '').toLowerCase() === 'delivery' && mappedStatus !== 'Completed' && mappedStatus !== 'Cancelled' && (
+        <div className="w-full max-w-md bg-gradient-to-br from-black-primary via-black-surface to-brand-red/10 border-2 border-brand-red/40 rounded-3xl p-6 shadow-2xl mb-8 text-center relative overflow-hidden">
+          <div className="flex items-center justify-center gap-2 text-brand-red mb-2 font-bold text-sm">
+            <ShieldCheck size={20} className="text-brand-red" />
+            <span>{lang === 'en' ? 'Delivery Handover Code (OTP)' : 'كود تسليم الوجبة للطيار (أمان)'}</span>
+          </div>
+          <div className="flex items-center justify-center gap-3 my-4">
+            {handoverCode.split('').map((digit, idx) => (
+              <span key={idx} className="w-12 h-14 bg-black-surface border-2 border-brand-red/60 text-text-light font-mono font-black text-2xl flex items-center justify-center rounded-2xl shadow-inner shadow-brand-red/20">
+                {digit}
+              </span>
+            ))}
+          </div>
+          <p className="text-xs text-text-muted leading-relaxed">
+            {lang === 'en' 
+              ? '🔒 Please give this 4-digit code to the courier upon delivery to verify handoff.'
+              : '🔒 يرجى إعطاء هذا الكود المكون من 4 أرقام للطيار عند وصوله لتأكيد استلامك للوجبة بأمان.'}
+          </p>
+        </div>
+      )}
 
       {mappedStatus === 'Completed' ? (
         <div className="bg-black-surface/50 w-full max-w-md p-10 rounded-3xl border-2 border-brand-red/30 shadow-2xl mb-8 flex flex-col items-center text-center">
@@ -398,7 +505,7 @@ export default function TrackOrderPage({ menuData }) {
       <div className="bg-black-surface/50 w-full max-w-md p-8 rounded-3xl border-2 border-white/5 shadow-2xl mb-8">
         <h3 className="text-xl font-bold text-text-light mb-8 text-center">{lang === 'en' ? 'Track Order Status:' : 'تتبع حالة الطلب:'}</h3>
 
-          {mappedStatus === 'OutForDelivery' && orderData?.DriverName && (
+          {mappedStatus === 'OutForDelivery' && isOwner && orderData?.DriverName && (
               <div className="bg-[#DBEAFE] border border-[#3B82F6] rounded-xl p-4 mb-6 mt-4 mx-auto w-[90%] max-w-sm flex flex-col items-center justify-center gap-3">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-[#1D4ED8]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -451,6 +558,67 @@ export default function TrackOrderPage({ menuData }) {
       </div>
       )}
 
+      {/* Privacy Masked / Owner Order Details Card (Thoghra 22) */}
+      <div className="bg-black-surface/50 w-full max-w-md p-6 rounded-3xl border-2 border-white/5 shadow-2xl mb-6 flex flex-col gap-3.5 text-sm">
+        <h4 className="text-base font-bold text-text-light pb-2 border-b border-white/10 flex items-center justify-between">
+          <span>{lang === 'en' ? 'Order Summary' : 'بيانات وملخص الطلب'}</span>
+          {!isOwner ? (
+            <span className="text-[11px] font-semibold text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full flex items-center gap-1 border border-amber-400/20">
+              <Lock size={12} />
+              {lang === 'en' ? 'Privacy Protected' : 'بيانات مشفرة ومحمية'}
+            </span>
+          ) : (
+            <span className="text-[11px] font-semibold text-green-400 bg-green-400/10 px-2.5 py-1 rounded-full flex items-center gap-1 border border-green-400/20">
+              <ShieldCheck size={12} />
+              {lang === 'en' ? 'Verified Owner' : 'صاحب الطلب'}
+            </span>
+          )}
+        </h4>
+
+        <div className="flex items-center justify-between pb-2 border-b border-white/5">
+          <span className="text-text-muted flex items-center gap-2">
+            <User size={15} className="text-brand-red" />
+            {lang === 'en' ? 'Customer' : 'اسم العميل'}
+          </span>
+          <span className="font-bold text-text-light">
+            {isOwner && customerDisplayName ? customerDisplayName : (lang === 'en' ? 'Protected 🔒' : 'محمي للخصوصية 🔒')}
+          </span>
+        </div>
+
+        <div className="flex items-center justify-between pb-2 border-b border-white/5">
+          <span className="text-text-muted flex items-center gap-2">
+            <Phone size={15} className="text-brand-red" />
+            {lang === 'en' ? 'Phone' : 'رقم الهاتف'}
+          </span>
+          <span className="font-mono font-bold text-text-light" style={{ direction: 'ltr' }}>
+            {isOwner && customerDisplayPhone ? customerDisplayPhone : (lang === 'en' ? 'Protected 🔒' : 'محمي للخصوصية 🔒')}
+          </span>
+        </div>
+
+        {(orderType || '').toLowerCase() === 'delivery' && (
+          <div className="flex flex-col gap-1 pb-2 border-b border-white/5">
+            <span className="text-text-muted flex items-center gap-2">
+              <MapPin size={15} className="text-brand-red" />
+              {lang === 'en' ? 'Delivery Address' : 'عنوان التوصيل'}
+            </span>
+            <span className="font-semibold text-text-light text-xs leading-relaxed">
+              {isOwner && customerDisplayAddress ? customerDisplayAddress : (lang === 'en' ? 'Protected 🔒' : 'العنوان الدقيق محمي للخصوصية 🔒')}
+            </span>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between pt-1">
+          <span className="text-text-muted font-bold">
+            {lang === 'en' ? 'Total Amount' : 'إجمالي الطلب'}
+          </span>
+          <span className="text-lg font-black text-brand-red font-mono">
+            {isOwner && customerDisplayTotal !== null 
+              ? `${Number(customerDisplayTotal).toLocaleString()} ج.م` 
+              : (lang === 'en' ? 'Protected 🔒' : 'محمي للخصوصية 🔒')}
+          </span>
+        </div>
+      </div>
+
       <div className="w-full max-w-md flex flex-col gap-4 px-4">
         {(orderType || '').toLowerCase() === 'delivery' && (
           <>
@@ -464,6 +632,17 @@ export default function TrackOrderPage({ menuData }) {
             <span>{lang === 'en' ? 'Contact via WhatsApp' : 'تواصل عبر واتساب'}</span>
           </a>
           </>
+        )}
+
+        {(orderStatus === 'InKitchen' || orderStatus === 'Preparing') && (
+          <div className="w-full bg-amber-500/10 border border-amber-500/30 text-amber-300 p-4 rounded-2xl text-center mb-2 shadow-sm flex items-center justify-center gap-3">
+            <span className="text-xl">👨‍🍳</span>
+            <p className="text-xs md:text-sm font-bold leading-relaxed">
+              {lang === 'en'
+                ? 'Your meal is currently being prepared fresh in the kitchen! Orders cannot be modified after cooking starts.'
+                : 'وجبتك قيد التحضير الآن في المطبخ بأعلى جودة! تم قفل تعديل الطلب لبدء طهي الوجبات.'}
+            </p>
+          </div>
         )}
 
         {(orderStatus === 'Pending' || orderStatus === 'New') && (() => {

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, X, ArrowLeft } from 'lucide-react';
 import { useCart } from '../context/CartContext';
@@ -47,7 +47,7 @@ export default function ModificationBanner() {
         // Update Firebase that modification has expired permanently and release KDS hold!
         try {
           fetch(`${APP_CONFIG.firebaseDbUrl}ActiveHoldRequests/${orderId}.json`, { method: 'DELETE' });
-          fetch(`${APP_CONFIG.firebaseDbUrl}OrderTracking/${orderId}.json`, {
+          fetch(`${APP_CONFIG.firebaseDbUrl}PublicTracking/${orderId}.json`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
@@ -55,7 +55,7 @@ export default function ModificationBanner() {
               ModificationCount: 1,
               ModificationExpired: true 
             })
-          });
+          }).catch(() => {});
         } catch(e) {}
         if (clearCart) clearCart();
 
@@ -102,15 +102,15 @@ export default function ModificationBanner() {
 
       try {
         fetch(`${APP_CONFIG.firebaseDbUrl}ActiveHoldRequests/${orderId}.json`, { method: 'DELETE' });
-        fetch(`${APP_CONFIG.firebaseDbUrl}OrderTracking/${orderId}.json`, {
+        fetch(`${APP_CONFIG.firebaseDbUrl}PublicTracking/${orderId}.json`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
-            IsModifying: false,
-            ModificationCount: 1,
+            IsModifying: false, 
+            ModificationCount: 1, 
             ModificationExpired: true 
           })
-        });
+        }).catch(() => {});
       } catch(e) {}
       if (clearCart) clearCart();
 

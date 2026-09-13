@@ -1,5 +1,5 @@
 import { db } from "../firebase";
-import { collection, doc, setDoc } from "firebase/firestore";
+import { ref, set } from "firebase/database";
 
 const INCIDENTS_KEY = "pos_website_incidents";
 
@@ -60,7 +60,9 @@ export const WebsiteMonitor = {
         
         for (const incident of offlineIncidents) {
             try {
-                await setDoc(doc(db, "incidents", incident.incidentId), {
+                // Use RTDB instead of Firestore
+                const incidentRef = ref(db, `_incidents/${incident.incidentId}`);
+                await set(incidentRef, {
                     ...incident,
                     synced: true
                 });

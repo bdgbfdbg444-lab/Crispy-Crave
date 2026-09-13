@@ -2,6 +2,7 @@ import { useLanguage } from '../context/LanguageContext';
 import React from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, Clock, Navigation } from 'lucide-react';
+import DOMPurify from 'dompurify';
 import { APP_CONFIG } from '../config/appConfig';
 
 export default function LocationSection({ websiteData }) {
@@ -94,7 +95,7 @@ export default function LocationSection({ websiteData }) {
             className="w-full lg:w-2/3 h-[400px] lg:h-[600px] bg-black-surface flex flex-col items-center justify-center relative overflow-hidden"
           >
             {mapIframe.includes('<iframe') ? (
-              <div className="w-full h-full [&>iframe]:w-full [&>iframe]:h-full" dangerouslySetInnerHTML={{ __html: mapIframe }} />
+              <div className="w-full h-full [&>iframe]:w-full [&>iframe]:h-full" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(mapIframe, { ALLOWED_TAGS: ['iframe'], ALLOWED_ATTR: ['src', 'width', 'height', 'style', 'allowfullscreen', 'loading', 'referrerpolicy'] }) }} />
             ) : mapIframe.includes('google.com/maps/embed') ? (
               <iframe src={mapIframe} width="100%" height="100%" style={{ border: 0 }} allowFullScreen="" loading="lazy" referrerPolicy="no-referrer-when-downgrade"></iframe>
             ) : (
