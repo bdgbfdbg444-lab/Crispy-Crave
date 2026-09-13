@@ -110,8 +110,9 @@ function App() {
   }, []);
 
   return (
-    <HashRouter>
-      {/* Global Loading Screen Overlay */}
+    <ErrorBoundary>
+      <HashRouter>
+        {/* Global Loading Screen Overlay */}
       <AnimatePresence>
         {loading && <LoadingScreen key="loading" />}
       </AnimatePresence>
@@ -159,6 +160,7 @@ function App() {
         <MobileBottomNav />
       </div>
     </HashRouter>
+    </ErrorBoundary>
   );
 }
 

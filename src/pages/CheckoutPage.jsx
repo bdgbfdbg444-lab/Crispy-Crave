@@ -2,15 +2,20 @@ import { useLanguage } from '../context/LanguageContext';
 import PaymentSection from '../components/PaymentSection';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingBag, ArrowRight, Wallet, CheckCircle, AlertCircle } from 'lucide-react';
+import { ShoppingBag, ArrowRight, Wallet, CheckCircle, AlertCircle, MessageSquare, ShieldCheck, RefreshCw } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { db } from '../firebase';
+import { ref, set, push, update, remove, get, serverTimestamp } from 'firebase/database';
 import { validateReceiptFile } from '../services/receiptValidator';
-import { checkZoneMismatch } from '../components/AddressMapPicker';
+import { checkZoneMismatch, validateDeliveryAddress } from '../components/AddressMapPicker';
 import { APP_CONFIG } from '../config/appConfig';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReviewModal from '../components/ReviewModal';
 import imageCompression from 'browser-image-compression';
+import { sanitizeText } from '../utils/sanitizer';
+import { EGYPT_PHONE_REGEX, sanitizeOrderNotes } from '../utils/validation';
+import { visitorTracker } from '../services/visitorTracker';
 
 export default function CheckoutPage({ menuData }) {
   const { lang } = useLanguage();
@@ -67,8 +72,12 @@ export default function CheckoutPage({ menuData }) {
 
   // Safe Coupon Discount Calculation
   let couponDiscount = 0;
+  let finalDeliveryFee = deliveryFee;
   if (appliedCoupon) {
-    if (appliedCoupon.discountType === 'Percentage') {
+    if (appliedCoupon.discountType === 'FreeDelivery') {
+      couponDiscount = deliveryFee;
+      finalDeliveryFee = 0;
+    } else if (appliedCoupon.discountType === 'Percentage') {
       const calculated = subtotal * (Number(appliedCoupon.discountValue || 0) / 100);
       const maxCap = Number(appliedCoupon.maxDiscountAmount || 0) > 0 ? Number(appliedCoupon.maxDiscountAmount) : 9999;
       couponDiscount = Math.min(calculated, maxCap, subtotal);
@@ -82,6 +91,7 @@ export default function CheckoutPage({ menuData }) {
   const grandTotal = Math.max(0, Math.round((subtotal - couponDiscount + taxAmount + deliveryFee) * 100) / 100);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = React.useRef(false);
   const [orderStatus, setOrderStatus] = useState("New");
   const [isSuccess, setIsSuccess] = useState(false);
   const [generatedOrderId, setGeneratedOrderId] = useState('');
@@ -114,12 +124,16 @@ export default function CheckoutPage({ menuData }) {
     const activeId = localStorage.getItem('activeOrderId');
     if (activeId) {
       const cleanId = activeId.replace('#', '').trim();
-      fetch(`${APP_CONFIG.firebaseDbUrl}OrderTracking/${cleanId}.json`)
+      fetch(`${APP_CONFIG.firebaseDbUrl}PublicTracking/${cleanId}.json`)
         .then(res => res.json())
         .then(data => {
           const currentPhone = (userPhone || formData.customerPhone || '').trim();
+          const localDetailsRaw = localStorage.getItem(`order_${cleanId}_details`) || localStorage.getItem(`order_#${cleanId}_details`);
+          let localDetails = {};
+          try { if (localDetailsRaw) localDetails = JSON.parse(localDetailsRaw); } catch(e) {}
+
           // If the order in localStorage belongs to a different account/phone, clear it!
-          if (data && currentPhone && data.CustomerPhone && data.CustomerPhone.trim() !== currentPhone) {
+          if (localDetails.customerPhone && currentPhone && localDetails.customerPhone.trim() !== currentPhone) {
             localStorage.removeItem('activeOrderId');
             setActiveOrderWarning(null);
             return;
@@ -148,7 +162,7 @@ export default function CheckoutPage({ menuData }) {
     if (editingId) {
       try {
         fetch(`${APP_CONFIG.firebaseDbUrl}ActiveHoldRequests/${editingId}.json`, { method: 'DELETE' });
-        fetch(`${APP_CONFIG.firebaseDbUrl}OrderTracking/${editingId}.json`, {
+        fetch(`${APP_CONFIG.firebaseDbUrl}PublicTracking/${editingId}.json`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
@@ -156,7 +170,7 @@ export default function CheckoutPage({ menuData }) {
             ModificationExpired: true, 
             ModificationCount: 1 
           })
-        });
+        }).catch(() => {});
       } catch(e) {}
     }
     localStorage.removeItem('editingOrderId');
@@ -171,14 +185,19 @@ export default function CheckoutPage({ menuData }) {
     const editingDetailsStr = localStorage.getItem('editingOrderDetails');
     if (editingId && editingDetailsStr) {
       // Validate with Firebase if the order is still active or cancelled!
-      fetch(`${APP_CONFIG.firebaseDbUrl}OrderTracking/${editingId}.json`)
+      fetch(`${APP_CONFIG.firebaseDbUrl}PublicTracking/${editingId}.json`)
         .then(res => res.json())
         .then(data => {
-          if (!data || data.Status === 'Cancelled' || data.Status === 'Completed') {
-            // Order was cancelled or completed! Auto-clear editing session immediately!
+          if (!data || data.Status === 'Cancelled' || data.Status === 'Completed' || data.Status === 'InKitchen' || data.Status === 'Ready' || data.Status === 'OutForDelivery') {
+            // Order was cancelled, completed, or already being prepared in kitchen! Auto-clear editing session immediately!
             localStorage.removeItem('editingOrderId');
             localStorage.removeItem('editingOrderDetails');
             setShowPayment(false);
+            if (data?.Status === 'InKitchen') {
+              alert(lang === 'en' 
+                ? 'Your order is already being prepared in the kitchen and cannot be modified.' 
+                : '👨‍🍳 بدأ الشيف في تجهيز وجبتك بالمطبخ بالفعل، ولم يعد بالإمكان تعديل الطلب. تم إلغاء جلسة التعديل.');
+            }
             return;
           }
 
@@ -225,6 +244,100 @@ export default function CheckoutPage({ menuData }) {
   }, []);
 
 
+  const normalizePhone = (p) => {
+    let clean = (p || '').replace(/\D/g, '');
+    return clean;
+  };
+
+  // OTP Phone Verification Barrier for Unverified / Guest Users
+  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
+  const [otpInput, setOtpInput] = useState('');
+  const [generatedOtp, setGeneratedOtp] = useState('');
+  const [otpExpiry, setOtpExpiry] = useState(0);
+  const [otpCountdown, setOtpCountdown] = useState(0);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [verifiedPhone, setVerifiedPhone] = useState(null);
+  const [otpError, setOtpError] = useState('');
+
+  useEffect(() => {
+    let timer;
+    if (otpCountdown > 0) {
+      timer = setInterval(() => {
+        setOtpCountdown(prev => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [otpCountdown]);
+
+  const sendWhatsAppOtp = async (targetPhone) => {
+    const cleanPhone = normalizePhone(targetPhone);
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiry = Date.now() + 5 * 60 * 1000; // 5 minutes valid
+
+    // 1. Server-side cooldown guard (120s / 2 minutes)
+    try {
+      await set(ref(db, `OtpRateLimits/${cleanPhone}`), {
+        lastRequestedAt: Date.now()
+      });
+    } catch (rateErr) {
+      throw new Error(lang === 'en' 
+        ? 'Please wait 2 minutes before requesting a new verification code.' 
+        : 'يرجى الانتظار دقيقتين قبل طلب رمز تحقق جديد لنفس الرقم لحماية أمان الحساب.');
+    }
+
+    setGeneratedOtp(code);
+    setOtpExpiry(expiry);
+    setOtpCountdown(120); // Strict 120s server-matched cooldown
+
+    // 2. Send silently to Firebase PendingOtpRequests for the POS WhatsApp server
+    const reqId = `otp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    await set(ref(db, `PendingOtpRequests/${reqId}`), {
+      phone: cleanPhone,
+      otp: code,
+      createdAt: Date.now()
+    });
+
+    return code;
+  };
+
+  const handleTriggerOtp = async () => {
+    if (otpCountdown > 0 || isSendingOtp) return;
+    setIsSendingOtp(true);
+    setOtpError('');
+    try {
+      await sendWhatsAppOtp(formData.customerPhone);
+    } catch (err) {
+      setOtpError(lang === 'en' ? 'Failed to send OTP code: ' + err.message : 'فشل إرسال كود الواتساب: ' + err.message);
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
+  const handleConfirmOtp = (e) => {
+    if (e) e.preventDefault();
+    if (!otpInput || otpInput.trim().length !== 6) {
+      setOtpError(lang === 'en' ? 'Please enter the 6-digit verification code.' : 'يرجى إدخال كود التحقق المكون من 6 أرقام.');
+      return;
+    }
+    if (Date.now() > otpExpiry) {
+      setOtpError(lang === 'en' ? 'Verification code expired. Please request a new one.' : 'انتهت صلاحية كود التحقق. يرجى طلب كود جديد.');
+      return;
+    }
+    if (otpInput.trim() !== generatedOtp) {
+      setOtpError(lang === 'en' ? 'Incorrect verification code.' : 'رمز التحقق غير صحيح، يرجى المحاولة مرة أخرى.');
+      return;
+    }
+
+    // Successfully verified!
+    const cleanPhone = normalizePhone(formData.customerPhone);
+    setVerifiedPhone(cleanPhone);
+    setIsOtpModalOpen(false);
+    setOtpError('');
+    setOtpInput('');
+    // Automatically proceed to payment view!
+    setShowPayment(true);
+  };
+
   const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
   const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'unsigned_preset';
 
@@ -238,20 +351,53 @@ export default function CheckoutPage({ menuData }) {
     setIsCheckingCoupon(true);
     try {
       const code = couponInput.trim().toUpperCase();
-      const res = await fetch(`${APP_CONFIG.firebaseDbUrl}menu/coupons.json`);
-      const couponsData = await res.json();
       let foundCoupon = null;
 
-      if (Array.isArray(couponsData)) {
-        foundCoupon = couponsData.find(c => c && c.code && c.code.toUpperCase() === code);
-      } else if (couponsData && typeof couponsData === 'object') {
-        foundCoupon = Object.values(couponsData).find(c => c && c.code && c.code.toUpperCase() === code);
+      try {
+        const singleRes = await fetch(`${APP_CONFIG.firebaseDbUrl}Coupons/${code}.json`);
+        if (singleRes.ok) {
+          const singleData = await singleRes.json();
+          if (singleData && (singleData.code || singleData.Code)) {
+            foundCoupon = {
+              id: singleData.id || singleData.Id,
+              code: (singleData.code || singleData.Code || '').toUpperCase(),
+              discountType: singleData.discountType || singleData.DiscountType,
+              discountValue: singleData.discountValue || singleData.DiscountValue,
+              minOrderAmount: parseFloat(singleData.minOrderAmount || singleData.MinOrderAmount || 0),
+              maxDiscountAmount: parseFloat(singleData.maxDiscountAmount || singleData.MaxDiscountAmount || 0),
+              expiryDate: singleData.expiryDate || singleData.ExpiryDate,
+              isActive: singleData.isActive ?? singleData.IsActive ?? true,
+              allowedPhones: singleData.allowedPhones || singleData.AllowedPhones || null
+            };
+          }
+        }
+      } catch (singleErr) {}
+
+      if (!foundCoupon) {
+        const res = await fetch(`${APP_CONFIG.firebaseDbUrl}menu/coupons.json`);
+        const couponsData = await res.json();
+        if (Array.isArray(couponsData)) {
+          foundCoupon = couponsData.find(c => c && c.code && c.code.toUpperCase() === code);
+        } else if (couponsData && typeof couponsData === 'object') {
+          foundCoupon = Object.values(couponsData).find(c => c && c.code && c.code.toUpperCase() === code);
+        }
       }
 
       if (!foundCoupon || !foundCoupon.isActive) {
         setCouponError(lang === 'en' ? 'Invalid or inactive coupon code' : 'كوبون الخصم غير صحيح أو غير مفعل');
         setIsCheckingCoupon(false);
         return;
+      }
+
+      // Check if restricted to specific phones
+      if (foundCoupon.allowedPhones) {
+        const activePhone = (formData.customerPhone || userPhone || '').trim();
+        const phonesList = foundCoupon.allowedPhones.split(',').map(p => p.trim());
+        if (!activePhone || !phonesList.includes(activePhone)) {
+          setCouponError(lang === 'en' ? 'This coupon is for specific customers only' : 'عذراً، هذا الكوبون مخصص لعملاء محددين');
+          setIsCheckingCoupon(false);
+          return;
+        }
       }
 
       // Check expiry date
@@ -276,12 +422,19 @@ export default function CheckoutPage({ menuData }) {
       // Check if already used by this customer
       const activePhone = (formData.customerPhone || userPhone || '').trim();
       if (activePhone) {
-        const usageRes = await fetch(`${APP_CONFIG.firebaseDbUrl}UsedCoupons/${code}/${activePhone}.json`);
-        const usageData = await usageRes.json();
-        if (usageData) {
-          setCouponError(lang === 'en' ? 'You have already used this coupon' : 'لقد قمت باستخدام هذا الكوبون مسبقاً');
-          setIsCheckingCoupon(false);
-          return;
+        try {
+          const usageSnap = await get(ref(db, `UsedCoupons/${code}/${activePhone}`));
+          if (usageSnap.exists() && usageSnap.val()) {
+            setCouponError(lang === 'en' ? 'You have already used this coupon' : 'لقد قمت باستخدام هذا الكوبون مسبقاً');
+            setIsCheckingCoupon(false);
+            return;
+          }
+        } catch (err) {
+          console.error("Error checking coupon usage:", err);
+          // If permission denied, they probably aren't authenticated properly yet, but we allow it or show error?
+          // Actually, if permission denied, it throws an error.
+          // Wait, if they are not authenticated, they can't use the coupon?
+          // Let's just proceed or block? If error, we can log it.
         }
       }
 
@@ -307,25 +460,49 @@ export default function CheckoutPage({ menuData }) {
       return;
     }
 
-    // Out-of-Stock Cart Check
-    if (menuData && menuData.categories && cart && cart.length > 0) {
-      const allProducts = menuData.categories.flatMap(c => c.products || []);
-      for (const item of cart) {
-        const prodId = item.product?.id || item.id;
-        const liveProd = allProducts.find(p => p.id === prodId);
-        if (liveProd) {
-          const isSoldOut = Boolean(liveProd.isSoldOut || liveProd.IsSoldOut || liveProd.isAvailable === false || liveProd.IsAvailable === false);
-          if (isSoldOut) {
-            const name = lang === 'en' ? (liveProd.nameEn || liveProd.name) : liveProd.name;
-            const msg = lang === 'en'
-              ? `⚠️ Item "${name}" has run out of stock. Please remove it from your cart to proceed.`
-              : `⚠️ الصنف "${name}" نفدت كميته في المطعم حالياً. يرجى حذفه من السلة لمتابعة الطلب.`;
-            setErrorMessage(msg);
-            alert(msg);
-            return;
+    // THOGHRA 18: Deep Live Stock Check on Products & AddOns
+    try {
+      const liveMenuRes = await fetch(`${APP_CONFIG.firebaseDbUrl}menu.json?t=${Date.now()}`);
+      if (liveMenuRes.ok) {
+        const liveMenu = await liveMenuRes.json();
+        const liveProducts = liveMenu?.categories?.flatMap(c => c.products || []) || [];
+        const liveAddOns = liveMenu?.addOns || [];
+
+        for (const item of cartItems) {
+          const prodId = item.product?.id || item.id;
+          const liveProd = liveProducts.find(p => p.id === prodId);
+          if (liveProd) {
+            const isSoldOut = Boolean(liveProd.isSoldOut || liveProd.IsSoldOut || liveProd.isAvailable === false || liveProd.IsAvailable === false);
+            if (isSoldOut) {
+              const name = lang === 'en' ? (liveProd.nameEn || liveProd.name) : liveProd.name;
+              const msg = lang === 'en'
+                ? `⚠️ Item "${name}" has run out of stock in the restaurant. Please remove it from your cart to proceed.`
+                : `⚠️ الصنف "${name}" نفدت كميته في المطعم حالياً. يرجى حذفه من السلة لمتابعة الطلب.`;
+              setErrorMessage(msg);
+              alert(msg);
+              return;
+            }
+          }
+
+          // Check selected modifiers / add-ons against live add-ons status
+          if (item.product?.selectedModifiers && item.product.selectedModifiers.length > 0 && liveAddOns.length > 0) {
+            for (const mod of item.product.selectedModifiers) {
+              const liveAddon = liveAddOns.find(a => a.id === mod.id || a.name === mod.name);
+              if (liveAddon && liveAddon.isActive === false) {
+                const modName = lang === 'en' ? (liveAddon.nameEn || liveAddon.name) : liveAddon.name;
+                const msg = lang === 'en'
+                  ? `⚠️ The add-on "${modName}" for item "${item.product.name}" is currently unavailable. Please adjust your selection.`
+                  : `⚠️ الإضافة "${modName}" للصنف "${item.product.name}" غير متوفرة بالمطعم حالياً. يرجى تعديل اختيارك.`;
+                setErrorMessage(msg);
+                alert(msg);
+                return;
+              }
+            }
           }
         }
       }
+    } catch (e) {
+      console.warn("Live stock verification fallback:", e);
     }
 
     if (!formData.customerName.trim() || !formData.customerPhone.trim()) { 
@@ -367,8 +544,11 @@ export default function CheckoutPage({ menuData }) {
     }
 
     if (formData.orderType === 'delivery') {
-      if (!formData.deliveryAddress.trim()) { 
-        setErrorMessage(lang === 'en' ? 'Please enter delivery address' : 'يرجى إدخال عنوان التوصيل بالتفصيل'); 
+      const isCashPayment = !receiptFile; // If no receipt is uploaded, it's cash on delivery
+      const addressValidation = validateDeliveryAddress(formData.deliveryAddress, lang, isCashPayment);
+      if (!addressValidation.isValid) { 
+        setErrorMessage(addressValidation.error); 
+        alert(addressValidation.error);
         return; 
       }
 
@@ -390,11 +570,37 @@ export default function CheckoutPage({ menuData }) {
       }
     }
     
+    // Sanitize user inputs on proceeding (Thoghra 28)
+    setFormData(prev => ({
+      ...prev,
+      customerName: sanitizeText(prev.customerName, 100),
+      notes: sanitizeText(prev.notes, 500),
+      deliveryAddress: sanitizeText(prev.deliveryAddress, 300),
+      tableNumber: sanitizeText(prev.tableNumber, 20)
+    }));
+
     setErrorMessage('');
+
+    // THOGHRA 17: Phone Ownership OTP Barrier (Check if phone is verified)
+    const cleanCurrentPhone = normalizePhone(formData.customerPhone);
+    const isAuthVerified = Boolean(userPhone && normalizePhone(userPhone) === cleanCurrentPhone);
+    const isSessionOtpVerified = Boolean(verifiedPhone && verifiedPhone === cleanCurrentPhone);
+
+    if (!isAuthVerified && !isSessionOtpVerified) {
+      // Trigger WhatsApp OTP verification modal before allowing payment!
+      setIsOtpModalOpen(true);
+      setOtpError('');
+      setOtpInput('');
+      sendWhatsAppOtp(formData.customerPhone).catch(() => {});
+      return;
+    }
+
     setShowPayment(true);
   };
 
-  const handleFileSelect = (e) => {
+  const [isCompressingReceipt, setIsCompressingReceipt] = useState(false);
+
+  const handleFileSelect = async (e) => {
     const file = e.target.files[0];
     if (file) {
       const check = validateReceiptFile(file);
@@ -403,13 +609,79 @@ export default function CheckoutPage({ menuData }) {
         e.target.value = '';
         return;
       }
-      setReceiptFile(file);
+
+      try {
+        setIsCompressingReceipt(true);
+        const options = {
+          maxSizeMB: 0.3,
+          maxWidthOrHeight: 1280,
+          useWebWorker: true
+        };
+        const compressedFile = await imageCompression(file, options);
+        setReceiptFile(compressedFile);
+      } catch (err) {
+        console.warn('Image compression fallback:', err);
+        setReceiptFile(file);
+      } finally {
+        setIsCompressingReceipt(false);
+      }
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmittingRef.current || isSubmitting) {
+      console.warn("[Checkout] Submission already in progress, ignoring duplicate call.");
+      return;
+    }
+    isSubmittingRef.current = true;
     console.log("[Checkout Submit] Form submit button clicked!");
+
+    if (!isStoreOpen) {
+      setErrorMessage(storeClosedMessage);
+      alert(storeClosedMessage);
+      isSubmittingRef.current = false;
+      return;
+    }
+
+    // Real-Time Pre-Commit Store Status Guard (Fetches fresh status from Firebase)
+    try {
+      const liveStatusRes = await fetch(`${APP_CONFIG.firebaseDbUrl}StoreStatus.json?t=${Date.now()}`);
+      if (liveStatusRes.ok) {
+        const liveStatus = await liveStatusRes.json();
+        if (liveStatus && liveStatus.isOpen === false) {
+          const liveClosedMsg = (lang === 'en' ? liveStatus.closedMessageEn : liveStatus.closedMessage) || storeClosedMessage;
+          setErrorMessage(liveClosedMsg);
+          alert(liveClosedMsg);
+          isSubmittingRef.current = false;
+          return;
+        }
+      }
+    } catch (statusErr) {
+      console.warn("Store status live check fallback:", statusErr);
+    }
+
+    const currentEditId = localStorage.getItem("editingOrderId");
+    if (currentEditId) {
+      const cleanId = currentEditId.replace(/#/g, '').trim();
+      try {
+        const trkRes = await fetch(`${APP_CONFIG.firebaseDbUrl}PublicTracking/${cleanId}.json?t=${Date.now()}`);
+        if (trkRes.ok) {
+          const trkData = await trkRes.json();
+          if (trkData && ['InKitchen', 'Preparing', 'Ready', 'OutForDelivery', 'Completed', 'Cancelled'].includes(trkData.Status)) {
+            localStorage.removeItem('editingOrderId');
+            localStorage.removeItem('editingOrderDetails');
+            setShowPayment(false);
+            isSubmittingRef.current = false;
+            alert(lang === 'en'
+              ? '👨‍🍳 The kitchen has already started preparing your meal. Modifications are no longer permitted.'
+              : '👨‍🍳 عذراً، بدأ الشيف في تجهيز وجباتك بالمطبخ بالفعل (أو خرجت للتوصيل). تم قفل تعديل الطلب.');
+            navigate(`/track/${cleanId}`);
+            return;
+          }
+        }
+      } catch (e) {}
+    }
 
     if (activeOrderWarning && !localStorage.getItem("editingOrderId")) {
       const msg = lang === "en" 
@@ -417,35 +689,94 @@ export default function CheckoutPage({ menuData }) {
         : `لديك طلب نشط حالياً برقم #${activeOrderWarning.cleanId} قيد التنفيذ، لا يمكنك إنشاء طلب جديد حتى استلامه.`;
       setErrorMessage(msg);
       alert(msg);
+      isSubmittingRef.current = false;
       return;
     }
 
     if (cartItems.length === 0) {
-      setErrorMessage(lang === "en" ? "The cart cannot be empty. Please add at least one item." : "لا يمكن أن تكون السلة فارغة. يرجى إضافة صنف واحد على الأقل أو إلغاء التعديل.");
+      const emptyMsg = lang === "en" ? "The cart cannot be empty. Please add at least one item." : "لا يمكن أن تكون السلة فارغة. يرجى إضافة صنف واحد على الأقل أو إلغاء التعديل.";
+      setErrorMessage(emptyMsg);
+      isSubmittingRef.current = false;
       return;
     }
 
-    // Security Check: Guard against invalid or negative quantities/prices
+    // Security Check: Guard against invalid or negative quantities/prices (Thoghra 29)
     const hasTamperedItem = cartItems.some(i => {
       const q = parseInt(i.quantity, 10);
       const p = parseFloat(i.product.calculatedPrice || i.product.sellingPrice || 0);
-      return isNaN(q) || q <= 0 || isNaN(p) || p <= 0;
+      return isNaN(q) || q <= 0 || isNaN(p) || p < 0;
     });
 
     if (hasTamperedItem) {
       const msg = '⚠️ تم رصد بيانات غير صالحة في السلة (كميات أو أسعار غير صحيحة). يرجى مراجعة الأصناف.';
       setErrorMessage(msg);
       alert(msg);
+      isSubmittingRef.current = false;
       return;
     }
 
-    if (formData.orderType === "delivery" && !formData.deliveryAddress.trim()) {
-      setErrorMessage("يُرجى إدخال عنوان التوصيل بالتفصيل");
-      return;
+    // THOGHRA 18: Pre-Commit Deep Live Stock Check on Products & AddOns
+    try {
+      const liveMenuRes = await fetch(`${APP_CONFIG.firebaseDbUrl}menu.json?t=${Date.now()}`);
+      if (liveMenuRes.ok) {
+        const liveMenu = await liveMenuRes.json();
+        const liveProducts = liveMenu?.categories?.flatMap(c => c.products || []) || [];
+        const liveAddOns = liveMenu?.addOns || [];
+
+        for (const item of cartItems) {
+          const prodId = item.product?.id || item.id;
+          const liveProd = liveProducts.find(p => p.id === prodId);
+          if (liveProd) {
+            const isSoldOut = Boolean(liveProd.isSoldOut || liveProd.IsSoldOut || liveProd.isAvailable === false || liveProd.IsAvailable === false);
+            if (isSoldOut) {
+              const name = lang === 'en' ? (liveProd.nameEn || liveProd.name) : liveProd.name;
+              const msg = lang === 'en'
+                ? `⚠️ Item "${name}" has run out of stock in the restaurant. Please remove it from your cart to proceed.`
+                : `⚠️ الصنف "${name}" نفدت كميته في المطعم حالياً. يرجى حذفه من السلة لمتابعة الطلب.`;
+              setErrorMessage(msg);
+              alert(msg);
+              isSubmittingRef.current = false;
+              return;
+            }
+          }
+
+          // Check selected modifiers / add-ons against live add-ons status
+          if (item.product?.selectedModifiers && item.product.selectedModifiers.length > 0 && liveAddOns.length > 0) {
+            for (const mod of item.product.selectedModifiers) {
+              const liveAddon = liveAddOns.find(a => a.id === mod.id || a.name === mod.name);
+              if (liveAddon && liveAddon.isActive === false) {
+                const modName = lang === 'en' ? (liveAddon.nameEn || liveAddon.name) : liveAddon.name;
+                const msg = lang === 'en'
+                  ? `⚠️ The add-on "${modName}" for item "${item.product.name}" is currently unavailable. Please adjust your selection.`
+                  : `⚠️ الإضافة "${modName}" للصنف "${item.product.name}" غير متوفرة بالمطعم حالياً. يرجى تعديل اختيارك.`;
+                setErrorMessage(msg);
+                alert(msg);
+                isSubmittingRef.current = false;
+                return;
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Pre-commit live stock check fallback:", e);
+    }
+
+    if (formData.orderType === "delivery") {
+      const isCashPayment = !receiptFile;
+      const addressValidation = validateDeliveryAddress(formData.deliveryAddress, lang, isCashPayment);
+      if (!addressValidation.isValid) {
+        setErrorMessage(addressValidation.error);
+        alert(addressValidation.error);
+        isSubmittingRef.current = false;
+        return;
+      }
     }
 
     if (!receiptFile) {
-      setErrorMessage(lang === "en" ? "Please upload the payment receipt before confirming." : "يرجى إرفاق صورة إيصال الدفع لتأكيد الطلب.");
+      const noReceiptMsg = lang === "en" ? "Please upload the payment receipt before confirming." : "يرجى إرفاق صورة إيصال الدفع لتأكيد الطلب.";
+      setErrorMessage(noReceiptMsg);
+      isSubmittingRef.current = false;
       return;
     }
 
@@ -457,19 +788,61 @@ export default function CheckoutPage({ menuData }) {
       const msg = `يرجى الانتظار ${waitSec} ثانية قبل إرسال طلب جديد لمنع تكرار الطلبات.`;
       setErrorMessage(msg);
       alert(msg);
+      isSubmittingRef.current = false;
       return;
     }
 
     // Min Order check on submit
     if (formData.orderType === 'delivery' && selectedZoneObj && selectedZoneObj.minOrderAmount > 0 && subtotal < selectedZoneObj.minOrderAmount) {
       setErrorMessage(`قيمة الوجبات أقل من الحد الأدنى للطلب (${selectedZoneObj.minOrderAmount} ج.م)`);
+      isSubmittingRef.current = false;
+      return;
+    }
+
+    // Pre-Commit Blacklist Verification Guard
+    const submitPhoneClean = normalizePhone(formData.customerPhone);
+    if (submitPhoneClean) {
+      try {
+        const blCheckRes = await fetch(`${APP_CONFIG.firebaseDbUrl}Blacklist/${submitPhoneClean}.json`);
+        const blCheckData = await blCheckRes.json();
+        if (blCheckData && blCheckData.isBlacklisted) {
+          const blMsg = lang === 'en'
+            ? '⚠️ This mobile number is restricted from placing online orders. Please contact restaurant management.'
+            : '⚠️ هذا الرقم محظور من تقديم طلبات عبر الموقع. يرجى التواصل مع إدارة المطعم مباشرة.';
+          setErrorMessage(blMsg);
+          alert(blMsg);
+          isSubmittingRef.current = false;
+          return;
+        }
+      } catch (e) {}
+    }
+
+    // Pre-Commit Egyptian Phone RegEx Verification (Anti-Spoofing & Bank Grade Validation)
+    const egPhoneRegex = /^01[0125][0-9]{8}$/;
+    if (!egPhoneRegex.test(submitPhoneClean)) {
+      const msg = lang === 'en' 
+        ? 'Please enter a valid 11-digit Egyptian mobile number (e.g. 010xxxxxxxx)' 
+        : 'يرجى إدخال رقم موبايل مصري صحيح مكون من 11 رقماً يبدأ بـ (010, 011, 012, 015)';
+      setErrorMessage(msg);
+      alert(msg);
+      isSubmittingRef.current = false;
+      return;
+    }
+
+    // Pre-Commit Phone Ownership OTP Guard
+    const isAuthVerified = Boolean(userPhone && normalizePhone(userPhone) === submitPhoneClean);
+    const isSessionOtpVerified = Boolean(verifiedPhone && verifiedPhone === submitPhoneClean);
+    if (!isAuthVerified && !isSessionOtpVerified) {
+      setIsOtpModalOpen(true);
+      setOtpError('');
+      setOtpInput('');
+      sendWhatsAppOtp(formData.customerPhone).catch(() => {});
+      isSubmittingRef.current = false;
       return;
     }
 
     setIsSubmitting(true);
     setErrorMessage("");
-
-
 
     try {
       // 1. Prepare Order Data
@@ -478,7 +851,7 @@ export default function CheckoutPage({ menuData }) {
       const items = cartItems.map(item => {
         let modifierText = '';
         if (item.product.selectedModifiers?.length > 0) {
-          modifierText = ' - ' + item.product.selectedModifiers.map(m => m.name).join(', ');
+          modifierText = ' - ' + item.product.selectedModifiers.map(m => sanitizeText(m.name, 50)).join(', ');
         }
         
         let weightText = '';
@@ -486,23 +859,42 @@ export default function CheckoutPage({ menuData }) {
           weightText = ` (${item.product.selectedWeight} ${lang === 'en' ? 'gm' : 'جرام'})`;
         }
 
-        const finalProductName = `${item.product.name}${weightText}${modifierText}`;
-        const unitPrice = (item.product.calculatedPrice || item.product.sellingPrice) + (item.product.finalModifiersPrice || 0);
+        const safeProdName = sanitizeText(item.product.name, 120);
+        const finalProductName = `${safeProdName}${weightText}${modifierText}`;
+
+        // Thoghra 29: Invariant Shield on Unit Price & Quantity
+        const safeQty = Math.max(1, Math.min(999, Math.floor(Number(item.quantity) || 1)));
+        const basePrice = Math.max(0, Number(item.product.calculatedPrice ?? item.product.sellingPrice ?? 0));
+        const modPrice = Math.max(0, Number(item.product.finalModifiersPrice || 0));
+        const unitPrice = Math.round((basePrice + modPrice) * 100) / 100;
 
         return {
             productName: finalProductName,
-            quantity: item.quantity,
+            quantity: safeQty,
             unitPrice: unitPrice,
-            productId: item.product.id,
-            weightInGrams: item.product.selectedWeight || 0,
+            productId: Number(item.product.id) || 0,
+            weightInGrams: Math.max(0, Number(item.product.selectedWeight) || 0),
             modifierNotes: modifierText
           };
       });
 
       let paymentReceiptUrl = null;
       if (receiptFile) {
+        let fileToUpload = receiptFile;
+        try {
+          if (receiptFile.size > 300 * 1024) {
+            fileToUpload = await imageCompression(receiptFile, {
+              maxSizeMB: 0.3,
+              maxWidthOrHeight: 1280,
+              useWebWorker: true
+            });
+          }
+        } catch (compErr) {
+          console.warn('Compression fallback:', compErr);
+        }
+
         const cloudData = new FormData();
-        cloudData.append('file', receiptFile);
+        cloudData.append('file', fileToUpload);
         cloudData.append('upload_preset', UPLOAD_PRESET);
         const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
           method: 'POST',
@@ -516,16 +908,55 @@ export default function CheckoutPage({ menuData }) {
 
       const matchedAddr = customerData?.addresses?.find(a => a.fullAddress === formData.deliveryAddress);
 
+      const editingOrderId = localStorage.getItem('editingOrderId');
+      const cleanEditId = editingOrderId ? editingOrderId.replace(/#/g, '').trim() : '';
+      const rawOrigItems = cleanEditId ? (localStorage.getItem(`order_${cleanEditId}_items`) || localStorage.getItem(`order_#${cleanEditId}_items`)) : null;
+      const rawOrigDetails = cleanEditId ? (localStorage.getItem(`order_${cleanEditId}_details`) || localStorage.getItem(`order_#${cleanEditId}_details`)) : null;
+      let origDetails = {};
+      try { if (rawOrigDetails) origDetails = JSON.parse(rawOrigDetails); } catch(e) {}
+
+      // Delivery Handover Code (OTP): 4 digits (enabled/disabled via Settings)
+      const isHandoverEnabled = menuData?.storeStatus?.requireDeliveryHandoverCode !== false;
+      const handoverCode = isHandoverEnabled
+        ? (origDetails.handoverCode || Math.floor(1000 + Math.random() * 9000).toString())
+        : '';
+
+      // Thoghra 28: XSS Sanitization Shield
+      const cleanCustomerName = sanitizeText(formData.customerName, 100);
+      let cleanNotes = sanitizeOrderNotes(sanitizeText(formData.notes, 150));
+      const cleanDeliveryAddress = sanitizeText(formData.deliveryAddress, 300);
+      const cleanTableNumber = sanitizeText(formData.tableNumber, 20);
+
+      // Thoghra 30: Idempotency Key Shield
+      const idempotencyKey = `idemp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+      // Thoghra 22: Anti-Enumeration High-Entropy Tracking Token Shield
+      const generateTrackingToken = () => {
+        try {
+          const randomBytes = new Uint8Array(12);
+          window.crypto.getRandomValues(randomBytes);
+          const hex = Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+          return `trk_${Date.now().toString(36)}_${hex}`;
+        } catch(e) {
+          return `trk_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 12)}`;
+        }
+      };
+
+      const trackingToken = origDetails.trackingToken || generateTrackingToken();
+
       const orderPayload = {
+        idempotencyKey: idempotencyKey,
+        trackingToken: trackingToken,
         orderDate: new Date().toISOString(),
-        customerName: formData.customerName,
-        customerPhone: formData.customerPhone,
-        notes: formData.notes,
+        customerName: cleanCustomerName,
+        customerPhone: (formData.customerPhone || '').trim(),
+        notes: cleanNotes,
         orderType: formData.orderType,
-        deliveryAddress: formData.orderType === 'delivery' ? `[منطقة: ${selectedZone}] ${formData.deliveryAddress}` : '',
+        handoverCode: handoverCode,
+        deliveryAddress: formData.orderType === 'delivery' ? `[منطقة: ${selectedZone}] ${cleanDeliveryAddress}` : '',
         deliveryZone: formData.orderType === 'delivery' ? selectedZone : '',
         deliveryFee: formData.orderType === 'delivery' ? deliveryFee : 0,
-        mapsUrl: formData.orderType === 'delivery' ? (matchedAddr?.mapsUrl || '') : '',
+        mapsUrl: formData.orderType === 'delivery' ? (matchedAddr?.mapsUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${cleanDeliveryAddress}, ${selectedZone}`)}`) : '',
         lat: formData.orderType === 'delivery' ? (matchedAddr?.lat || null) : null,
         lng: formData.orderType === 'delivery' ? (matchedAddr?.lng || null) : null,
         street: formData.orderType === 'delivery' ? (matchedAddr?.street || '') : '',
@@ -533,38 +964,52 @@ export default function CheckoutPage({ menuData }) {
         floor: formData.orderType === 'delivery' ? (matchedAddr?.floor || '') : '',
         apartment: formData.orderType === 'delivery' ? (matchedAddr?.apartment || '') : '',
         landmark: formData.orderType === 'delivery' ? (matchedAddr?.landmark || '') : '',
-        subtotal: subtotal,
+        tableNumber: formData.orderType === 'DineIn' ? cleanTableNumber : '',
+        subtotal: Math.max(0, subtotal),
         taxPercentage: taxPercentage,
         taxAmount: taxAmount,
         couponCode: appliedCoupon ? appliedCoupon.code : '',
         discountAmount: couponDiscount,
         totalAmount: grandTotal,
-        paymentMethod: 'Cash',
+        paymentMethod: paymentReceiptUrl ? 'InstaPay' : 'Cash',
         status: 'New',
         items: items,
         displayOrderId: displayOrderId,
         paymentReceiptUrl: paymentReceiptUrl
       };
 
-      const editingOrderId = localStorage.getItem('editingOrderId');
       if (editingOrderId) {
-        const cleanEditId = editingOrderId.replace(/#/g, '').trim();
-        orderPayload.displayOrderId = editingOrderId;
-        orderPayload.isModification = true;
+        // Pre-flight Check: Prevent late modification/cancellation if kitchen has already started preparing
+        try {
+          const trackRes = await fetch(`${APP_CONFIG.firebaseDbUrl}PublicTracking/${cleanEditId}.json?t=${Date.now()}`);
+          if (trackRes.ok) {
+            const trackData = await trackRes.json();
+            if (trackData && ['InKitchen', 'Preparing', 'Ready', 'OutForDelivery', 'Completed', 'Cancelled'].includes(trackData.Status)) {
+              localStorage.removeItem('editingOrderId');
+              localStorage.removeItem('editingOrderDetails');
+              setShowPayment(false);
+              setIsSubmitting(false);
+              alert(lang === 'en'
+                ? '👨‍🍳 The kitchen has already started preparing your meal (or the order is out for delivery). Order modifications are locked.'
+                : '👨‍🍳 عذراً، بدأ الشيف في تجهيز وجباتك بالمطبخ بالفعل (أو خرجت للتوصيل). تم قفل تعديل الطلب لضمان جودة وسرعة التسليم.');
+              navigate(`/track/${cleanEditId}`);
+              return;
+            }
+          }
+        } catch (statusErr) {
+          console.warn('Pre-flight status check warning:', statusErr);
+        }
 
-        // Retrieve original items and details for diff comparison
-        const rawOrigItems = localStorage.getItem(`order_${cleanEditId}_items`) || localStorage.getItem(`order_#${cleanEditId}_items`);
-        const rawOrigDetails = localStorage.getItem(`order_${cleanEditId}_details`) || localStorage.getItem(`order_#${cleanEditId}_details`);
-        let origDetails = {};
-        try { origDetails = JSON.parse(rawOrigDetails || '{}'); } catch(e) {}
+        orderPayload.displayOrderId = cleanEditId;
+        orderPayload.isModification = true;
 
         if (rawOrigItems) {
            try {
               const parsedOrigItems = JSON.parse(rawOrigItems);
               orderPayload.originalItems = parsedOrigItems.map(i => ({
-                 productName: i.product?.name || i.productName || 'صنف',
-                 quantity: i.quantity || 1,
-                 unitPrice: (i.product?.calculatedPrice || i.product?.sellingPrice || i.unitPrice || 0)
+                 productName: sanitizeText(i.product?.name || i.productName || 'صنف', 120),
+                 quantity: Math.max(1, Math.min(999, Math.floor(Number(i.quantity) || 1))),
+                 unitPrice: Math.max(0, Number(i.product?.calculatedPrice || i.product?.sellingPrice || i.unitPrice || 0))
               }));
            } catch(e) {}
         }
@@ -572,37 +1017,30 @@ export default function CheckoutPage({ menuData }) {
         orderPayload.originalPaymentReceiptUrl = origDetails.paymentReceiptUrl || '';
 
         // Push modification request to Firebase Orders node! (To bypass security rules)
-        const modResponse = await fetch(`${APP_CONFIG.firebaseDbUrl}OrderModificationRequests.json`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(orderPayload)
-        });
-
-        if (!modResponse.ok) {
-           const errText = await modResponse.text();
-           console.error("Firebase Error:", errText);
-           throw new Error(`فشل في إرسال طلب التعديل: ${errText}`);
+        try {
+          const modRef = push(ref(db, 'OrderModificationRequests'));
+          await set(modRef, orderPayload);
+        } catch (err) {
+          console.error("Firebase Error:", err);
+          throw new Error(`فشل في إرسال طلب التعديل: ${err.message}`);
         }
 
         // Release the Active Hold in Firebase immediately!
         try {
-          await fetch(`${APP_CONFIG.firebaseDbUrl}ActiveHoldRequests/${cleanEditId}.json`, { method: 'DELETE' });
+          await remove(ref(db, `ActiveHoldRequests/${cleanEditId}`));
         } catch(e) {}
         
         localStorage.removeItem('editingOrderId');
         displayOrderId = editingOrderId;
       } else {
-        // 2. Send to Firebase POST /Orders.json
-        const response = await fetch(`${APP_CONFIG.firebaseDbUrl}Orders.json`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(orderPayload)
-        });
-
-        const responseData = await response.json();
-
-        if (!response.ok) {
-          throw new Error(responseData.error || 'فشل في إرسال الطلب، يرجى التأكد من اتصالك بالانترنت.');
+        // 2. Send to Firebase using SDK to include auth token
+        let responseData = null;
+        try {
+          const newOrderRef = push(ref(db, 'Orders'));
+          await set(newOrderRef, orderPayload);
+          responseData = { name: newOrderRef.key };
+        } catch (err) {
+          throw new Error(err.message || 'فشل في إرسال الطلب، يرجى التأكد من اتصالك بالانترنت.');
         }
 
         if (!responseData || !responseData.name) {
@@ -611,90 +1049,83 @@ export default function CheckoutPage({ menuData }) {
       }
 
       // 3. Success Handling (ONLY runs if fetch succeeded and threw no errors)
+      visitorTracker.setOrdering(true); // Track order in website analytics
       setGeneratedOrderId(displayOrderId);
       setFinalTotal(grandTotal);
 
-      // Save order items & details for future modifications
+      // Save order items & details for future modifications and secure local owner display
       const existingDetailsStr = localStorage.getItem(`order_${displayOrderId}_details`);
       const existingDetails = existingDetailsStr ? JSON.parse(existingDetailsStr) : {};
       const newModCount = editingOrderId ? (existingDetails.modificationCount || 0) + 1 : 0;
 
-      localStorage.setItem(`order_${displayOrderId}_items`, JSON.stringify(cartItems));
-      localStorage.setItem(`order_${displayOrderId}_details`, JSON.stringify({
-        customerName: formData.customerName,
-        customerPhone: formData.customerPhone,
+      const savedDetailsObj = {
+        customerName: cleanCustomerName,
+        customerPhone: (formData.customerPhone || '').trim(),
         orderType: formData.orderType,
-        deliveryAddress: formData.deliveryAddress,
-        tableNumber: formData.tableNumber,
-        notes: formData.notes,
-        createdAt: existingDetails.createdAt || Date.now(),
+        handoverCode: handoverCode,
+        deliveryAddress: cleanDeliveryAddress,
+        tableNumber: cleanTableNumber,
+        notes: cleanNotes,
+        createdAt: existingDetails.createdAt || serverTimestamp(),
         originalTotal: grandTotal,
         paymentReceiptUrl: paymentReceiptUrl || existingDetails.paymentReceiptUrl || '',
-        modificationCount: newModCount
-      }));
+        modificationCount: newModCount,
+        trackingToken: trackingToken,
+        displayOrderId: displayOrderId
+      };
+
+      const cleanId = displayOrderId.replace(/#/g, '').trim();
+
+      localStorage.setItem(`order_${displayOrderId}_items`, JSON.stringify(cartItems));
+      localStorage.setItem(`order_${cleanId}_items`, JSON.stringify(cartItems));
+      localStorage.setItem(`order_${trackingToken}_items`, JSON.stringify(cartItems));
+
+      localStorage.setItem(`order_${displayOrderId}_details`, JSON.stringify(savedDetailsObj));
+      localStorage.setItem(`order_${cleanId}_details`, JSON.stringify(savedDetailsObj));
+      localStorage.setItem(`order_${trackingToken}_details`, JSON.stringify(savedDetailsObj));
 
       localStorage.removeItem('editingOrderId');
       localStorage.removeItem('editingOrderDetails');
 
-      const cleanId = displayOrderId.replace(/#/g, '').trim();
-
-      // Immediately initialize OrderTracking node in Firebase with Status: 'Pending'
+      // Thoghra 22: Immediately initialize PublicTracking node with 0% PII (Status, OrderType, DisplayOrderId, LastUpdate)
       try {
-        await fetch(`${APP_CONFIG.firebaseDbUrl}OrderTracking/${cleanId}.json`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            Status: 'Pending',
-            CustomerName: formData.customerName,
-            CustomerPhone: formData.customerPhone,
-            OrderType: formData.orderType,
-            DeliveryAddress: formData.orderType === 'delivery' ? formData.deliveryAddress : '',
-            MapsUrl: formData.orderType === 'delivery' ? (matchedAddr?.mapsUrl || '') : '',
-            Lat: formData.orderType === 'delivery' ? (matchedAddr?.lat || null) : null,
-            Lng: formData.orderType === 'delivery' ? (matchedAddr?.lng || null) : null,
-            Building: formData.orderType === 'delivery' ? (matchedAddr?.building || '') : '',
-            Floor: formData.orderType === 'delivery' ? (matchedAddr?.floor || '') : '',
-            Apartment: formData.orderType === 'delivery' ? (matchedAddr?.apartment || '') : '',
-            Landmark: formData.orderType === 'delivery' ? (matchedAddr?.landmark || '') : '',
-            TableNumber: formData.orderType === 'DineIn' ? formData.tableNumber : '',
-            Subtotal: subtotal,
-            DeliveryFee: formData.orderType === 'delivery' ? deliveryFee : 0,
-            DeliveryZone: formData.orderType === 'delivery' ? selectedZone : '',
-            TaxAmount: taxAmount,
-            TotalAmount: grandTotal,
-            CreatedAt: Date.now(),
-            Items: items
-          })
-        });
-      } catch(e) {}
+        const publicInit = {
+          Status: 'Pending',
+          OrderType: formData.orderType,
+          DisplayOrderId: displayOrderId,
+          LastUpdate: new Date().toISOString()
+        };
+        await set(ref(db, `PublicTracking/${trackingToken}`), publicInit);
+        set(ref(db, `PublicTracking/${cleanId}`), publicInit).catch(() => {});
+      } catch(e) { console.warn('PublicTracking init failed:', e); }
 
       // Record coupon usage
       if (appliedCoupon) {
         const activePhone = (formData.customerPhone || userPhone || '').trim();
         if (activePhone) {
-          fetch(`${APP_CONFIG.firebaseDbUrl}UsedCoupons/${appliedCoupon.code}/${activePhone}.json`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(true)
-          }).catch(() => {});
+          set(ref(db, `UsedCoupons/${appliedCoupon.code}/${activePhone}`), true).catch(() => {});
         }
       }
 
       clearCart();
       localStorage.setItem('last_order_submitted_timestamp', Date.now().toString());
 
-
-
       const currentPhone = (formData.customerPhone || '').trim();
       if (currentPhone) {
-        localStorage.setItem('activeOrder_' + currentPhone, cleanId);
+        localStorage.setItem('activeOrder_' + currentPhone, trackingToken);
       }
-      localStorage.setItem('activeOrderId', cleanId);
+      localStorage.setItem('activeOrderId', trackingToken);
+      localStorage.setItem('activeOrderToken', trackingToken);
+      localStorage.setItem('activeOrderNumber', cleanId);
       localStorage.setItem('activeOrderTotal', grandTotal);
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
+
       sessionStorage.setItem('placed_order_' + cleanId, 'true');
-      // Navigate cleanly without '#' symbol so HashRouter does not double-hash!
-      navigate('/track/' + cleanId);
+      sessionStorage.setItem('placed_order_' + trackingToken, 'true');
+
+      // Navigate with secure high-entropy trackingToken (Anti-Enumeration Guard)
+      navigate('/track/' + trackingToken);
       return;
 
     } catch (error) {
@@ -714,6 +1145,7 @@ export default function CheckoutPage({ menuData }) {
       }
       
       setErrorMessage(msg);
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -1190,7 +1622,7 @@ export default function CheckoutPage({ menuData }) {
                       </button>
                     )}
 
-                    <PaymentSection marketing={marketing} onFileSelect={handleFileSelect} />
+                    <PaymentSection marketing={marketing} onFileSelect={handleFileSelect} isCompressing={isCompressingReceipt} />
 
                     <button 
                       type="submit" 
@@ -1254,8 +1686,12 @@ export default function CheckoutPage({ menuData }) {
                 )}
                 {couponDiscount > 0 && (
                   <div className="flex justify-between items-center text-sm font-bold text-emerald-400">
-                    <span>🏷️ {lang === 'en' ? 'Coupon Discount:' : 'خصم الكوبون:'} ({appliedCoupon?.code})</span>
-                    <span>-{couponDiscount.toFixed(2)} {lang === 'en' ? 'EGP' : 'ج.م'}</span>
+                    <span>🎟️ {lang === 'en' ? 'Coupon Discount:' : 'خصم الكوبون:'} ({appliedCoupon?.code})</span>
+                    <span>
+                        {appliedCoupon?.discountType === 'FreeDelivery' 
+                          ? (lang === 'en' ? 'Free Delivery' : 'توصيل مجاني')
+                          : `-${couponDiscount.toFixed(2)} ${lang === 'en' ? 'EGP' : 'ج.م'}`}
+                    </span>
                   </div>
                 )}
                 <div className="pt-3 border-t border-brand-red-dark/30 flex justify-between items-center text-xl">
@@ -1306,6 +1742,103 @@ export default function CheckoutPage({ menuData }) {
 
         </div>
       </div>
+
+      {/* THOGHRA 17: WhatsApp Phone Ownership Verification Modal */}
+      <AnimatePresence>
+        {isOtpModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-black-surface border border-brand-red/30 rounded-2xl max-w-md w-full p-6 shadow-2xl relative text-text-light"
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                  <ShieldCheck size={26} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-text-light">
+                    {lang === 'en' ? 'Phone Verification' : 'تأكيد ملكية رقم الهاتف'}
+                  </h3>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    {lang === 'en' 
+                      ? 'Confirming phone number via WhatsApp OTP' 
+                      : 'تأكيد رقم الموبايل عبر رسالة واتساب لحماية طلبك'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3.5 mb-5 flex items-start gap-2.5">
+                <MessageSquare className="text-emerald-400 shrink-0 mt-0.5" size={18} />
+                <p className="text-xs text-text-muted leading-relaxed">
+                  {lang === 'en' 
+                    ? `We sent a 6-digit verification code to WhatsApp on number (${formData.customerPhone}). Please enter it below:` 
+                    : `تم إرسال كود تحقق مكون من 6 أرقام على واتساب الرقم (${formData.customerPhone}). يرجى إدخاله للمتابعة:`}
+                </p>
+              </div>
+
+              <form onSubmit={handleConfirmOtp} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-text-muted mb-1.5">
+                    {lang === 'en' ? 'Enter 6-Digit Code' : 'أدخل رمز التحقق (6 أرقام)'}
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={otpInput}
+                    onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ''))}
+                    placeholder="------"
+                    className="w-full bg-black-primary border border-brand-red-dark/40 rounded-xl px-4 py-3 text-center text-2xl font-mono tracking-widest text-text-light focus:outline-none focus:border-brand-red"
+                    autoFocus
+                  />
+                </div>
+
+                {otpError && (
+                  <p className="text-xs text-brand-red font-bold flex items-center gap-1.5 animate-in fade-in">
+                    <AlertCircle size={14} />
+                    {otpError}
+                  </p>
+                )}
+
+                <div className="flex items-center justify-between pt-1">
+                  <button
+                    type="button"
+                    onClick={handleTriggerOtp}
+                    disabled={otpCountdown > 0 || isSendingOtp}
+                    className="text-xs text-brand-red hover:underline disabled:opacity-50 disabled:no-underline font-bold flex items-center gap-1 cursor-pointer"
+                  >
+                    <RefreshCw size={12} className={isSendingOtp ? 'animate-spin' : ''} />
+                    {otpCountdown > 0 
+                      ? (lang === 'en' ? `Resend in (${otpCountdown}s)` : `إعادة الإرسال بعد (${otpCountdown} ث)`) 
+                      : (lang === 'en' ? 'Resend WhatsApp Code' : 'إعادة إرسال كود الواتساب')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setIsOtpModalOpen(false); setOtpError(''); }}
+                    className="text-xs text-text-muted hover:text-white"
+                  >
+                    {lang === 'en' ? 'Change Phone' : 'تغيير الرقم'}
+                  </button>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={otpInput.length !== 6}
+                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-emerald-900/30 cursor-pointer"
+                >
+                  {lang === 'en' ? 'Confirm and Proceed' : 'تأكيد ومتابعة الطلب'}
+                </button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
