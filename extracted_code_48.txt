@@ -1,0 +1,9 @@
+        <button onClick={() => setActiveTab('overview')} className={`p-4 rounded-xl flex items-center gap-3 transition-colors ${activeTab === 'overview' ? 'bg-brand-red text-text-light font-bold' : 'bg-black-surface text-text-muted hover:bg-black-primary'}`}>
+          <User size={20} />
+          <span>{lang === 'en' ? 'Overview' : 'نظرة عامة'}</span>
+        </button>
+        <button onClick={() => setActiveTab('offers')} className={`p-4 rounded-xl flex items-center gap-3 transition-colors ${activeTab === 'offers' ? 'bg-brand-red text-text-light font-bold' : 'bg-black-surface text-text-muted hover:bg-black-primary'}`}>
+          <Briefcase size={20} />
+          <span>{lang === 'en' ? 'My Wallet & Offers' : 'محفظتي وعروضي'}</span>
+        </button>
+        <button onClick={() => setActiveTab('orders')} className={`p-4 rounded-xl flex items-center gap-3 transition-colors ${activeTab === 'orders' ? 'bg-brand-red text-text-light font-bold' : 'bg-black-surface text-text-muted hover:bg-black-primary'}`}>

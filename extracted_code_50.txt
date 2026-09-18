@@ -1,0 +1,6 @@
+                // If it has allowedPhones, check if customer phone is in it
+                if (c.allowedPhones) {
+                  const pList = c.allowedPhones.split(',').map(p => p.trim());
+                  const phoneToUse = customerData.Phone || customerData.phone;
+                  if (!pList.includes(phoneToUse)) return false;
+                }

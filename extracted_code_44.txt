@@ -1,0 +1,20 @@
+            <button type="submit" disabled={loading} className="w-full bg-brand-red text-white p-3 rounded-xl hover:bg-brand-red-dark disabled:opacity-50 font-bold transition-colors mb-3">
+              {loading ? 'جاري التحقق...' : 'متابعة عبر كود واتساب (سريع وآمن)'}
+            </button>
+            <button 
+              type="button" 
+              onClick={() => {
+                if (!phone.trim()) {
+                  setError('يرجى إدخال رقم الموبايل أولاً');
+                  return;
+                }
+                setError('');
+                setStep('login');
+              }}
+              className="w-full text-center text-sm text-blue-400 hover:text-blue-300 transition-colors font-semibold"
+            >
+              🔑 أو تسجيل الدخول بكلمة المرور مباشرة
+            </button>
+          </form>
+        </div>
+      )}

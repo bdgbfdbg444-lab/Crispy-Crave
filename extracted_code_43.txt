@@ -1,0 +1,46 @@
+    try {
+      const internalEmail = getInternalEmail(cleanPhone);
+      await signInWithEmailAndPassword(auth, internalEmail, password);
+      
+      try { localStorage.removeItem(getLockoutKey(cleanPhone)); } catch(e) {}
+      await refreshCustomerData(cleanPhone);
+      setStep('dashboard');
+    } catch (err) {
+      if (err.code === 'auth/too-many-requests') {
+        const lockMsg = lang === 'en'
+          ? '⚠️ Account login is temporarily suspended due to multiple failed attempts. You can log in immediately via WhatsApp OTP.'
+          : '⚠️ تم تعليق محاولات تسجيل الدخول مؤقتاً لحماية أمان الحساب. يمكنك تسجيل الدخول فوراً وبأمان عبر رمز التحقق في واتساب.';
+        setError(lockMsg);
+        setLoading(false);
+        return;
+      }
+
+      let updatedAttempts = 1;
+      try {
+        const key = getLockoutKey(cleanPhone);
+        const raw = localStorage.getItem(key);
+        const data = raw ? JSON.parse(raw) : { attempts: 0 };
+        data.attempts = (data.attempts || 0) + 1;
+        data.lastAttempt = Date.now();
+        if (data.attempts >= 5) {
+          data.lockedUntil = Date.now() + 5 * 60 * 1000;
+          localStorage.setItem(key, JSON.stringify(data));
+          const lockMsg = lang === 'en'
+            ? '⚠️ You have entered incorrect credentials 5 times. Account login is locked for 5 minutes.'
+            : '⚠️ لقد قمت بإدخال بيانات غير صحيحة 5 مرات متتالية. تم إيقاف محاولات الدخول مؤقتاً لمدة 5 دقائق لحماية أمان حسابك.';
+          setError(lockMsg);
+          setLoading(false);
+          return;
+        } else {
+          localStorage.setItem(key, JSON.stringify(data));
+          updatedAttempts = data.attempts;
+        }
+      } catch(e) {}
+
+      const remainingAttempts = Math.max(0, 5 - updatedAttempts);
+      const errMsg = lang === 'en'
+        ? `Invalid mobile number or password. Remaining attempts before temporary lockout: ${remainingAttempts}`
+        : `رقم الهاتف أو كلمة المرور غير صحيحة. المحاولات المتبقية قبل إيقاف الحساب مؤقتاً: ${remainingAttempts}`;
+      setError(errMsg);
+    }
+    setLoading(false);

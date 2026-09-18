@@ -1,4 +1,4 @@
-import { useLanguage } from '../context/LanguageContext';
+﻿import { useLanguage } from '../context/LanguageContext';
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Camera } from 'lucide-react';
@@ -30,7 +30,7 @@ export default function Gallery({ websiteData }) {
   const displayImages = images.slice(0, 4);
 
   return (
-    <section className="py-24 bg-black-surface relative">
+    <section id="gallery" className="py-24 bg-black-surface relative">
       <div className="container mx-auto px-6">
         <div className="text-center mb-16">
           <motion.div 

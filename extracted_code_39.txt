@@ -1,0 +1,44 @@
+  const handleSetPasswordForExisting = async (e) => {
+    e.preventDefault();
+    if (newPassword.length < 6) return setError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
+
+    const cleanPhone = normalizePhone(phone);
+    if (!verifiedOtpPhone || verifiedOtpPhone !== cleanPhone) {
+      setStep('otp_verify');
+      return setError('يجب تأكيد رمز التحقق (OTP) أولاً قبل تعيين كلمة المرور');
+    }
+
+    setError('');
+    setLoading(true);
+
+    try {
+      const emailToUse = getInternalEmail(cleanPhone);
+      let userRes;
+      try {
+        userRes = await createUserWithEmailAndPassword(auth, emailToUse, newPassword);
+      } catch (authErr) {
+        if (authErr.code === 'auth/email-already-in-use') {
+          // Update credentials with unique timestamp email
+          const altEmail = `${cleanPhone}_${Date.now()}@internal.theblackbox.com`;
+          userRes = await createUserWithEmailAndPassword(auth, altEmail, newPassword);
+        } else {
+          throw authErr;
+        }
+      }
+
+      await set(ref(db, `UidToPhone/${userRes.user.uid}`), cleanPhone);
+      await update(ref(db, `PublicCustomers/${cleanPhone}`), {
+        uid: userRes.user.uid,
+        AuthEmail: userRes.user.email
+      });
+
+      // Reset verification token to prevent token reuse
+      setVerifiedOtpPhone(null);
+
+      await refreshCustomerData(cleanPhone);
+      setStep('dashboard');
+    } catch (err) {
+      setError('حدث خطأ أثناء ضبط كلمة المرور: ' + err.message);
+    }
+    setLoading(false);
+  };

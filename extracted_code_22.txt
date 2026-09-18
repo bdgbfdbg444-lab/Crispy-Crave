@@ -1,0 +1,20 @@
+        if (menuData && menuData.categories) {
+           const categoriesArray = Array.isArray(menuData.categories) ? menuData.categories : Object.values(menuData.categories);
+           for (const cat of categoriesArray) {
+             const itemsSource = cat.products || cat.items || {};
+             const catItemsArray = Array.isArray(itemsSource) ? itemsSource : Object.values(itemsSource);
+             
+             // Try by ID first
+             let found = catItemsArray.find(i => i.id && i.id.toString() === itemId);
+             
+             // Fallback by Name if ID fails or is empty
+             if (!found && fallbackName !== 'Unknown') {
+                 found = catItemsArray.find(i => (i.name && i.name.trim() === fallbackName) || (i.nameEn && i.nameEn.trim() === fallbackName) || (i.nameEn && i.nameEn.trim() === fallbackNameEn));
+             }
+             
+             if (found) {
+                product = { ...found };
+                break;
+             }
+           }
+        }

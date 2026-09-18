@@ -1,4 +1,4 @@
-import { useLanguage } from '../context/LanguageContext';
+﻿import { useLanguage } from '../context/LanguageContext';
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Play, Heart, MessageCircle } from 'lucide-react';
@@ -30,15 +30,24 @@ export default function SocialFeed({ websiteData }) {
       if (parsed) {
         socialData.title = lang === 'en' ? (parsed.titleEn || parsed.TitleEn || 'Live the Experience With Us') : (parsed.title || parsed.Title || socialData.title);
         socialData.subtitle = lang === 'en' ? (parsed.subtitleEn || parsed.SubtitleEn || 'Follow us on Instagram and TikTok for the latest videos and offers') : (parsed.subtitle || parsed.Subtitle || socialData.subtitle);
+        
         if (parsed.items || parsed.Items) {
-          socialData.items = (parsed.items || parsed.Items).map(i => ({
-            id: i.id || i.Id,
-            type: (i.isVideo || i.IsVideo) ? 'video' : 'image',
-            url: i.imageUrl || i.ImageUrl,
-            link: i.url || i.Url,
-            likes: i.likes || i.Likes,
-            comments: i.comments || i.Comments
-          }));
+          const rawItems = parsed.items || parsed.Items;
+          const validItems = rawItems.filter(i => {
+            const imgUrl = i.imageUrl || i.ImageUrl;
+            return imgUrl && imgUrl.trim() !== '';
+          });
+
+          if (validItems.length > 0) {
+            socialData.items = validItems.map(i => ({
+              id: i.id || i.Id,
+              type: (i.isVideo || i.IsVideo) ? 'video' : 'image',
+              url: i.imageUrl || i.ImageUrl,
+              link: (i.url || i.Url || instagramLink),
+              likes: i.likes || i.Likes,
+              comments: i.comments || i.Comments
+            }));
+          }
         }
       }
     } catch (e) {
@@ -83,7 +92,7 @@ export default function SocialFeed({ websiteData }) {
   ];
 
   return (
-    <section className="py-24 bg-black-primary relative overflow-hidden border-t border-gray-800">
+    <section id="social" className="py-24 bg-black-primary relative overflow-hidden border-t border-gray-800">
       <div className="container mx-auto px-6 max-w-7xl relative z-10">
         
         <div className="flex flex-col md:flex-row justify-between items-center mb-12 gap-6">

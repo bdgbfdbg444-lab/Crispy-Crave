@@ -1,0 +1,14 @@
+  const orderStatus = orderData?.Status || 'Pending';
+  const orderType = orderData?.OrderType || '';
+  
+  const statusList = [
+    { id: 'Pending', label: (lang === 'en' ? 'Pending Acceptance' : 'جاري مراجعة الطلب') },
+    { id: 'New', label: (lang === 'en' ? 'Accepted' : 'تم القبول') },
+    { id: 'InKitchen', label: (lang === 'en' ? 'Preparing' : 'قيد التحضير') },
+    { id: 'Ready', label: (lang === 'en' ? 'Ready for Pickup/Delivery' : 'جاهز للاستلام/التوصيل') },
+    { id: 'Completed', label: (lang === 'en' ? 'Delivered' : 'تم التسليم') },
+    { id: 'Cancelled', label: (lang === 'en' ? 'Cancelled' : 'تم الإلغاء') }
+  ];
+
+  let statusIndex = ['Pending', 'New', 'InKitchen', 'Ready', 'Completed', 'Cancelled'].indexOf(orderStatus);
+  if (statusIndex === -1) statusIndex = 0;

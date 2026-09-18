@@ -1,0 +1,38 @@
+    if (!newAddress.building?.trim() && !fullAddr.trim()) {
+      alert(lang === 'en' ? 'Please enter building name or number' : 'يرجى إدخال رقم أو اسم العمارة');
+      return;
+    }
+
+    // Street field specific validation (blocks keyboard mash like dsadafgsdg, asdf, etc.)
+    if (newAddress.street?.trim()) {
+      const streetValidation = validateStreet(newAddress.street, lang);
+      if (!streetValidation.isValid) {
+        alert(streetValidation.error);
+        return;
+      }
+    }
+
+    // Landmark field specific validation if entered
+    if (newAddress.landmark?.trim()) {
+      const landmarkValidation = validateStreet(newAddress.landmark, lang);
+      if (!landmarkValidation.isValid) {
+        alert(landmarkValidation.error);
+        return;
+      }
+    }
+
+    // Keyword Mismatch check
+    const mismatchZone = checkZoneMismatch(`${newAddress.street || ''} ${newAddress.landmark || ''} ${fullAddr}`, newAddress.zone, zonesList);
+    if (mismatchZone) {
+      alert(lang === 'en' 
+        ? `Cannot save: The address mentions (${mismatchZone}) which conflicts with selected zone (${newAddress.zone}).` 
+        : `⚠️ تنبيه أمني: لا يمكن حفظ العنوان لأن تفاصيل الشارع تحتوي على منطقة (${mismatchZone}) تختلف عن منطقة التوصيل المحددة (${newAddress.zone}). يرجى اختيار منطقتك الصحيحة.`);
+      return;
+    }
+
+    // Gibberish & Quality Check on Full Address
+    const addressValidation = validateDeliveryAddress(fullAddr, lang);
+    if (!addressValidation.isValid) {
+      alert(addressValidation.error);
+      return;
+    }

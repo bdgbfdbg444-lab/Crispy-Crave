@@ -1,0 +1,9 @@
+        if (!product) {
+          product = {
+            id: itemId || Date.now().toString(),
+            name: JSON.stringify(item).substring(0, 60),
+            nameEn: JSON.stringify(item).substring(0, 60),
+            price: item.UnitPrice || item.unitPrice || item.price || nestedProduct.price || nestedProduct.sellingPrice || nestedProduct.Price || 0,
+            image: nestedProduct.image || ''
+          };
+        }

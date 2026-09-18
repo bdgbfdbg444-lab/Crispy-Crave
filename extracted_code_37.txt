@@ -1,0 +1,20 @@
+      if (custSnap.exists()) {
+        const data = custSnap.val();
+        setIsExistingCustomer(true);
+        setExistingCustomerRecord(data);
+        
+        // Auto pre-fill existing name, address, and zone from POS records
+        if (data.Name && !name) setName(data.Name);
+        if (data.Address && !address) setAddress(data.Address);
+        if (data.Zone && !selectedZone) setSelectedZone(data.Zone);
+        else if (data.zone && !selectedZone) setSelectedZone(data.zone);
+
+        if (data.uid) {
+          // Has set a password before
+          setStep('login');
+        } else {
+          // Registered in POS only, trigger WhatsApp OTP verification to verify and set password!
+          await sendWhatsAppOtp(cleanPhone);
+          setStep('otp_verify');
+        }
+      } else {

@@ -1,0 +1,7 @@
+  const saveAddressesToFirebase = async (updatedAddresses) => {
+    try {
+      const { update, ref } = await import('firebase/database');
+      const { db } = await import('../firebase');
+      await update(ref(db, `PublicCustomers/${customerData.Phone}`), { addresses: updatedAddresses });
+      setAddresses(updatedAddresses);
+    } catch (err) {

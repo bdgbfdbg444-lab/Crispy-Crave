@@ -1,0 +1,203 @@
+      {step === 'phone' && (
+        <div>
+          <form onSubmit={handlePhoneSubmit}>
+            <div className="mb-4">
+              <label className="block text-text-light mb-2 font-bold">رقم الموبايل</label>
+              <input 
+                type="tel" 
+                required
+                className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red text-center text-lg tracking-wider" 
+                value={phone} 
+                onChange={e => setPhone(e.target.value)} 
+                placeholder="01012345678" 
+              />
+              <p className="text-xs text-text-muted mt-2 text-center">
+                سيصلك رمز تأكيد فوري عبر واتساب للتحقق من أمان حسابك.
+              </p>
+            </div>
+            <button type="submit" disabled={loading} className="w-full bg-brand-red text-white p-3 rounded-xl hover:bg-brand-red-dark disabled:opacity-50 font-bold transition-colors">
+              {loading ? 'جاري التحقق...' : 'متابعة'}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {step === 'otp_verify' && (
+        <form onSubmit={handleVerifyOtp}>
+          <div className="mb-4 text-center">
+            <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-2 text-2xl">
+              💬
+            </div>
+            <h3 className="font-bold text-lg text-text-light">تم إرسال كود التحقق على واتساب</h3>
+            <p className="text-sm text-text-muted mt-1">
+              أدخل رمز التأكيد المكون من 6 أرقام المرسل إلى الرقم: <span className="font-bold text-text-light">{phone}</span>
+            </p>
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-text-light mb-2 text-center font-bold">رمز التحقق (OTP)</label>
+            <input 
+              type="text" 
+              maxLength={6}
+              autoFocus
+              className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red text-center text-2xl font-bold tracking-widest" 
+              value={otpInput} 
+              onChange={e => setOtpInput(e.target.value.replace(/\D/g, ''))} 
+              placeholder="------" 
+            />
+          </div>
+
+          <button type="submit" disabled={loading || otpInput.trim().length !== 6} className="w-full bg-brand-red text-white p-3 rounded-xl hover:bg-brand-red-dark disabled:opacity-50 font-bold mb-3 transition-colors">
+            تأكيد الرمز
+          </button>
+
+          <div className="text-center">
+            {otpCountdown > 0 ? (
+              <p className="text-xs text-text-muted">
+                إعادة إرسال الكود خلال: <span className="font-bold text-amber-400">{otpCountdown} ثانية</span>
+              </p>
+            ) : (
+              <button 
+                type="button" 
+                onClick={handleResendOtp} 
+                disabled={loading}
+                className="text-sm text-emerald-400 hover:text-emerald-300 transition-colors font-semibold"
+              >
+                🔄 إعادة إرسال الرمز عبر واتساب
+              </button>
+            )}
+          </div>
+
+          <button type="button" onClick={() => { setStep('phone'); setOtpInput(''); }} className="w-full text-center text-sm text-text-muted hover:text-brand-red transition-colors mt-4">
+            تغيير رقم الموبايل
+          </button>
+        </form>
+      )}
+
+      {step === 'login' && (
+        <form onSubmit={handleLogin}>
+          <div className="mb-4 text-center">
+            <p className="text-text-muted">أهلاً بك مجدداً ({phone})</p>
+          </div>
+          <div className="mb-4">
+            <label className="block text-text-light mb-2 font-bold">كلمة المرور</label>
+            <input type="password" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={password} onChange={e => setPassword(e.target.value)} />
+          </div>
+          <button type="submit" disabled={loading} className="w-full bg-brand-red text-white p-3 rounded-xl hover:bg-brand-red-dark disabled:opacity-50 mb-3 font-bold transition-colors">
+            {loading ? 'جاري الدخول...' : 'تسجيل الدخول'}
+          </button>
+          <button type="button" onClick={handleForgotPassword} className="w-full text-center text-sm text-blue-400 hover:text-blue-300 transition-colors mb-3">
+            نسيت كلمة المرور؟ (استعادة عبر كود واتساب)
+          </button>
+          <button type="button" onClick={() => {setStep('phone'); setPassword('');}} className="w-full text-center text-sm text-text-muted hover:text-brand-red transition-colors">
+            تغيير رقم الموبايل
+          </button>
+        </form>
+      )}
+
+      {step === 'set_password' && (
+        <form onSubmit={handleSetPasswordForExisting}>
+          <div className="mb-4 text-center">
+            <div className="w-12 h-12 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center mx-auto mb-2 text-2xl">
+              🔐
+            </div>
+            <h3 className="font-bold text-lg text-text-light">تم تأكيد ملكية الرقم بنجاح!</h3>
+            <p className="text-sm text-text-muted mt-1">
+              رقمك مسجل لدينا بالفرع مسبقاً وبحوزتك نقاط ولاء. اختر كلمة مرور خاصة بك لتسجيل الدخول لاحقاً:
+            </p>
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-text-light mb-2 font-bold">كلمة المرور الجديدة (6 أحرف على الأقل)</label>
+            <input 
+              type="password" 
+              required
+              className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" 
+              value={newPassword} 
+              onChange={e => setNewPassword(e.target.value)} 
+              placeholder="••••••••"
+            />
+          </div>
+
+          <button type="submit" disabled={loading} className="w-full bg-brand-red text-white font-bold p-3 rounded-xl hover:bg-brand-red-dark disabled:opacity-50 transition-colors">
+            {loading ? 'جاري الحفظ...' : 'حفظ كلمة المرور والدخول للحساب'}
+          </button>
+        </form>
+      )}
+
+      {step === 'complete_profile' && (
+        <form onSubmit={handleCompleteRegistration}>
+          <div className="mb-4 text-center">
+            <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-2 text-2xl">
+              🎉
+            </div>
+            <h3 className="font-bold text-lg text-text-light">تم التحقق من رقمك! أكمل بياناتك</h3>
+            <p className="text-sm text-emerald-400 mt-1 font-semibold">
+              🎁 ستحصل على 50 نقطة ولاء كهدية ترحيبية فور إكمال التسجيل!
+            </p>
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-text-light mb-2 font-bold">الاسم الكامل *</label>
+            <input 
+              type="text" 
+              required
+              className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" 
+              value={name} 
+              onChange={e => setName(e.target.value)} 
+              placeholder="الاسم ثلاثي أو ثنائي"
+            />
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-text-light mb-2 font-bold">منطقتك السكنية (إجباري للتوصيل) *</label>
+            <select 
+              required
+              className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold"
+              value={selectedZone}
+              onChange={e => setSelectedZone(e.target.value)}
+            >
+              <option value="">-- اختر منطقتك السكنية --</option>
+              {zonesForAuth.map(z => (
+                <option key={z.id || z.name} value={z.name}>{z.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-text-light mb-2">العنوان التفصيلي (اسم الشارع، رقم العمارة، الشقة)</label>
+            <input 
+              type="text" 
+              placeholder="مثال: شارع مصطفى كامل، عمارة 12، الدور 3" 
+              className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" 
+              value={address} 
+              onChange={e => setAddress(e.target.value)} 
+            />
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-text-light mb-2">البريد الإلكتروني (اختياري)</label>
+            <input 
+              type="email" 
+              className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" 
+              value={email} 
+              onChange={e => setEmail(e.target.value)} 
+            />
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-text-light mb-2 font-bold">كلمة المرور (6 أحرف على الأقل) *</label>
+            <input 
+              type="password" 
+              required
+              className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" 
+              value={password} 
+              onChange={e => setPassword(e.target.value)} 
+            />
+          </div>
+
+          <button type="submit" disabled={loading} className="w-full bg-brand-red text-white p-3 rounded-xl hover:bg-brand-red-dark disabled:opacity-50 mb-3 font-bold transition-colors">
+            {loading ? 'جاري التسجيل...' : 'إنشاء الحساب وبدء الاستخدام'}
+          </button>
+        </form>
+      )}

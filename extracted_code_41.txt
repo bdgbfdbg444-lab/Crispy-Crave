@@ -1,0 +1,5 @@
+      // Reset verification token to prevent token reuse
+      setVerifiedOtpPhone(null);
+
+      await refreshCustomerData(cleanPhone);
+      setStep('dashboard');

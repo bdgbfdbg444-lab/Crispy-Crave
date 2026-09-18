@@ -1,0 +1,87 @@
+﻿@@ -996,0 +1265 @@ export default function MyAccountPage({ menuData }) {
++
+@@ -998,2 +1267,9 @@ export default function MyAccountPage({ menuData }) {
+-            <label className="block text-text-light mb-2">الاسم</label>
+-            <input type="text" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={name} onChange={e => setName(e.target.value)} />
++            <label className="block text-text-light mb-2 font-bold">الاسم الكامل *</label>
++            <input 
++              type="text" 
++              required
++              className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" 
++              value={name} 
++              onChange={e => setName(e.target.value)} 
++              placeholder="الاسم ثلاثي أو ثنائي"
++            />
+@@ -1000,0 +1277 @@ export default function MyAccountPage({ menuData }) {
++
+@@ -1002 +1279 @@ export default function MyAccountPage({ menuData }) {
+-            <label className="block text-text-light mb-2 font-bold">منطقتك السكنية (إجباري للتوصيل) *</label>
++            <label className="block text-text-light mb-2 font-bold">منطقتك السكنية (إجباري للتوصيل) *</label>
+@@ -1009 +1286 @@ export default function MyAccountPage({ menuData }) {
+-              <option value="">-- اختر منطقتك السكنية --</option>
++              <option value="">-- اختر منطقتك السكنية --</option>
+@@ -1014,0 +1292 @@ export default function MyAccountPage({ menuData }) {
++
+@@ -1016,10 +1294,8 @@ export default function MyAccountPage({ menuData }) {
+-            <label className="block text-text-light mb-2">العنوان التفصيلي (اسم الشارع، رقم العمارة، الشقة) *</label>
+-            <input type="text" placeholder="مثال: شارع مصطفى كامل، عمارة 12، الدور 3" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={address} onChange={e => setAddress(e.target.value)} />
+-          </div>
+-          <div className="mb-4">
+-            <label className="block text-text-light mb-2">{lang === 'en' ? 'Email Address' : 'البريد الإلكتروني'} (اختياري)</label>
+-            <input type="email" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={email} onChange={e => setEmail(e.target.value)} />
+-          </div>
+-          <div className="mb-4">
+-            <label className="block text-text-light mb-2">كلمة المرور (6 أحرف على الأقل)</label>
+-            <input type="password" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={password} onChange={e => setPassword(e.target.value)} />
++            <label className="block text-text-light mb-2">العنوان التفصيلي (اسم الشارع، رقم العمارة، الشقة)</label>
++            <input 
++              type="text" 
++              placeholder="مثال: شارع مصطفى كامل، عمارة 12، الدور 3" 
++              className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" 
++              value={address} 
++              onChange={e => setAddress(e.target.value)} 
++            />
+@@ -1027,8 +1302,0 @@ export default function MyAccountPage({ menuData }) {
+-          <button type="submit" disabled={loading} className="w-full bg-brand-red text-text-light p-3 rounded hover:bg-brand-red-dark disabled:opacity-50 mb-3">
+-            {loading ? 'جاري التسجيل...' : 'إنشاء حساب'}
+-          </button>
+-          <button type="button" onClick={() => {setStep('phone'); setPassword(''); setName('');}} className="w-full text-center text-sm text-text-muted hover:text-brand-red transition-colors">
+-            رجوع
+-          </button>
+-        </form>
+-      )}
+@@ -1036,5 +1303,0 @@ export default function MyAccountPage({ menuData }) {
+-      {step === 'link_phone' && (
+-        <form onSubmit={handleLinkPhone}>
+-          <div className="mb-4 text-center">
+-            <p className="text-text-muted">خطوة أخيرة لإكمال تسجيل جوجل</p>
+-          </div>
+@@ -1042,2 +1305,7 @@ export default function MyAccountPage({ menuData }) {
+-            <label className="block text-text-light mb-2">رقم الموبايل</label>
+-            <input type="tel" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={phone} onChange={e => setPhone(e.target.value)} placeholder="01012345678" />
++            <label className="block text-text-light mb-2">البريد الإلكتروني (اختياري)</label>
++            <input 
++              type="email" 
++              className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" 
++              value={email} 
++              onChange={e => setEmail(e.target.value)} 
++            />
+@@ -1044,0 +1313 @@ export default function MyAccountPage({ menuData }) {
++
+@@ -1046,2 +1315,8 @@ export default function MyAccountPage({ menuData }) {
+-            <label className="block text-text-light mb-2">العنوان (اختياري لتسهيل ال{lang === 'en' ? 'Order' : 'طلب'})</label>
+-            <input type="text" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={address} onChange={e => setAddress(e.target.value)} />
++            <label className="block text-text-light mb-2 font-bold">كلمة المرور (6 أحرف على الأقل) *</label>
++            <input 
++              type="password" 
++              required
++              className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" 
++              value={password} 
++              onChange={e => setPassword(e.target.value)} 
++            />
+@@ -1049,2 +1324,3 @@ export default function MyAccountPage({ menuData }) {
+-          <button type="submit" disabled={loading} className="w-full bg-brand-red text-text-light p-3 rounded hover:bg-brand-red-dark disabled:opacity-50 mb-3">
+-            {loading ? 'جاري الربط...' : 'ربط وإكمال'}
++
++          <button type="submit" disabled={loading} className="w-full bg-brand-red text-white p-3 rounded-xl hover:bg-brand-red-dark disabled:opacity-50 mb-3 font-bold transition-colors">
++            {loading ? 'جاري التسجيل...' : 'إنشاء الحساب وبدء الاستخدام'}

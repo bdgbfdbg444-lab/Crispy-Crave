@@ -1,0 +1,35 @@
+const DashboardView = ({ customerData, onLogout, menuData }) => {
+  const { lang } = useLanguage();
+  const navigate = useNavigate();
+  const { addToCart } = useCart();
+
+  const handleOrderAgain = (order) => {
+    if (order.Items && Array.isArray(order.Items)) {
+      order.Items.forEach(item => {
+        let product = null;
+        if (menuData && menuData.categories) {
+           for (const cat of menuData.categories) {
+             const found = cat.items.find(i => i.id.toString() === (item.ProductId || '').toString());
+             if (found) {
+                product = { ...found };
+                break;
+             }
+           }
+        }
+        
+        if (!product) {
+          product = {
+            id: item.ProductId || Date.now(),
+            name: item.ProductName || 'Unknown',
+            nameEn: item.ProductName || 'Unknown',
+            price: item.UnitPrice || 0,
+            image: ''
+          };
+        }
+
+        const qty = item.Quantity || 1;
+        addToCart(product, qty);
+      });
+      navigate('/cart');
+    }
+  };

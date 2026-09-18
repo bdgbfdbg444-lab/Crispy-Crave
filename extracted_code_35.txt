@@ -1,0 +1,36 @@
+      await set(ref(db, `UidToPhone/${res.user.uid}`), cleanPhone);
+      
+      const custRef = ref(db, `PublicCustomers/${cleanPhone}`);
+      const custSnap = await get(custRef);
+      const isPreExisting = custSnap.exists();
+
+      if (isPreExisting) {
+        // Zero Trust / Payload Isolation:
+        // Existing customer already has financial history (Points, TotalOrders, TotalSpent) from POS!
+        // Strictly DO NOT send or modify any financial fields from the client browser.
+        await update(custRef, {
+          Name: name.trim(),
+          Phone: cleanPhone,
+          Email: email.trim() || null,
+          AuthEmail: res.user.email,
+          Address: address.trim() || null,
+          Zone: selectedZone,
+          zone: selectedZone,
+          uid: res.user.uid
+        });
+      } else {
+        // First-time brand new registration
+        await set(custRef, {
+          Name: name.trim(),
+          Phone: cleanPhone,
+          Email: email.trim() || null,
+          AuthEmail: res.user.email,
+          Address: address.trim() || null,
+          Zone: selectedZone,
+          zone: selectedZone,
+          uid: res.user.uid,
+          RegisteredDate: new Date().toISOString(),
+          Points: 50, // Welcome gift points for new accounts
+          TotalOrders: 0
+        });
+      }

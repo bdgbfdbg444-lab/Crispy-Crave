@@ -1,0 +1,9 @@
+                              {isActive && (
+                                 <button onClick={() => {
+                                    const trackId = order.TrackingToken || order.WebOrderId || order.OrderNumber;
+                                    navigate('/track/' + encodeURIComponent(trackId));
+                                 }} className="w-2/3 bg-brand-red hover:bg-brand-red-dark text-text-light font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors">
+                                    <Navigation size={18} />
+                                    {lang === 'en' ? 'Track Order' : 'OOO"O1 O U,OU,O" U.O"O O'OOc'}
+                                 </button>
+                               )}

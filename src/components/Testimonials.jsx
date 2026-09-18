@@ -1,10 +1,10 @@
-import { useLanguage } from '../context/LanguageContext';
+﻿import { useLanguage } from '../context/LanguageContext';
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Star, MessageSquareQuote } from 'lucide-react';
 import { APP_CONFIG } from '../config/appConfig';
 
-export default function Testimonials() {
+export default function Testimonials({ websiteData }) {
   const { lang } = useLanguage();
   const [reviews, setReviews] = useState([]);
 
@@ -28,8 +28,21 @@ export default function Testimonials() {
     loadReviews();
   }, []);
 
+  // Merge manual testimonials from websiteData with dynamic reviews
+  let combinedReviews = [...reviews];
+  if (websiteData && websiteData.testimonials) {
+    try {
+      const parsed = JSON.parse(websiteData.testimonials);
+      if (Array.isArray(parsed)) {
+        combinedReviews = [...combinedReviews, ...parsed];
+      }
+    } catch (e) {
+      console.error("Error parsing manual testimonials:", e);
+    }
+  }
+
   // Use dummy reviews if none are found, duplicated to ensure enough content for smooth scrolling
-  const displayReviews = reviews.length > 0 ? reviews : [
+  const displayReviews = combinedReviews.length > 0 ? combinedReviews : [
     { customerName: "أحمد مجدي", rating: 5, comment: "أفضل بريسكت دُقته في حياتي، اللحمة دايبة والتتبيلة ممتازة!", imageUrl: "https://res.cloudinary.com/vgk0saib/image/upload/v1786579629/maq1oncsu8t5u4bpjlnw.png" },
     { customerName: "محمد طارق", rating: 5, comment: "السماش برجر خيالي، الجبنة والعيش واللحمة مكس رهيب، وخدمة ممتازة." },
     { customerName: "كريم حسن", rating: 4, comment: "ناشفيل ستريبس حارة جداً زي ما بحبها، التغليفة مقرمشة وطعمها خطير." },
@@ -38,7 +51,7 @@ export default function Testimonials() {
   ];
 
   return (
-    <section className="py-24 bg-black-primary text-text-light relative overflow-hidden">
+    <section id="testimonials" className="py-24 bg-black-primary text-text-light relative overflow-hidden">
       <div className="container mx-auto px-6 mb-16">
         <div className="text-center">
           <motion.div 
@@ -89,12 +102,12 @@ export default function Testimonials() {
               key={index}
               className="bg-black-surface rounded-3xl border border-brand-red-dark/30 shadow-2xl hover:shadow-brand-red/10 relative w-[300px] md:w-[400px] flex-shrink-0 flex flex-col overflow-hidden group transition-all duration-500"
             >
-              {review.imageUrl && (
+              {(review.imageUrl || review.ImageUrl) && (
                 <div className="w-full h-48 md:h-56 shrink-0 bg-black-primary relative overflow-hidden">
                   {/* Subtle gradient overlay to blend harsh image edges */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black-surface via-transparent to-transparent z-10"></div>
                   <img 
-                    src={review.imageUrl} 
+                    src={(review.imageUrl || review.ImageUrl)} 
                     alt="Customer Order" 
                     className="w-full h-full object-cover opacity-90 group-hover:scale-110 transition-transform duration-700" 
                     loading="lazy" 
@@ -111,19 +124,19 @@ export default function Testimonials() {
                     <Star 
                       key={i} 
                       size={20} 
-                      fill={i < (review.rating || 5) ? "currentColor" : "none"} 
-                      className={i >= (review.rating || 5) ? "text-brand-red-dark/40" : ""}
+                      fill={i < ((review.rating || review.Rating) || 5) ? "currentColor" : "none"} 
+                      className={i >= ((review.rating || review.Rating) || 5) ? "text-brand-red-dark/40" : ""}
                     />
                   ))}
                 </div>
                 
                 <p className="text-text-light text-lg md:text-xl leading-relaxed mb-8 whitespace-normal font-medium flex-grow">
-                  "{review.comment}"
+                  "{String(review.comment || review.Comment || "").replace(/&quot;/g, '"').replace(/&#x27;/g, `"'`).replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#x2F;/g, '/')}"
                 </p>
                 
                 <div className="mt-auto border-t border-brand-red-dark/20 pt-4 flex items-center justify-between">
                   <div>
-                    <h4 className="font-bold text-brand-red truncate text-base md:text-lg">{review.customerName || "{lang === 'en' ? 'Special Customer' : 'عميل مميز'}"}</h4>
+                    <h4 className="font-bold text-brand-red truncate text-base md:text-lg">{(review.customerName || review.CustomerName) || (lang === 'en' ? 'Special Customer' : 'عميل مميز')}</h4>
                     <span className="text-xs md:text-sm text-text-muted">Verified Buyer</span>
                   </div>
                   {/* Small clean quote icon at the bottom for aesthetic */}

@@ -1,0 +1,17 @@
+const DashboardView = ({ customerData, onLogout }) => {
+  const { lang } = useLanguage();
+  const navigate = useNavigate();
+  const { addToCart } = useCart();
+
+  const handleOrderAgain = (order) => {
+    if (order.Items && Array.isArray(order.Items)) {
+      order.Items.forEach(item => {
+        const product = item.Product || item.product || item;
+        const qty = item.Quantity || item.quantity || 1;
+        addToCart(product, qty);
+      });
+      navigate('/cart');
+    }
+  };
+
+  const [activeTab, setActiveTab] = React.useState('overview');

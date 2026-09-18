@@ -5,10 +5,11 @@ import { useNavigate } from 'react-router-dom';
 import { ShoppingBag, ArrowRight, Wallet, CheckCircle, AlertCircle, MessageSquare, ShieldCheck, RefreshCw } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 import { ref, set, push, update, remove, get, serverTimestamp } from 'firebase/database';
+import { signInAnonymously } from 'firebase/auth';
 import { validateReceiptFile } from '../services/receiptValidator';
-import { checkZoneMismatch, validateDeliveryAddress } from '../components/AddressMapPicker';
+import AddressMapPicker, { checkZoneMismatch, validateDeliveryAddress, formatAddressDetails } from '../components/AddressMapPicker';
 import { APP_CONFIG } from '../config/appConfig';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReviewModal from '../components/ReviewModal';
@@ -28,6 +29,19 @@ export default function CheckoutPage({ menuData }) {
     customerPhone: userPhone || '',
     notes: '',
     orderType: tableNumber ? 'DineIn' : 'takeaway', deliveryAddress: customerData?.addresses?.find(a => a.isDefault)?.fullAddress || customerData?.Address || '', tableNumber: tableNumber || ''
+  });
+
+  const [mapAddress, setMapAddress] = useState({
+    zone: '', 
+    street: '', 
+    building: '', 
+    floor: '', 
+    apartment: '', 
+    landmark: '', 
+    lat: null, 
+    lng: null, 
+    mapsUrl: '', 
+    fullAddress: ''
   });
   const rawZones = menuData?.deliveryZones;
   const deliveryZones = Array.isArray(rawZones) 
@@ -60,9 +74,27 @@ export default function CheckoutPage({ menuData }) {
   const taxAmount = taxPercentage > 0 ? Math.round((subtotal * (taxPercentage / 100)) * 100) / 100 : 0;
 
   // Store Status (Open / Closed)
-  const isStoreOpen = menuData?.storeStatus ? menuData.storeStatus.isOpen !== false : true;
-  const storeClosedMessage = (lang === 'en' ? menuData?.storeStatus?.closedMessageEn : menuData?.storeStatus?.closedMessage) || 
-    (lang === 'en' ? 'The restaurant is currently closed and not receiving online orders.' : 'المطعم مغلق حالياً ولا يستقبل طلبات أونلاين مؤقتاً.');
+  const [liveStoreStatus, setLiveStoreStatus] = useState(null);
+  useEffect(() => {
+      const fetchStoreStatus = async () => {
+          try {
+              const res = await fetch(`${APP_CONFIG.firebaseDbUrl}StoreStatus.json?t=${Date.now()}`);
+              if (res.ok) {
+                  const data = await res.json();
+                  if (data) setLiveStoreStatus(data);
+              }
+          } catch (err) {
+              console.error("Failed to fetch live store status", err);
+          }
+      };
+      fetchStoreStatus();
+  }, []);
+
+  const isStoreOpen = liveStoreStatus ? liveStoreStatus.isOpen !== false : (menuData?.storeStatus ? menuData.storeStatus.isOpen !== false : true);
+  const storeClosedMessage = (lang === 'en' 
+      ? (liveStoreStatus?.closedMessageEn || menuData?.storeStatus?.closedMessageEn) 
+      : (liveStoreStatus?.closedMessage || menuData?.storeStatus?.closedMessage)) 
+      || (lang === 'en' ? 'The restaurant is currently closed and not receiving online orders.' : 'المطعم مغلق حالياً ولا يستقبل طلبات أونلاين مؤقتاً.');
 
   // Coupon State
   const [couponInput, setCouponInput] = useState('');
@@ -274,25 +306,19 @@ export default function CheckoutPage({ menuData }) {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiry = Date.now() + 5 * 60 * 1000; // 5 minutes valid
 
-    // 1. Server-side cooldown guard (120s / 2 minutes)
-    try {
-      await set(ref(db, `OtpRateLimits/${cleanPhone}`), {
-        lastRequestedAt: Date.now()
-      });
-    } catch (rateErr) {
-      throw new Error(lang === 'en' 
-        ? 'Please wait 2 minutes before requesting a new verification code.' 
-        : 'يرجى الانتظار دقيقتين قبل طلب رمز تحقق جديد لنفس الرقم لحماية أمان الحساب.');
+    if (!auth.currentUser) {
+      await signInAnonymously(auth);
     }
 
     setGeneratedOtp(code);
     setOtpExpiry(expiry);
-    setOtpCountdown(120); // Strict 120s server-matched cooldown
+    setOtpCountdown(120); // Strict 120s client cooldown
 
     // 2. Send silently to Firebase PendingOtpRequests for the POS WhatsApp server
     const reqId = `otp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     await set(ref(db, `PendingOtpRequests/${reqId}`), {
       phone: cleanPhone,
+      uid: auth.currentUser.uid,
       otp: code,
       createdAt: Date.now()
     });
@@ -1036,6 +1062,9 @@ export default function CheckoutPage({ menuData }) {
         // 2. Send to Firebase using SDK to include auth token
         let responseData = null;
         try {
+          if (!auth.currentUser) {
+            await signInAnonymously(auth);
+          }
           const newOrderRef = push(ref(db, 'Orders'));
           await set(newOrderRef, orderPayload);
           responseData = { name: newOrderRef.key };
@@ -1428,44 +1457,6 @@ export default function CheckoutPage({ menuData }) {
                         exit={{ opacity: 0, height: 0 }}
                         className="overflow-hidden"
                       >
-                        {/* Delivery Zone Selector (Hidden if already defined in saved account/address) */}
-                        {!hasFixedZone ? (
-                          <div className="mt-6 mb-4">
-                            <label className="block text-sm font-bold text-text-light mb-2">
-                              {lang === 'en' ? 'Delivery Area / Zone *' : 'منطقة التوصيل السكنية *'}
-                            </label>
-                            <select
-                              required
-                              value={selectedZone}
-                              onChange={e => setSelectedZone(e.target.value)}
-                              className="w-full bg-black-primary border border-brand-red-dark/30 rounded-xl px-4 py-3 text-text-light focus:outline-none focus:ring-2 focus:ring-brand-red/50 focus:border-brand-red font-bold"
-                            >
-                              <option value="">{lang === 'en' ? '-- Select your delivery area --' : '-- اختر منطقة التوصيل السكنية --'}</option>
-                              {deliveryZones.map(z => (
-                                <option key={z.id || z.name} value={z.name}>{z.name}</option>
-                              ))}
-                            </select>
-                            {selectedZoneObj && (
-                              <div className="mt-2 flex items-center justify-between text-xs font-semibold px-2">
-                                {selectedZoneObj.minOrderAmount > 0 && (
-                                  <span className={subtotal < selectedZoneObj.minOrderAmount ? "text-amber-400 font-bold" : "text-text-muted"}>
-                                    الحد الأدنى للطلب: {selectedZoneObj.minOrderAmount} ج.م
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        ) : null}
-
-                        {/* Minimum Order Warning if applicable */}
-                        {selectedZoneObj && selectedZoneObj.minOrderAmount > 0 && subtotal < selectedZoneObj.minOrderAmount && (
-                          <div className="mt-4 mb-2 p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-400 text-xs font-bold">
-                            ⚠️ قيمة الوجبات ({subtotal} ج.م) أقل من الحد الأدنى للطلب لمنطقة {selectedZoneObj.name} ({selectedZoneObj.minOrderAmount} ج.م). يرجى إضافة المزيد من الأصناف.
-                          </div>
-                        )}
-
-                        <label className="block text-sm font-bold text-text-light mt-4 mb-2">{lang === 'en' ? 'Detailed Delivery Address' : 'العنوان التفصيلي (الشارع، العمارة، الشقة)'} *</label>
-                        
                         {/* Address Cards Selector */}
                         {customerData?.addresses?.length > 0 && (
                           <div className="mb-4 flex flex-col gap-2">
@@ -1514,22 +1505,33 @@ export default function CheckoutPage({ menuData }) {
                                     onChange={() => setFormData(prev => ({...prev, deliveryAddress: ''}))}
                                     className="shrink-0 accent-brand-red"
                                   />
-                                  <span className="font-bold text-text-light">{lang === 'en' ? 'Other Address (Manual)' : 'عنوان آخر (كتابة يدوية)'}</span>
+                                  <span className="font-bold text-text-light">{lang === 'en' ? 'Other Address (Map & GPS)' : 'عنوان آخر (خريطة و GPS)'}</span>
                              </label>
                           </div>
                         )}
 
-                        {/* Fallback/Manual Textarea */}
+                        {/* Minimum Order Warning if applicable */}
+                        {selectedZoneObj && selectedZoneObj.minOrderAmount > 0 && subtotal < selectedZoneObj.minOrderAmount && (
+                          <div className="mt-4 mb-2 p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-400 text-xs font-bold">
+                            ⚠️ قيمة الوجبات ({subtotal} ج.م) أقل من الحد الأدنى للطلب لمنطقة {selectedZoneObj.name} ({selectedZoneObj.minOrderAmount} ج.م). يرجى إضافة المزيد من الأصناف.
+                          </div>
+                        )}
+
+                        {/* Map Picker if "Other" or no saved addresses */}
                         {(!customerData?.addresses?.length || !customerData.addresses.some(a => a.fullAddress === formData.deliveryAddress)) && (
-                          <textarea 
-                            name="deliveryAddress"
-                            required={formData.orderType === 'delivery'}
-                            value={formData.deliveryAddress}
-                            onChange={handleChange}
-                            rows="2"
-                            className="w-full bg-black-primary border border-brand-red-dark/30 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-red/50 focus:border-brand-red transition-all resize-none"
-                            placeholder={lang === 'en' ? 'Area, Street, Building, Floor, Apt...' : 'المنطقة، الشارع، رقم العمارة، الدور، شقة...'}
-                          ></textarea>
+                          <div className="bg-black-primary border border-brand-red/30 p-4 rounded-xl mb-6">
+                            <AddressMapPicker 
+                              value={mapAddress} 
+                              onChange={(newVal) => {
+                                setMapAddress(newVal);
+                                const fullAddr = formatAddressDetails(newVal);
+                                setFormData(prev => ({ ...prev, deliveryAddress: fullAddr }));
+                                setSelectedZone(newVal.zone || '');
+                              }} 
+                              zonesList={deliveryZones} 
+                              lang={lang} 
+                            />
+                          </div>
                         )}
                       </motion.div>
                     )}

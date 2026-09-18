@@ -1,4 +1,4 @@
-import { useLanguage } from '../context/LanguageContext';
+﻿import { useLanguage } from '../context/LanguageContext';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Star, Upload, Loader2, CheckCircle2 } from 'lucide-react';
@@ -6,6 +6,7 @@ import { APP_CONFIG } from '../config/appConfig';
 import { sanitizeText } from '../utils/sanitizer';
 import { db } from '../firebase';
 import { ref, push, set } from 'firebase/database';
+import imageCompression from 'browser-image-compression';
 
 export default function ReviewModal({ isOpen, onClose, onReviewSubmitted }) {
   const { lang } = useLanguage();

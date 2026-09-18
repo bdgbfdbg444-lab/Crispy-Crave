@@ -1,0 +1,84 @@
+  const sendWhatsAppOtp = async (targetPhone) => {
+    const cleanPhone = normalizePhone(targetPhone);
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiry = Date.now() + 5 * 60 * 1000; // 5 minutes valid
+
+    // 1. Server-Side Rate Limit Guard (120s cooldown via now in Firebase rules)
+    try {
+      await set(ref(db, `OtpRateLimits/${cleanPhone}`), {
+        lastRequestedAt: Date.now()
+      });
+    } catch (rateErr) {
+      throw new Error(lang === 'en' 
+        ? 'Please wait 2 minutes before requesting a new verification code.' 
+        : 'يرجى الانتظار دقيقتين قبل طلب رمز تحقق جديد لنفس الرقم لحماية أمان الحساب.');
+    }
+
+    setGeneratedOtp(code);
+    setOtpExpiry(expiry);
+    setOtpCountdown(120); // Strict 120s server-matched cooldown
+
+    // 2. Write to Firebase PendingOtpRequests for silent POS WhatsApp Server
+    const reqId = `otp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    await set(ref(db, `PendingOtpRequests/${reqId}`), {
+      phone: cleanPhone,
+      otp: code,
+      createdAt: Date.now()
+    });
+
+    return code;
+  };
+
+  const handlePhoneSubmit = async (e) => {
+    e.preventDefault();
+    const cleanPhone = normalizePhone(phone);
+    if (!/^01[0125][0-9]{8}$/.test(cleanPhone)) {
+      return setError(lang === 'en' ? 'Please enter a valid Egyptian mobile number (e.g. 01012345678)' : 'يرجى إدخال رقم محمول مصري صحيح (مثال: 01012345678)');
+    }
+    setError('');
+    setLoading(true);
+
+    try {
+      // Zero-Trust & Generic Responses:
+      // Do not leak customer PII, name, or account existence before OTP verification
+      await sendWhatsAppOtp(cleanPhone);
+      setStep('otp_verify');
+    } catch (err) {
+      setError(err.message || (lang === 'en' ? 'Failed to send OTP' : 'فشل إرسال رمز التحقق'));
+    }
+    setLoading(false);
+  };
+
+  const handleResendOtp = async () => {
+    if (otpCountdown > 0) return;
+    setLoading(true);
+    try {
+      await sendWhatsAppOtp(phone);
+      setError('');
+      alert(lang === 'en' ? 'A new verification code was sent to your WhatsApp.' : 'تم إرسال كود تحقق جديد إلى رقم واتساب الخاص بك.');
+    } catch (err) {
+      setError('فشل إرسال كود الواتساب: ' + err.message);
+    }
+    setLoading(false);
+  };
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    if (!otpInput || otpInput.trim().length !== 6) {
+      return setError(lang === 'en' ? 'Please enter the 6-digit verification code' : 'يرجى إدخال رمز التحقق المكون من 6 أرقام');
+    }
+    if (Date.now() > otpExpiry) {
+      return setError(lang === 'en' ? 'Verification code expired. Please request a new code.' : 'انتهت صلاحية رمز التحقق. يرجى طلب رمز جديد.');
+    }
+    if (otpInput.trim() !== generatedOtp) {
+      return setError(lang === 'en' ? 'Incorrect verification code' : 'رمز التحقق غير صحيح');
+    }
+
+    // OTP verified successfully!
+    const cleanPhone = normalizePhone(phone);
+    setVerifiedOtpPhone(cleanPhone);
+    setError('');
+
+    // Seamless routing: Let verified user set their password or complete profile
+    setStep('set_password');
+  };

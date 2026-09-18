@@ -99,6 +99,82 @@ export const CartProvider = ({ children }) => {
     setCartItems([]);
   };
 
+  const syncCartWithMenu = (menuData) => {
+    if (!menuData || !menuData.categories) return;
+    
+    const liveProducts = {};
+    menuData.categories.forEach(cat => {
+      if (cat.products) {
+        cat.products.forEach(p => {
+          liveProducts[p.id || p.Id] = p;
+        });
+      }
+    });
+
+    setCartItems(prev => {
+      let hasChanges = false;
+      const updated = prev.map(item => {
+        const liveP = liveProducts[item.product.id || item.product.Id];
+        if (liveP) {
+          let itemChanged = false;
+          let newProduct = { ...item.product };
+
+          if (newProduct.sellingPrice !== liveP.sellingPrice) {
+            newProduct.sellingPrice = liveP.sellingPrice;
+            itemChanged = true;
+          }
+          
+          if (newProduct.selectedWeight) {
+             if (liveP.isSoldByWeight) {
+                const newCalcPrice = (liveP.sellingPrice / 1000) * newProduct.selectedWeight;
+                if (newProduct.calculatedPrice !== newCalcPrice) {
+                  newProduct.calculatedPrice = newCalcPrice;
+                  itemChanged = true;
+                }
+             } else if (liveP.weightOptions) {
+                const weightObj = liveP.weightOptions.find(w => w.name === newProduct.selectedWeight);
+                if (weightObj && newProduct.calculatedPrice !== weightObj.price) {
+                  newProduct.calculatedPrice = weightObj.price;
+                  itemChanged = true;
+                }
+             }
+          } else {
+             // If not weighted, calculatedPrice should match sellingPrice
+             if (newProduct.calculatedPrice !== liveP.sellingPrice) {
+                 newProduct.calculatedPrice = liveP.sellingPrice;
+                 itemChanged = true;
+             }
+          }
+          
+          if (newProduct.selectedModifiers && newProduct.selectedModifiers.length > 0) {
+            const liveMods = liveP.modifierGroups?.flatMap(g => g.modifiers) || [];
+            let modsChanged = false;
+            const updatedMods = newProduct.selectedModifiers.map(mod => {
+               const liveMod = liveMods.find(m => m.name === mod.name || m.id === mod.id);
+               if (liveMod && liveMod.price !== mod.price) {
+                 modsChanged = true;
+                 return { ...mod, price: liveMod.price, chargedPrice: liveMod.price * (mod.quantity || 1) };
+               }
+               return mod;
+            });
+            if (modsChanged) {
+               newProduct.selectedModifiers = updatedMods;
+               newProduct.finalModifiersPrice = updatedMods.reduce((sum, m) => sum + (m.chargedPrice || 0), 0);
+               itemChanged = true;
+            }
+          }
+
+          if (itemChanged) {
+            hasChanges = true;
+            return { ...item, product: newProduct };
+          }
+        }
+        return item;
+      });
+      return hasChanges ? updated : prev;
+    });
+  };
+
   return (
     <CartContext.Provider value={{ 
       cartItems, 
@@ -107,6 +183,7 @@ export const CartProvider = ({ children }) => {
       removeFromCart, 
       updateQuantity, 
       clearCart,
+      syncCartWithMenu,
       cartTotal,
       isCartOpen,
       setIsCartOpen,

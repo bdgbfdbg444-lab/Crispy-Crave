@@ -1,0 +1,19 @@
+        if (product) {
+          const isSoldOut = Boolean(product.isSoldOut || product.IsSoldOut || product.isAvailable === false || product.IsAvailable === false);
+          if (isSoldOut) {
+            alert(lang === 'en' 
+              ? `Item "${product.nameEn || product.name}" is currently sold out and was skipped.` 
+              : `الصنف "${product.name}" نفد من المطعم حالياً ولم تتم إضافته.`);
+            return;
+          }
+          const qty = parseFloat(item.Quantity || item.quantity || 1) || 1;
+          addToCart(product, qty);
+        } else {
+          alert(lang === 'en' 
+            ? `Item "${fallbackName}" is no longer available on our menu.` 
+            : `الصنف "${fallbackName}" لم يعد متوفراً في قائمة الطعام الحالية.`);
+        }
+      });
+      setIsCartOpen(true);
+    }
+  };

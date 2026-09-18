@@ -1,0 +1,55 @@
+        {activeTab === 'offers' && (
+          <div>
+            <h3 className="text-2xl font-bold mb-6 text-text-light">{lang === 'en' ? 'My Wallet & Offers' : 'محفظتي وعروضي'}</h3>
+            {(() => {
+              const allCoupons = menuData?.coupons || [];
+              const myCoupons = Array.isArray(allCoupons) ? allCoupons : Object.values(allCoupons);
+              
+              const available = myCoupons.filter(c => {
+                if (!c || !c.isActive) return false;
+                if (c.expiryDate && new Date(c.expiryDate) < new Date()) return false;
+                
+                // If it has allowedPhones, check if customer phone is in it
+                if (c.allowedPhones) {
+                  const pList = c.allowedPhones.split(',').map(p => p.trim());
+                  if (!pList.includes(customerData.Phone)) return false;
+                }
+                
+                return true;
+              });
+
+              if (available.length === 0) {
+                return <p className="text-text-muted text-center py-10">{lang === 'en' ? 'No offers available at the moment.' : 'لا توجد عروض متاحة لك حالياً.'}</p>;
+              }
+
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {available.map(c => (
+                    <div key={c.code} className="bg-black-primary border border-brand-red/30 p-5 rounded-xl flex flex-col justify-between relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-16 h-16 bg-brand-red/10 rounded-bl-full" />
+                      <div>
+                        <div className="flex justify-between items-start mb-2">
+                          <h4 className="font-black text-xl text-brand-red">{c.code}</h4>
+                          <span className="text-xs font-bold bg-brand-red/20 text-brand-red px-2 py-1 rounded-md">
+                            {c.discountType === 'FreeDelivery' ? (lang === 'en' ? 'Free Delivery' : 'توصيل مجاني') : 
+                             c.discountType === 'Percentage' ? `${c.discountValue}% ${lang === 'en' ? 'OFF' : 'خصم'}` :
+                             `${c.discountValue} ${lang === 'en' ? 'EGP OFF' : 'ج.م خصم'}`}
+                          </span>
+                        </div>
+                        {c.minOrderAmount > 0 && <p className="text-xs text-text-muted mt-1">{lang === 'en' ? 'Min order:' : 'الحد الأدنى للطلب:'} {c.minOrderAmount} {lang === 'en' ? 'EGP' : 'ج.م'}</p>}
+                        {c.expiryDate && <p className="text-xs text-text-muted mt-1">{lang === 'en' ? 'Valid until:' : 'صالح حتى:'} {new Date(c.expiryDate).toLocaleDateString()}</p>}
+                      </div>
+                      <button 
+                        onClick={() => { navigator.clipboard.writeText(c.code); alert(lang === 'en' ? 'Coupon copied!' : 'تم نسخ الكوبون!'); }}
+                        className="mt-4 w-full bg-brand-red/10 hover:bg-brand-red/20 text-brand-red font-bold py-2 rounded-lg transition-colors text-sm">
+                        {lang === 'en' ? 'Copy Code' : 'نسخ الكوبون'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
+        {activeTab === 'orders' && (

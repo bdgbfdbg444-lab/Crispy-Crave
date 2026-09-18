@@ -1,0 +1,14 @@
+  const handleCompleteRegistration = async (e) => {
+    e.preventDefault();
+    if (!name.trim()) return setError('يرجى إدخال اسمك');
+    if (!selectedZone) return setError('يرجى اختيار منطقتك السكنية');
+    if (password.length < 6) return setError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
+
+    const cleanPhone = normalizePhone(phone);
+    if (!verifiedOtpPhone || verifiedOtpPhone !== cleanPhone) {
+      setStep('otp_verify');
+      return setError('يجب تأكيد رمز التحقق (OTP) أولاً قبل استكمال التسجيل');
+    }
+
+    setError('');
+    setLoading(true);

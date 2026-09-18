@@ -1,0 +1,12 @@
+  const translateStatus = (status) => {
+    switch(status) {
+      case 'Pending': return lang === 'en' ? 'Pending Acceptance' : 'جاري المراجعة...';
+      case 'New': return 'تم القبول';
+      case 'Accepted': return 'تم القبول';
+      case 'InKitchen': return 'قيد التحضير';
+      case 'Ready': return 'جاهز للاستلام/التوصيل';
+      case 'Completed': return lang === 'en' ? 'Delivered' : 'تم التسليم';
+      case 'Cancelled': return 'ملغي';
+      default: return status;
+    }
+  };

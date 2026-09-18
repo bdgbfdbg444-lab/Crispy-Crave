@@ -1,0 +1,8 @@
+      const now = Date.now();
+      if (now - window.lastAddTimestamp < 3000) {
+        alert(lang === 'en' ? 'Please wait a moment before adding another address' : 'الرجاء الانتظار قليلاً قبل إضافة عنوان آخر');
+        return;
+      }
+      window.lastAddTimestamp = now;
+
+      if (addresses.length >= 5) {

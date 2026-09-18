@@ -1,0 +1,7 @@
+        {step === 'dashboard' && customerData && (
+          <DashboardView 
+            customerData={customerData} 
+            onLogout={handleLogout} 
+            menuData={menuData}
+          />
+        )}

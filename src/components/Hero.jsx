@@ -1,4 +1,4 @@
-import { useLanguage } from '../context/LanguageContext';
+﻿import { useLanguage } from '../context/LanguageContext';
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
@@ -9,23 +9,34 @@ import Logo from './Logo';
 export default function Hero({ websiteData }) {
   const { lang } = useLanguage();
   // Use data from Firebase or fallback to empty strings
-  const headline = (lang === 'en' && websiteData?.heroHeadlineEn ? websiteData?.heroHeadlineEn : websiteData?.heroHeadline) || `THE BLACK BOX`;
-  const subtitle = (lang === 'en' && websiteData?.heroSubtitleEn ? websiteData?.heroSubtitleEn : websiteData?.heroSubtitle) || "SMOKED BRISKET & GOURMET BURGERS • ELITE STREET FOOD\nبرجر ولحم بريسكيت مدخن • مأكولات الشارع الراقية";
-  const bgVideo = websiteData?.heroMediaUrl;
+  const headline = (lang === 'en' && websiteData?.heroHeadlineEn ? websiteData?.heroHeadlineEn : websiteData?.heroHeadline) ?? `THE BLACK BOX`;
+  const subtitle = (lang === 'en' && websiteData?.heroSubtitleEn ? websiteData?.heroSubtitleEn : websiteData?.heroSubtitle) ?? "SMOKED BRISKET & GOURMET BURGERS • ELITE STREET FOOD\nبرجر ولحم بريسكيت مدخن • مأكولات الشارع الراقية";
+  const bgMedia = websiteData?.heroMediaUrl;
+  
+  const isVideo = bgMedia && (bgMedia.toLowerCase().endsWith('.mp4') || bgMedia.toLowerCase().endsWith('.webm') || bgMedia.toLowerCase().endsWith('.mov') || bgMedia.toLowerCase().endsWith('.avi'));
 
   return (
-    <section className="relative w-full h-screen overflow-hidden bg-black-primary text-text-light flex flex-col justify-center items-center">
+    <section id="hero" className="relative w-full h-screen overflow-hidden bg-black-primary text-text-light flex flex-col justify-center items-center">
       {/* Background Media */}
-      {bgVideo && (
+      {bgMedia && isVideo && (
         <video 
+          key={bgMedia} /* Forces React to reload video on source change */
           autoPlay 
           loop 
           muted 
           playsInline 
           className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-overlay"
         >
-          <source src={bgVideo} type="video/mp4" />
+          <source src={bgMedia} type="video/mp4" />
         </video>
+      )}
+      {bgMedia && !isVideo && (
+        <img 
+          key={bgMedia}
+          src={bgMedia}
+          alt="Hero Background"
+          className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-overlay"
+        />
       )}
       
       {/* Dark Overlay - Centered gradient to focus on the middle */}

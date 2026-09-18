@@ -1,0 +1,13 @@
+﻿const fs = require('fs');
+const content = fs.readFileSync('src/pages/MyAccountPage.jsx', 'utf8');
+const hasArabic = /[\u0600-\u06FF]/.test(content);
+const hasMojibake = content.includes('O\u0015U,') || content.includes('O\u0003O\u0015');
+console.log('Has proper Arabic:', hasArabic);
+console.log('Has Mojibake:', hasMojibake);
+console.log('Has sendWhatsAppOtp:', content.includes('sendWhatsAppOtp'));
+console.log('Has handleVerifyOtp:', content.includes('handleVerifyOtp'));
+console.log('Has otp_verify step:', content.includes("step === 'otp_verify'"));
+console.log('Has set_password step:', content.includes("step === 'set_password'"));
+console.log('Has complete_profile step:', content.includes("step === 'complete_profile'"));
+console.log('Has googleProvider:', content.includes('googleProvider'));
+console.log('Total lines:', content.split('\n').length);

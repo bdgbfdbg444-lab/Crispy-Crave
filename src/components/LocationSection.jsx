@@ -1,4 +1,4 @@
-import { useLanguage } from '../context/LanguageContext';
+﻿import { useLanguage } from '../context/LanguageContext';
 import React from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, Clock, Navigation } from 'lucide-react';
@@ -7,12 +7,12 @@ import { APP_CONFIG } from '../config/appConfig';
 
 export default function LocationSection({ websiteData }) {
   const { lang } = useLanguage();
-  const address = (lang === 'en' && websiteData?.locationAddressEn ? websiteData?.locationAddressEn : websiteData?.locationAddress) || "شارع الملك فهد، الرياض، المملكة العربية السعودية";
-  const hours = (lang === 'en' && websiteData?.workingHoursEn ? websiteData?.workingHoursEn : websiteData?.workingHours) || "يومياً من ١ ظهراً إلى ٢ صباحاً";
+  const address = (lang === 'en' && websiteData?.locationAddressEn ? websiteData?.locationAddressEn : websiteData?.locationAddress) ?? "شارع الملك فهد، الرياض، المملكة العربية السعودية";
+  const hours = (lang === 'en' && websiteData?.workingHoursEn ? websiteData?.workingHoursEn : websiteData?.workingHours) ?? "يومياً من ١ ظهراً إلى ٢ صباحاً";
   const mapIframe = websiteData?.googleMapsIframe || '<iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d115852.19323145963!2d46.738586!3d24.846561!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3e2efd3319808d75%3A0xc3f3484f4f46af3!2sRiyadh%20Saudi%20Arabia!5e0!3m2!1sen!2seg!4v1714522924151!5m2!1sen!2seg" width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>';
 
   return (
-    <section className="py-24 bg-black-surface relative" id="location">
+    <section id="location" className="py-24 bg-black-surface relative" id="location">
       <div className="container mx-auto px-6">
         <div className="text-center mb-16">
           <motion.div 

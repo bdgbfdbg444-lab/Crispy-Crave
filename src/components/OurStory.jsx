@@ -1,17 +1,17 @@
-import { useLanguage } from '../context/LanguageContext';
+﻿import { useLanguage } from '../context/LanguageContext';
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Play } from 'lucide-react';
 
 export default function OurStory({ websiteData }) {
   const { lang } = useLanguage();
-  const storyText = (lang === 'en' && websiteData?.ourStoryTextEn ? websiteData?.ourStoryTextEn : websiteData?.ourStoryText) || "بدأت رحلتنا من شغف حقيقي باللحوم المدخنة بطيئة الطهي على حطب البلوط الطبيعي. نحن نؤمن بأن البريسكت الحقيقي يحتاج إلى وقت، صبر، وحب، وهذا ما نقدمه في كل قطعة. أضفنا لمستنا الخاصة لسماش برجر لنقدم تجربة لا تُنسى لعشاق اللحوم الحقيقية.";
+  const storyText = (lang === 'en' && websiteData?.ourStoryTextEn ? websiteData?.ourStoryTextEn : websiteData?.ourStoryText) ?? "بدأت رحلتنا من شغف حقيقي باللحوم المدخنة بطيئة الطهي على حطب البلوط الطبيعي. نحن نؤمن بأن البريسكت الحقيقي يحتاج إلى وقت، صبر، وحب، وهذا ما نقدمه في كل قطعة. أضفنا لمستنا الخاصة لسماش برجر لنقدم تجربة لا تُنسى لعشاق اللحوم الحقيقية.";
   
   // If there's a bRoll video, we use it, otherwise a placeholder image
   const bRollUrl = websiteData?.bRollVideoUrl;
   
   return (
-    <section className="py-24 bg-black-primary text-text-light relative overflow-hidden" id="our-story">
+    <section id="our-story" className="py-24 bg-black-primary text-text-light relative overflow-hidden" id="our-story">
       {/* Decorative Texture/Gradient */}
       <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-primary/10 to-transparent pointer-events-none"></div>
 

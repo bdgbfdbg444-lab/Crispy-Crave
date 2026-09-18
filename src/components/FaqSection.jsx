@@ -1,4 +1,4 @@
-import { useLanguage } from '../context/LanguageContext';
+﻿import { useLanguage } from '../context/LanguageContext';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { HelpCircle, ChevronDown } from 'lucide-react';
@@ -25,7 +25,7 @@ export default function FaqSection({ websiteData }) {
   };
 
   return (
-    <section className="py-24 bg-black-surface relative overflow-hidden">
+    <section id="faq" className="py-24 bg-black-surface relative overflow-hidden">
       {/* Background Decor */}
       <div className="absolute top-0 right-0 w-64 h-64 bg-brand-red/5 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2"></div>
       

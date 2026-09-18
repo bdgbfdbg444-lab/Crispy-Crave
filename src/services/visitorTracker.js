@@ -26,35 +26,72 @@ class VisitorTracker {
     try {
       const presenceRef = ref(db, `_analytics/online/${this.sessionId}`);
 
-      // Write initial presence
+      this.ipData = { ip: 'Fetching...', location: 'Unknown' };
+      this.history = [];
+
+      // 1. Fetch IP as fallback
+      fetch('https://ipapi.co/json/')
+        .then(res => res.json())
+        .then(data => {
+            this.ipData.ip = data.ip || 'Unknown';
+            this.ipData.location = `${data.city || ''}, ${data.region || ''}, ${data.country_name || ''}`;
+            set(presenceRef, presenceData()).catch(() => {});
+            updateHistoryLog();
+        })
+        .catch(err => {
+            console.warn('Failed to fetch IP', err);
+            this.ipData.ip = 'Unknown';
+            set(presenceRef, presenceData()).catch(() => {});
+            updateHistoryLog();
+        });
+
+      const deviceType = /Mobile|Android|iP(hone|od|ad)/i.test(navigator.userAgent) ? 'Mobile' : 'Desktop';
+      this.deviceType = deviceType;
+
       const presenceData = () => ({
         page: window.location.hash || '/#/',
         startTime: this.startTime,
         timestamp: new Date().toISOString(),
         isOrdering: this._isOrdering,
-        ua: (navigator.userAgent || '').substring(0, 80)
+        ua: (navigator.userAgent || '').substring(0, 80),
+        deviceType: this.deviceType,
+        ip: this.ipData.ip,
+        location: this.ipData.location,
+        history: this.history
       });
 
-      set(presenceRef, presenceData());
+      const updateHistoryLog = () => {
+         try {
+           update(ref(db, `VisitorHistory/${this.sessionId}`), {
+               ip: this.ipData.ip,
+               location: this.ipData.location,
+               deviceType: this.deviceType,
+               startTime: this.startTime,
+               lastSeen: new Date().toISOString(),
+               history: this.history
+           });
+         } catch (e) {}
+      };
 
-      // Auto-remove on disconnect (handles tab close, network loss, etc.)
+      set(presenceRef, presenceData());
+      updateHistoryLog();
+
+      // Auto-remove on disconnect
       onDisconnect(presenceRef).remove();
 
-      // Heartbeat every 30 seconds to keep presence alive
+      // Heartbeat every 30 seconds
       this._heartbeatInterval = setInterval(() => {
         set(presenceRef, presenceData()).catch(() => {});
+        updateHistoryLog();
       }, 30000);
 
-      // Track unique visitor for today
       this._trackUniqueVisitor();
-
-      // Track initial page view
       this._trackPageView();
 
-      // Listen for hash route changes (SPA navigation)
       window.addEventListener('hashchange', () => {
         this._trackPageView();
         set(presenceRef, presenceData()).catch(() => {});
+        updateHistoryLog();
       });
 
       // Cleanup on page unload
@@ -74,11 +111,21 @@ class VisitorTracker {
     try {
       const today = new Date().toISOString().split('T')[0];
       const hour = new Date().getHours().toString().padStart(2, '0');
+      
+      const page = window.location.hash || '/#/';
+      const time = new Date().toISOString();
+      
+      // Update local history array
+      this.history.push({ page, time });
 
-      update(ref(db), {
+      const updates = {
         [`_analytics/daily/${today}/totalPageViews`]: increment(1),
-        [`_analytics/daily/${today}/hourly/${hour}/pageViews`]: increment(1)
-      }).catch(() => {});
+        [`_analytics/daily/${today}/hourly/${hour}/pageViews`]: increment(1),
+        // Write the history array for this session
+        [`_analytics/online/${this.sessionId}/history`]: this.history
+      };
+
+      update(ref(db), updates).catch(() => {});
     } catch {}
   }
 

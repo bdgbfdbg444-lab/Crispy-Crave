@@ -1,0 +1,13 @@
+                               {isActive && (
+                                 order.TrackingToken ? (
+                                   <button onClick={() => navigate('/track/' + encodeURIComponent(order.TrackingToken))} className="w-2/3 bg-brand-red hover:bg-brand-red-dark text-text-light font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors">
+                                      <Navigation size={18} />
+                                      {lang === 'en' ? 'Track Order' : 'تتبع الطلب'}
+                                   </button>
+                                 ) : (
+                                   <button disabled className="w-2/3 bg-black-surface border border-white/10 text-text-muted font-bold py-3 rounded-lg flex items-center justify-center gap-2 cursor-not-allowed">
+                                      <Navigation size={18} opacity={0.5} />
+                                      {lang === 'en' ? 'Tracking Unavailable' : 'التتبع غير متاح'}
+                                   </button>
+                                 )
+                               )}

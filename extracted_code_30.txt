@@ -1,0 +1,24 @@
+  const handleSaveEmail = async () => {
+    setSavingEmail(true);
+    try {
+      const { db, update, ref } = await import('../firebase');
+      const cleanEmail = newEmail.trim() || null;
+      await update(ref(db, `PublicCustomers/${customerData.Phone}`), { Email: cleanEmail });
+
+      if (auth.currentUser && cleanEmail && !cleanEmail.includes('@internal')) {
+        try {
+          const { updateEmail } = await import('firebase/auth');
+          await updateEmail(auth.currentUser, cleanEmail);
+        } catch (authErr) {
+          console.warn('[handleSaveEmail] Auth email update deferred:', authErr);
+        }
+      }
+
+      setEditingEmail(false);
+      alert(lang === 'en' ? 'Email updated successfully!' : 'تم تحديث البريد الإلكتروني بنجاح!');
+      window.location.reload();
+    } catch (err) {
+      alert('حدث خطأ');
+    }
+    setSavingEmail(false);
+  };

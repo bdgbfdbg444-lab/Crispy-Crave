@@ -1,0 +1,23 @@
+                  var recentOrders = recentDbOrders.Select(o => {
+                      string webId = "";
+                      string trkId = "";
+                      if (!string.IsNullOrWhiteSpace(o.Notes))
+                      {
+                          if (o.Notes.Contains("[WEB:"))
+                          {
+                              int start = o.Notes.IndexOf("[WEB:") + 5;
+                              int end = o.Notes.IndexOf("]", start);
+                              if (end > start) webId = o.Notes.Substring(start, end - start).Trim();
+                          }
+                          if (o.Notes.Contains("[TRK:"))
+                          {
+                              int start = o.Notes.IndexOf("[TRK:") + 5;
+                              int end = o.Notes.IndexOf("]", start);
+                              if (end > start) trkId = o.Notes.Substring(start, end - start).Trim();
+                          }
+                      }
+                      return new
+                      {
+                          OrderNumber = o.OrderNumber,
+                          WebOrderId = webId,
+                          TrackingToken = trkId,

@@ -1,0 +1,9 @@
+      // 3. Success Handling (ONLY runs if fetch succeeded and threw no errors)
+      setGeneratedOrderId(displayOrderId);
+      setFinalTotal(cartTotal);
+      clearCart();
+      localStorage.setItem('activeOrderId', displayOrderId);
+      localStorage.setItem('activeOrderTotal', cartTotal);
+      setIsSubmitting(false);
+      navigate('/track/' + encodeURIComponent(displayOrderId));
+      return;

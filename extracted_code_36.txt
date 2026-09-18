@@ -1,0 +1,3 @@
+  const [isExistingCustomer, setIsExistingCustomer] = useState(false);
+  const [existingCustomerRecord, setExistingCustomerRecord] = useState(null);
+  const [verifiedOtpPhone, setVerifiedOtpPhone] = useState(null);

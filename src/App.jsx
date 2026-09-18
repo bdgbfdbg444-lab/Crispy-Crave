@@ -1,4 +1,4 @@
-import { useLanguage } from './context/LanguageContext';
+﻿import { useLanguage } from './context/LanguageContext';
 import { useState, useEffect } from 'react';
 import ErrorBoundary from './components/ErrorBoundary';
 import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
@@ -109,6 +109,56 @@ function App() {
     }
     loadData();
   }, []);
+
+  // Listen for Live Updates from the WPF WebsiteControl
+  useEffect(() => {
+    const handleMessage = (event) => {
+      if (event.data && event.data.type === 'EDITOR_UPDATE') {
+        const { section, field, value } = event.data;
+        
+        // Auto-scroll if it's not a generic change and element exists
+        // (WPF sends section="Hero", "Craft", "Story", "Location")
+        if (section) {
+          const sectionId = section.toLowerCase(); 
+          // Note: you might need to map exact IDs (e.g. "story" -> "our-story")
+          let targetId = section.toLowerCase();
+            if (section === 'Hero') targetId = 'hero';
+            if (section === 'Our Story') targetId = 'our-story';
+            if (section === 'Location & Hours') targetId = 'location';
+            if (section === 'Catering') targetId = 'catering';
+            if (section === 'Gallery') targetId = 'gallery';
+            if (section === 'FAQ') targetId = 'faq';
+            if (section === 'Testimonials') targetId = 'testimonials';
+            if (section === 'Social Feed') targetId = 'social';
+          
+          const el = document.getElementById(targetId);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }
+
+        setWebsiteData(prev => {
+          const newData = { ...prev };
+          // Because WPF now sends the exact JSON key in `field`, we can just directly assign it!
+          if (field) {
+            newData[field] = value;
+          }
+          return newData;
+        });
+      }
+    };
+    
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  const { syncCartWithMenu } = useCart();
+  
+  useEffect(() => {
+    if (menuData) {
+      syncCartWithMenu(menuData);
+    }
+  }, [menuData]);
 
   return (
     <ErrorBoundary>

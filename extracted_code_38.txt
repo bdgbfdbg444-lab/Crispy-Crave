@@ -1,0 +1,11 @@
+    // OTP verified successfully!
+    const cleanPhone = normalizePhone(phone);
+    setVerifiedOtpPhone(cleanPhone);
+    setError('');
+    if (isExistingCustomer) {
+      // Existing customer from POS, take to set their account password
+      setStep('set_password');
+    } else {
+      // New customer, proceed to complete profile details
+      setStep('complete_profile');
+    }

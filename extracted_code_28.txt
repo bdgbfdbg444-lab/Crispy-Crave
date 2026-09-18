@@ -1,0 +1,8 @@
+    // Landmark field specific validation if entered
+    if (newAddress.landmark?.trim()) {
+      const landmarkValidation = validateLandmark(newAddress.landmark, lang);
+      if (!landmarkValidation.isValid) {
+        alert(landmarkValidation.error);
+        return;
+      }
+    }
