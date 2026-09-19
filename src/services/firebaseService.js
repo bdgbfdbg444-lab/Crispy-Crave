@@ -1,4 +1,4 @@
-﻿import { APP_CONFIG } from '../config/appConfig';
+import { APP_CONFIG } from '../config/appConfig';
 
 /**
  * Helper to fetch JSON from Firebase with a cache-busting version parameter.
@@ -10,7 +10,6 @@ export const fetchWithVersion = async (url) => {
         
         let versionStr = '';
         if (isEditor) {
-            // ALWAYS bust cache in editor mode
             versionStr = new Date().getTime().toString();
         } else {
             const vRes = await fetch(APP_CONFIG.firebaseDbUrl + 'version.json?t=' + new Date().getTime());
@@ -38,9 +37,6 @@ export const fetchWithVersion = async (url) => {
     }
 };
 
-/**
- * Fetches the entire menu data from menu.json
- */
 export const fetchMenuData = async () => {
     try {
         const res = await fetchWithVersion(APP_CONFIG.firebaseDbUrl + 'menu.json');
@@ -52,9 +48,6 @@ export const fetchMenuData = async () => {
     }
 };
 
-/**
- * Fetches the website configuration/content data from WebsiteData.json (or WebsiteDraft.json if in editor mode)
- */
 export const fetchWebsiteData = async () => {
     try {
         const isEditor = window.location.search.includes('mode=editor') || window.location.hash.includes('mode=editor');
@@ -64,6 +57,19 @@ export const fetchWebsiteData = async () => {
         return await res.json();
     } catch (error) {
         console.error("Error fetching website data:", error);
+        return null;
+    }
+};
+
+export const fetchSystemState = async () => {
+    try {
+        const joiner = APP_CONFIG.firebaseDbUrl.includes('?') ? '&' : '?';
+        // Ensure cache-busting timestamp for the system state
+        const res = await fetch(APP_CONFIG.firebaseDbUrl + '_systemState/website.json' + joiner + 't=' + new Date().getTime());
+        if (!res.ok) return null;
+        return await res.json();
+    } catch (error) {
+        console.error("Error fetching system state:", error);
         return null;
     }
 };

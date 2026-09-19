@@ -1,9 +1,8 @@
-﻿import { useLanguage } from './context/LanguageContext';
+import { useLanguage } from './context/LanguageContext';
 import { useState, useEffect } from 'react';
-import ErrorBoundary from './components/ErrorBoundary';
 import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
-import { fetchWebsiteData, fetchMenuData } from './services/firebaseService';
+import { fetchWebsiteData, fetchMenuData, fetchSystemState } from './services/firebaseService';
 import Header from './components/Header';
 import ModificationBanner from './components/ModificationBanner';
 import CartSidebar from './components/Cart/CartSidebar';
@@ -13,6 +12,7 @@ import MenuPage from './pages/MenuPage';
 import CheckoutPage from './pages/CheckoutPage';
 import MyAccountPage from './pages/MyAccountPage';
 import TrackOrderPage from './pages/TrackOrderPage';
+import ProtectionPage from './pages/ProtectionPage';
 import ReviewModal from './components/ReviewModal';
 import LoadingScreen from './components/LoadingScreen';
 import PageTransition from './components/PageTransition';
@@ -21,52 +21,15 @@ import { useCart } from './context/CartContext';
 
 function AnimatedRoutes({ websiteData, menuData }) {
   const location = useLocation();
-  
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-        <Route 
-          path="/" 
-          element={
-            <PageTransition>
-              <Home websiteData={websiteData} menuData={menuData} />
-            </PageTransition>
-          } 
-        />
-        <Route 
-          path="/menu" 
-          element={
-            <PageTransition>
-              <MenuPage menuData={menuData} />
-            </PageTransition>
-          } 
-        />
-        <Route 
-          path="/checkout" 
-          element={
-            <PageTransition>
-              <CheckoutPage menuData={menuData} />
-            </PageTransition>
-          } 
-        />
-      <Route 
-            path="/account" 
-            element={
-              <PageTransition>
-                <MyAccountPage menuData={menuData} />
-              </PageTransition>
-            } 
-          />
-        
-        <Route 
-          path="/track/:orderId" 
-          element={
-            <PageTransition>
-              <TrackOrderPage menuData={menuData} />
-            </PageTransition>
-          } 
-        />
-        </Routes>
+        <Route path="/" element={<PageTransition><Home websiteData={websiteData} menuData={menuData} /></PageTransition>} />
+        <Route path="/menu" element={<PageTransition><MenuPage menuData={menuData} /></PageTransition>} />
+        <Route path="/checkout" element={<PageTransition><CheckoutPage menuData={menuData} /></PageTransition>} />
+        <Route path="/account" element={<PageTransition><MyAccountPage menuData={menuData} /></PageTransition>} />
+        <Route path="/track/:orderId" element={<PageTransition><TrackOrderPage menuData={menuData} /></PageTransition>} />
+      </Routes>
     </AnimatePresence>
   );
 }
@@ -75,6 +38,7 @@ function App() {
   const { lang } = useLanguage();
   const [websiteData, setWebsiteData] = useState(null);
   const [menuData, setMenuData] = useState(null);
+  const [systemState, setSystemState] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
@@ -82,7 +46,6 @@ function App() {
   const cartItemsCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
 
   useEffect(() => {
-    // Check for table param in hash
     const hash = window.location.hash;
     if (hash.includes('?')) {
       const query = hash.split('?')[1];
@@ -96,74 +59,74 @@ function App() {
 
   useEffect(() => {
     async function loadData() {
-      const [wData, mData] = await Promise.all([
+      const [wData, mData, sState] = await Promise.all([
         fetchWebsiteData(),
-        fetchMenuData()
+        fetchMenuData(),
+        fetchSystemState()
       ]);
       setWebsiteData(wData);
       setMenuData(mData);
+      setSystemState(sState);
       
       setTimeout(() => {
         setLoading(false);
       }, 1000);
     }
     loadData();
+
+    // Poll system state every 30 seconds for protective mode
+    const intervalId = setInterval(async () => {
+      const sState = await fetchSystemState();
+      setSystemState(sState);
+    }, 30000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
-  // Listen for Live Updates from the WPF WebsiteControl
   useEffect(() => {
     const handleMessage = (event) => {
       if (event.data && event.data.type === 'EDITOR_UPDATE') {
         const { section, field, value } = event.data;
-        
-        // Auto-scroll if it's not a generic change and element exists
-        // (WPF sends section="Hero", "Craft", "Story", "Location")
         if (section) {
-          const sectionId = section.toLowerCase(); 
-          // Note: you might need to map exact IDs (e.g. "story" -> "our-story")
           let targetId = section.toLowerCase();
-            if (section === 'Hero') targetId = 'hero';
-            if (section === 'Our Story') targetId = 'our-story';
-            if (section === 'Location & Hours') targetId = 'location';
-            if (section === 'Catering') targetId = 'catering';
-            if (section === 'Gallery') targetId = 'gallery';
-            if (section === 'FAQ') targetId = 'faq';
-            if (section === 'Testimonials') targetId = 'testimonials';
-            if (section === 'Social Feed') targetId = 'social';
+          if (section === 'Hero') targetId = 'hero';
+          if (section === 'Our Story') targetId = 'our-story';
+          if (section === 'Location & Hours') targetId = 'location';
+          if (section === 'Catering') targetId = 'catering';
+          if (section === 'Gallery') targetId = 'gallery';
+          if (section === 'FAQ') targetId = 'faq';
+          if (section === 'Testimonials') targetId = 'testimonials';
+          if (section === 'Social Feed') targetId = 'social';
           
           const el = document.getElementById(targetId);
           if (el) {
             el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
           }
         }
-
         setWebsiteData(prev => {
           const newData = { ...prev };
-          // Because WPF now sends the exact JSON key in `field`, we can just directly assign it!
-          if (field) {
-            newData[field] = value;
-          }
+          if (field) newData[field] = value;
           return newData;
         });
       }
     };
-    
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
   const { syncCartWithMenu } = useCart();
-  
   useEffect(() => {
     if (menuData) {
       syncCartWithMenu(menuData);
     }
   }, [menuData]);
 
+  if (!loading && systemState?.status === 'PROTECTED') {
+    return <ProtectionPage reason={systemState.reason} />;
+  }
+
   return (
-    <ErrorBoundary>
-      <HashRouter>
-        {/* Global Loading Screen Overlay */}
+    <HashRouter>
       <AnimatePresence>
         {loading && <LoadingScreen key="loading" />}
       </AnimatePresence>
@@ -174,7 +137,6 @@ function App() {
         
         {!loading && <AnimatedRoutes websiteData={websiteData} menuData={menuData} />}
 
-        {/* Floating Cart Button (Mobile mainly, but visible on desktop too) */}
         {cartItemsCount > 0 && (
           <button 
             onClick={() => setIsCartOpen(true)}
@@ -189,32 +151,20 @@ function App() {
           </button>
         )}
 
-        {/* Floating Review Button */}
         <button 
           onClick={() => setIsReviewModalOpen(true)}
           className="fixed bottom-24 md:bottom-6 left-6 z-30 bg-black-primary text-text-light px-5 py-3 rounded-full shadow-2xl flex items-center gap-2 hover:scale-105 transition-transform border border-gray-700 hover:border-brand-red hover:text-brand-red"
         >
           <Star size={20} className="fill-current" />
-          <span className="font-bold text-sm hidden md:inline">{lang === 'en' ? 'Share Your Opinion' : 'شاركنا رأيك'}</span>
+          <span className="font-bold text-sm hidden md:inline">{lang === 'en' ? 'Share Your Opinion' : '???? ????'}</span>
         </button>
 
-        {/* Global Review Modal */}
-        <ReviewModal 
-          isOpen={isReviewModalOpen} 
-          onClose={() => setIsReviewModalOpen(false)} 
-        />
-
-        {/* Cart Sidebar */}
+        <ReviewModal isOpen={isReviewModalOpen} onClose={() => setIsReviewModalOpen(false)} />
         <CartSidebar />
-        
-        {/* Mobile Bottom Navigation */}
         <MobileBottomNav />
       </div>
     </HashRouter>
-    </ErrorBoundary>
   );
 }
 
 export default App;
-
-
