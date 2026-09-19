@@ -248,6 +248,7 @@ export default function TrackOrderPage({ menuData }) {
           CustomerName: details.customerName || orderData?.CustomerName || currentUser?.displayName || '',
           CustomerPhone: details.customerPhone || orderData?.CustomerPhone || currentUser?.phoneNumber || '',
           StartedAt: Date.now(),
+          uid: currentUser.uid,
           ExpiresAt: expiresAt
         });
 

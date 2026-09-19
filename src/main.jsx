@@ -1,4 +1,3 @@
-import { WebsiteMonitor } from './services/websiteMonitor';
 import { visitorTracker } from './services/visitorTracker';
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -8,11 +7,12 @@ import { CartProvider } from './context/CartContext.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
 import { LanguageProvider } from './context/LanguageContext.jsx'
 import { AlertProvider } from './context/AlertContext.jsx'
-import ErrorBoundary from './monitoring/ErrorBoundary'
-import './monitoring/IncidentLogger'
+import ErrorBoundary from './components/ErrorBoundary'
+import { initGlobalMonitoring } from './monitoring/IncidentLogger'
 
 // Initialize real-time visitor tracking
 visitorTracker.init();
+initGlobalMonitoring();
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

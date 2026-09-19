@@ -35,7 +35,7 @@ class VisitorTracker {
         .then(data => {
             this.ipData.ip = data.ip || 'Unknown';
             this.ipData.location = `${data.city || ''}, ${data.region || ''}, ${data.country_name || ''}`;
-            set(presenceRef, presenceData()).catch(() => {});
+            console.log("SENDING PRESENCE:", JSON.stringify(presenceData())); set(presenceRef, presenceData()).catch(() => {});
             updateHistoryLog();
         })
         .catch(err => {

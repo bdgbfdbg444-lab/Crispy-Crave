@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, X, ArrowLeft } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useLanguage } from '../context/LanguageContext';
 import { APP_CONFIG } from '../config/appConfig';
+import { ref, remove, update } from 'firebase/database';
+import { db } from '../firebase';
 
 export default function ModificationBanner() {
   const { lang } = useLanguage();
@@ -24,128 +26,95 @@ export default function ModificationBanner() {
       }
 
       const expiresAt = parseInt(expiresAtStr, 10);
-      const remaining = Math.max(0, expiresAt - Date.now());
+      const now = Date.now();
+      const remaining = expiresAt - now;
 
       if (remaining <= 0) {
-        // Time expired! Mark order as modification expired in localStorage
-        const rawD = localStorage.getItem(`order_${orderId}_details`) || localStorage.getItem(`order_#${orderId}_details`) || '{}';
-        try {
-          const parsed = JSON.parse(rawD);
-          parsed.modificationCount = 1;
-          parsed.modificationExpired = true;
-          localStorage.setItem(`order_${orderId}_details`, JSON.stringify(parsed));
-          localStorage.setItem(`order_#${orderId}_details`, JSON.stringify(parsed));
-        } catch(e) {}
-
+        // Expired
         localStorage.removeItem('editingOrderId');
         localStorage.removeItem('editingOrderDetails');
         localStorage.removeItem('modificationExpiresAt');
+        clearCart();
         setTimeLeft(null);
         setEditingOrderId(null);
         if (setIsCartOpen) setIsCartOpen(false);
 
-        // Update Firebase that modification has expired permanently and release KDS hold!
         try {
-          fetch(`${APP_CONFIG.firebaseDbUrl}ActiveHoldRequests/${orderId}.json`, { method: 'DELETE' });
-          fetch(`${APP_CONFIG.firebaseDbUrl}PublicTracking/${orderId}.json`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              IsModifying: false,
-              ModificationCount: 1,
-              ModificationExpired: true 
-            })
-          }).catch(() => {});
-        } catch(e) {}
-        if (clearCart) clearCart();
+          remove(ref(db, `ActiveHoldRequests/${orderId}`));
+          update(ref(db, `PublicTracking/${orderId}`), {
+            IsModifying: false,
+            ModificationExpired: true,
+            ModificationCount: 1
+          });
+        } catch (e) {}
 
-        alert(lang === 'en' 
-          ? 'The 3-minute modification window has expired. Your original order will be prepared.' 
-          : 'انتهت مهلة الـ 3 دقائق المتاحة لتعديل الطلب، وتم تثبيت طلبك الأصلي لمواصلة تحضيره.');
-
-        navigate(`/track/${encodeURIComponent(orderId)}`);
+        navigate(`/track/${orderId}`);
       } else {
         setEditingOrderId(orderId);
-        const totalSeconds = Math.floor(remaining / 1000);
-        const mins = Math.floor(totalSeconds / 60);
-        const secs = totalSeconds % 60;
-        setTimeLeft(`${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`);
+        setTimeLeft(Math.ceil(remaining / 1000));
       }
     };
 
     checkTimer();
     const interval = setInterval(checkTimer, 1000);
     return () => clearInterval(interval);
-  }, [navigate, setIsCartOpen, lang]);
+  }, [navigate, clearCart, setIsCartOpen]);
 
-  if (!editingOrderId || !timeLeft) return null;
-
-  const handleCancel = () => {
-    if (confirm(lang === 'en' ? 'Cancel editing and keep your original order?' : 'هل تريد إلغاء التعديل والاحتفاظ بطلبك الأصلي؟')) {
-      const orderId = editingOrderId;
-
-      const rawD = localStorage.getItem(`order_${orderId}_details`) || localStorage.getItem(`order_#${orderId}_details`) || '{}';
-      try {
-        const parsed = JSON.parse(rawD);
-        parsed.modificationCount = 1;
-        parsed.modificationExpired = true;
-        localStorage.setItem(`order_${orderId}_details`, JSON.stringify(parsed));
-        localStorage.setItem(`order_#${orderId}_details`, JSON.stringify(parsed));
-      } catch(e) {}
-
+  const handleCancelModification = () => {
+    const orderId = localStorage.getItem('editingOrderId');
+    if (orderId) {
       localStorage.removeItem('editingOrderId');
       localStorage.removeItem('editingOrderDetails');
       localStorage.removeItem('modificationExpiresAt');
+      clearCart();
       setTimeLeft(null);
       setEditingOrderId(null);
       if (setIsCartOpen) setIsCartOpen(false);
 
       try {
-        fetch(`${APP_CONFIG.firebaseDbUrl}ActiveHoldRequests/${orderId}.json`, { method: 'DELETE' });
-        fetch(`${APP_CONFIG.firebaseDbUrl}PublicTracking/${orderId}.json`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            IsModifying: false, 
-            ModificationCount: 1, 
-            ModificationExpired: true 
-          })
-        }).catch(() => {});
-      } catch(e) {}
-      if (clearCart) clearCart();
+        remove(ref(db, `ActiveHoldRequests/${orderId}`));
+        update(ref(db, `PublicTracking/${orderId}`), {
+          IsModifying: false,
+          ModificationCount: 1
+        });
+      } catch (e) {}
 
-      navigate(`/track/${encodeURIComponent(orderId)}`);
+      navigate(`/track/${orderId}`);
     }
   };
 
-  return (
-    <div className="bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 text-black py-2.5 px-4 shadow-xl sticky top-0 z-[110] flex items-center justify-between border-b border-amber-600">
-      <div className="flex items-center gap-2">
-        <Clock className="animate-pulse text-black shrink-0" size={20} />
-        <span className="font-bold text-sm">
-          {lang === 'en' ? `Modifying Order #${editingOrderId}:` : `مهلة تعديل الطلب #${editingOrderId}:`}
-        </span>
-        <span className="font-mono text-base bg-black/20 px-2 py-0.5 rounded font-black tracking-wider">
-          {timeLeft}
-        </span>
-      </div>
+  if (timeLeft === null) return null;
 
-      <div className="flex items-center gap-2">
+  const minutes = Math.floor(timeLeft / 60);
+  const seconds = timeLeft % 60;
+  const timeString = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+
+  return (
+    <div className="fixed top-0 left-0 right-0 z-[100] bg-brand-primary text-white px-4 py-3 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-3 safe-top">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center animate-pulse">
+          <Clock size={20} className="text-white" />
+        </div>
+        <div>
+          <h3 className="font-display font-bold text-sm sm:text-base">
+            {lang === 'en' ? 'Modifying Order' : 'تعديل الطلب الحالي'} #{editingOrderId}
+          </h3>
+          <p className="text-white/80 text-xs">
+            {lang === 'en' ? 'Time remaining to submit changes' : 'الوقت المتبقي لتقديم التعديلات'}
+          </p>
+        </div>
+      </div>
+      
+      <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+        <div className="text-2xl font-black font-display tracking-widest bg-black/20 px-4 py-1.5 rounded-full">
+          {timeString}
+        </div>
         <button 
-          type="button"
-          onClick={() => navigate('/checkout')}
-          className="bg-black text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-black/80 transition-all flex items-center gap-1 cursor-pointer"
+          onClick={handleCancelModification}
+          className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full transition-colors text-sm font-medium whitespace-nowrap"
         >
-          <span>{lang === 'en' ? 'Finish Edit' : 'إتمام التعديل'}</span>
-          <ArrowLeft size={14} className={lang === 'ar' ? '' : 'rotate-180'} />
-        </button>
-        <button 
-          type="button"
-          onClick={handleCancel}
-          className="bg-black/15 hover:bg-black/25 text-black px-2.5 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer"
-          title={lang === 'en' ? 'Cancel edit' : 'إلغاء التعديل'}
-        >
-          {lang === 'en' ? 'Cancel' : 'إلغاء'}
+          <X size={16} />
+          {lang === 'en' ? 'Cancel' : 'إلغاء التعديل'}
         </button>
       </div>
     </div>

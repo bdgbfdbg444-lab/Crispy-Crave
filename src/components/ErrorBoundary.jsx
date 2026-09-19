@@ -1,5 +1,5 @@
 import React from "react";
-import { WebsiteMonitor } from "../services/websiteMonitor";
+import { logIncident } from "../monitoring/IncidentLogger";
 
 class ErrorBoundary extends React.Component {
     constructor(props) {
@@ -12,13 +12,9 @@ class ErrorBoundary extends React.Component {
     }
 
     componentDidCatch(error, errorInfo) {
-        WebsiteMonitor.logIncident({
-            type: "WEBSITE_ERROR",
-            severity: "CRITICAL",
-            message: error.message,
-            stackTrace: error.stack || "",
-            source: "WEBSITE",
-            operation: "REACT_RENDER_ERROR"
+        logIncident('REACT_RENDER_ERROR', 'CRITICAL', error, { 
+            reactErrorInfo: errorInfo, 
+            source: 'WEBSITE' 
         });
     }
 
