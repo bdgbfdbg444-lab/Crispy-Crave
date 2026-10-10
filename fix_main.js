@@ -1,0 +1,1 @@
+const fs = require('fs'); let c = fs.readFileSync('src/main.jsx', 'utf8'); c = c.replace(import './monitoring/IncidentLogger', import { initGlobalMonitoring } from './monitoring/IncidentLogger'); c = c.replace('visitorTracker.init();', 'visitorTracker.init();\ninitGlobalMonitoring();'); fs.writeFileSync('src/main.jsx', c);

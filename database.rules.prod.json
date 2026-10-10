@@ -1,0 +1,31 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": true,
+    "menu": { ".read": true },
+    "WebsiteData": { ".read": true },
+    "WebsiteDraft": { ".read": true },
+    "StoreStatus": { ".read": true },
+    "Coupons": { ".read": true },
+    "ApprovedReviews": { ".read": true },
+    "version": { ".read": true },
+    "PublicCustomers": { 
+      "$phone": { ".read": "auth != null && data.child(\"uid\").val() === auth.uid" } 
+    },
+    "UidToPhone": { 
+      "$uid": { ".read": "auth != null && auth.uid === $uid" } 
+    },
+    "Blacklist": { 
+      "$phone": { ".read": true } 
+    },
+    "PublicTracking": { 
+      "$token": { ".read": true } 
+    },
+    "OrderTracking": { 
+      "$orderId": { ".read": true } 
+    },
+    "Orders": { 
+      ".read": false 
+    }
+  }
+}

@@ -99,7 +99,7 @@ export default function Header() {
           
           {/* Logo */}
           <div className="flex items-center">
-            <a href="/" onClick={(e) => { e.preventDefault(); window.location.href = "/"; }} className="flex items-center gap-2 group cursor-pointer"><Logo className="text-xl md:text-3xl" /></a>
+            <Link to="/" className="flex items-center gap-2 group cursor-pointer"><Logo className="text-xl md:text-3xl" /></Link>
           </div>
 
           {/* Desktop Navigation Links */}

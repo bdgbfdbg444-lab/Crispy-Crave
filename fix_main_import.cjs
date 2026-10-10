@@ -1,0 +1,1 @@
+const fs = require('fs'); let c = fs.readFileSync('src/main.jsx', 'utf8'); c = c.replace(/import \{ WebsiteMonitor \} from \'\.\/services\/websiteMonitor\';\r?\n/, ''); fs.writeFileSync('src/main.jsx', c);

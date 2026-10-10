@@ -503,7 +503,7 @@ export default function TrackOrderPage({ menuData }) {
             {lang === 'en' ? 'Your feedback helps us improve and provide the best experience.' : 'رأيك يهمنا جداً ويساعدنا على تقديم أفضل جودة دائماً.'}
           </p>
           <button 
-             onClick={() => window.location.href = '#/menu'}
+             onClick={() => navigate('/menu')}
              className="w-full py-4 bg-brand-red text-text-light font-bold rounded-xl text-lg hover:bg-brand-red-dark transition-colors shadow-lg shadow-brand-red/30"
           >
              {lang === 'en' ? 'Order Again' : 'اطلب مرة أخرى'}

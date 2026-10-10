@@ -1,0 +1,1 @@
+const fs = require('fs'); let c = fs.readFileSync('supabase/functions/incident-logger/index.ts', 'utf8'); c = c.replace(/let FIREBASE_DB_URL.*?\\}/s, 'const FIREBASE_DB_URL = Deno.env.get(\\'FIREBASE_DB_URL\\');\\nconst FIREBASE_SECRET = Deno.env.get(\\'FIREBASE_SECRET\\');'); fs.writeFileSync('supabase/functions/incident-logger/index.ts', c);
