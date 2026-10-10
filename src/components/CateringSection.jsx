@@ -1,4 +1,4 @@
-﻿import { useLanguage } from '../context/LanguageContext';
+import { useLanguage } from '../context/LanguageContext';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, ArrowLeft, Send, CheckCircle, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import { useAuth } from '../context/AuthContext';
 import { db, auth } from '../firebase';
-import { ref, set } from 'firebase/database';
+import { ref, set, get } from 'firebase/database';
 import { signInAnonymously } from 'firebase/auth';
 
 export default function CateringSection({ websiteData }) {
@@ -66,14 +66,12 @@ export default function CateringSection({ websiteData }) {
 
   const sendWhatsAppOtp = async (targetPhone) => {
     const cleanPhone = normalizePhone(targetPhone);
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expiry = Date.now() + 5 * 60 * 1000;
 
     if (!auth.currentUser) {
       await signInAnonymously(auth);
     }
 
-    setGeneratedOtp(code);
     setOtpExpiry(expiry);
     setOtpCountdown(120);
 
@@ -81,11 +79,8 @@ export default function CateringSection({ websiteData }) {
     await set(ref(db, `PendingOtpRequests/${reqId}`), {
       phone: cleanPhone,
       uid: auth.currentUser.uid,
-      otp: code,
       createdAt: Date.now()
     });
-
-    return code;
   };
 
   const handleTriggerOtp = async () => {
@@ -129,25 +124,49 @@ export default function CateringSection({ websiteData }) {
     }
   };
 
-  const handleConfirmOtp = (e) => {
+  const handleConfirmOtp = async (e) => {
     if (e) e.preventDefault();
     if (!otpInput || otpInput.trim().length !== 6) {
       setOtpError(lang === 'en' ? 'Please enter the 6-digit verification code.' : 'يرجى إدخال كود التحقق المكون من 6 أرقام.');
       return;
     }
-    if (Date.now() > otpExpiry) {
-      setOtpError(lang === 'en' ? 'Verification code expired.' : 'انتهت صلاحية الكود.');
-      return;
-    }
-    if (otpInput.trim() !== generatedOtp) {
-      setOtpError(lang === 'en' ? 'Incorrect verification code.' : 'الكود غير صحيح.');
-      return;
-    }
-
-    setIsOtpModalOpen(false);
+    
+    setIsSubmitting(true);
     setOtpError('');
-    setOtpInput('');
-    submitToWorker();
+    
+    try {
+      const cleanPhone = normalizePhone(formData.phone);
+      const reqId = `verify_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      
+      await set(ref(db, `PendingOtpVerifications/${reqId}`), {
+        phone: cleanPhone,
+        uid: auth.currentUser.uid,
+        code: otpInput
+      });
+
+      // Poll for up to 10 seconds to see if UidToPhone is set
+      let verified = false;
+      for (let i = 0; i < 10; i++) {
+        await new Promise(r => setTimeout(r, 1000));
+        const snapshot = await get(ref(db, `UidToPhone/${auth.currentUser.uid}`));
+        if (snapshot.exists() && snapshot.val() === cleanPhone) {
+          verified = true;
+          break;
+        }
+      }
+
+      if (verified) {
+        setIsOtpModalOpen(false);
+        setOtpInput('');
+        submitToWorker();
+      } else {
+        setOtpError(lang === 'en' ? 'Verification failed or timed out. Please try again.' : 'فشل التحقق أو انتهى الوقت. حاول مرة أخرى.');
+      }
+    } catch (err) {
+      setOtpError(lang === 'en' ? 'Error verifying code.' : 'حدث خطأ أثناء التحقق.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -175,7 +194,7 @@ export default function CateringSection({ websiteData }) {
   const maxDate = `${new Date().getFullYear() + 1}-12-31`;
 
   return (
-    <section id="catering" className="py-24 bg-black-primary relative overflow-hidden" id="catering">
+    <section id="catering" className="py-24 bg-black-primary relative overflow-hidden">
       <div className="container mx-auto px-6 relative z-10">
         <div className="flex flex-col lg:flex-row items-center gap-16">
           

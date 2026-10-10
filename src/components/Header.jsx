@@ -48,7 +48,7 @@ export default function Header() {
         return;
       }
       
-      const sections = ['our-story', 'location'];
+      const sections = ['location'];
       let current = '';
       
       for (const section of sections) {
@@ -74,9 +74,9 @@ export default function Header() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [location.pathname]);
 
-  const navLinks = [
+    const navLinks = [
     { name: t('home'), path: '/' },
-    { name: lang === 'en' ? 'Our Story' : 'قصتنا', path: '/#our-story' },
+    { name: lang === 'en' ? 'Our Story' : 'قصتنا', path: '/our-story' },
     { name: lang === 'en' ? 'Location' : 'فروعنا', path: '/#location' },
     { name: t('myAccount'), path: '/account' },
   ];
@@ -99,10 +99,7 @@ export default function Header() {
           
           {/* Logo */}
           <div className="flex items-center">
-            <Link to="/" className="flex items-center gap-2 group">
-              
-              <Logo className="text-xl md:text-3xl" />
-            </Link>
+            <a href="/" onClick={(e) => { e.preventDefault(); window.location.href = "/"; }} className="flex items-center gap-2 group cursor-pointer"><Logo className="text-xl md:text-3xl" /></a>
           </div>
 
           {/* Desktop Navigation Links */}

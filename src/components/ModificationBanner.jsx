@@ -32,6 +32,7 @@ export default function ModificationBanner() {
       if (remaining <= 0) {
         // Expired
         localStorage.removeItem('editingOrderId');
+        localStorage.removeItem('editingOrderDisplayId');
         localStorage.removeItem('editingOrderDetails');
         localStorage.removeItem('modificationExpiresAt');
         clearCart();
@@ -64,6 +65,7 @@ export default function ModificationBanner() {
     const orderId = localStorage.getItem('editingOrderId');
     if (orderId) {
       localStorage.removeItem('editingOrderId');
+        localStorage.removeItem('editingOrderDisplayId');
       localStorage.removeItem('editingOrderDetails');
       localStorage.removeItem('modificationExpiresAt');
       clearCart();
@@ -97,7 +99,7 @@ export default function ModificationBanner() {
         </div>
         <div>
           <h3 className="font-display font-bold text-sm sm:text-base">
-            {lang === 'en' ? 'Modifying Order' : 'تعديل الطلب الحالي'} #{editingOrderId}
+            {lang === 'en' ? 'Modifying Order' : 'تعديل الطلب الحالي'} #{localStorage.getItem('editingOrderDisplayId') || editingOrderId}
           </h3>
           <p className="text-white/80 text-xs">
             {lang === 'en' ? 'Time remaining to submit changes' : 'الوقت المتبقي لتقديم التعديلات'}

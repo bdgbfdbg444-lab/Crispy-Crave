@@ -704,9 +704,7 @@ export default function AddressMapPicker({
 
       if (!zoneDetected) {
         setIsOutOfZone(true);
-        setGpsError(neighborhoodName 
-          ? `⚠️ هذا الموقع يقع في (${neighborhoodName}) وهي خارج نطاق التوصيل المتاح حالياً للمطعم.` 
-          : '⚠️ هذا الموقع خارج نطاق مناطق التوصيل المتاحة للمطعم.');
+        setGpsError(neighborhoodName ? (lang === 'en' ? `⚠️ This location is in (${neighborhoodName}) which is Out of Delivery Zone.` : `⚠️ هذا الموقع يقع في (${neighborhoodName}) وهي خارج نطاق التوصيل المتاح حالياً.`) : (lang === 'en' ? '⚠️ This location is outside our delivery zones.' : '⚠️ هذا الموقع خارج نطاق مناطق التوصيل المتاحة للمطعم.'));
       } else {
         setIsOutOfZone(false);
         setGpsError('');
@@ -844,7 +842,7 @@ export default function AddressMapPicker({
             className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all shadow-md active:scale-95 disabled:opacity-50"
           >
             <Navigation size={13} className={locatingGps ? 'animate-spin' : ''} />
-            <span>{locatingGps ? 'جاري تحديد موقعك...' : (lang === 'en' ? 'Use Current GPS' : '📍 مكاني الحالي')}</span>
+            <span>{locatingGps ? (lang === 'en' ? 'Locating...' : 'جاري تحديد موقعك...') : (lang === 'en' ? 'Use Current GPS' : (lang === 'en' ? '📍 Current Location' : '📍 مكاني الحالي'))}</span>
           </button>
         </div>
 
@@ -901,14 +899,14 @@ export default function AddressMapPicker({
         {geocoding && (
           <div className="mt-2 text-xs text-amber-400 font-semibold flex items-center gap-1">
             <div className="w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
-            <span>جاري قراءة تفاصيل الشارع والمنطقة من الخريطة...</span>
+            <span>{lang === 'en' ? 'Reading street and area details from map...' : 'جاري قراءة تفاصيل الشارع والمنطقة من الخريطة...'}</span>
           </div>
         )}
 
         {detectedZoneName && (
           <div className="mt-2 text-xs text-emerald-400 font-bold flex items-center gap-1">
             <Check size={14} />
-            <span>تم تحديد المنطقة تلقائياً: {detectedZoneName}</span>
+            <span>{lang === 'en' ? 'Area auto-detected:' : 'تم تحديد المنطقة تلقائياً:'} {detectedZoneName}</span>
           </div>
         )}
 
@@ -933,7 +931,7 @@ export default function AddressMapPicker({
               onClick={() => setAllowManualOverride(!allowManualOverride)} 
               className="text-[11px] text-text-muted hover:text-brand-red underline"
             >
-              {allowManualOverride ? 'إلغاء التعديل اليدوي' : 'تعديل يدوي للمنطقة'}
+              {allowManualOverride ? (lang === 'en' ? 'Cancel Manual Edit' : 'إلغاء التعديل اليدوي') : (lang === 'en' ? 'Manual Area Edit' : 'تعديل يدوي للمنطقة')}
             </button>
           </div>
 
@@ -962,7 +960,7 @@ export default function AddressMapPicker({
                     <span className="text-emerald-300 font-bold text-sm">{formData.zone}</span>
                   </div>
                   <span className="text-[11px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded font-bold">
-                    مغطاة بالتوصيل ✓
+                    {lang === 'en' ? 'Delivery Available ✓' : 'مغطاة بالتوصيل ✓'}
                   </span>
                 </div>
               ) : (
@@ -970,11 +968,11 @@ export default function AddressMapPicker({
                   <div className="flex items-center gap-2">
                     <AlertCircle className="text-red-400 shrink-0" size={18} />
                     <span className="text-red-300 font-bold text-xs">
-                      {rawAreaName ? `خارج نطاق التوصيل (${rawAreaName})` : 'حرك الدبوس لتحديد منطقتك'}
+                      {rawAreaName ? `{lang === 'en' ? 'Out of Delivery Zone' : 'خارج نطاق التوصيل'} (${rawAreaName})` : (lang === 'en' ? 'Move pin to select area' : 'حرك الدبوس لتحديد منطقتك')}
                     </span>
                   </div>
                   <span className="text-[11px] bg-red-500/20 text-red-300 px-2 py-0.5 rounded font-bold">
-                    غير متاح ✕
+                    {lang === 'en' ? 'Unavailable ✕' : 'غير متاح ✕'}
                   </span>
                 </div>
               )}
@@ -1006,7 +1004,7 @@ export default function AddressMapPicker({
             <input
               type="text"
               required
-              placeholder="مثال: عمارة 15"
+              placeholder={lang === "en" ? "e.g., Bldg 15" : "مثال: عمارة 15"}
               value={formData.building}
               onChange={(e) => handleFieldChange('building', e.target.value)}
               className="w-full bg-black-surface border border-brand-red-dark/30 text-text-light p-2.5 rounded-xl text-sm focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red"
@@ -1019,7 +1017,7 @@ export default function AddressMapPicker({
             <input
               type="text"
               required
-              placeholder="مثال: 4"
+              placeholder={lang === "en" ? "e.g., 4" : "مثال: 4"}
               value={formData.floor}
               onChange={(e) => handleFieldChange('floor', e.target.value)}
               className="w-full bg-black-surface border border-brand-red-dark/30 text-text-light p-2.5 rounded-xl text-sm focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red"
@@ -1032,7 +1030,7 @@ export default function AddressMapPicker({
             <input
               type="text"
               required
-              placeholder="مثال: 8"
+              placeholder={lang === "en" ? "e.g., 8" : "مثال: 8"}
               value={formData.apartment}
               onChange={(e) => handleFieldChange('apartment', e.target.value)}
               className="w-full bg-black-surface border border-brand-red-dark/30 text-text-light p-2.5 rounded-xl text-sm focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red"

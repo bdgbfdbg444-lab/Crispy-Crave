@@ -1,86 +1,148 @@
-﻿import { useLanguage } from '../context/LanguageContext';
-import React from 'react';
-import { motion } from 'framer-motion';
-import { Play } from 'lucide-react';
+import React, { useRef, useState, useEffect } from 'react';
+import { useLanguage } from '../context/LanguageContext';
+import { motion, useInView } from 'framer-motion';
+import { Flame, Clock, Award } from 'lucide-react';
+
+const AnimatedCounter = ({ targetValue, duration = 2 }) => {
+  const [count, setCount] = useState(0);
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: "-100px" });
+
+  useEffect(() => {
+    if (isInView) {
+      let startTime;
+      let animationFrame;
+
+      const animate = (timestamp) => {
+        if (!startTime) startTime = timestamp;
+        const progress = Math.min((timestamp - startTime) / (duration * 1000), 1);
+        
+        // Easing function (easeOutQuart)
+        const easeProgress = 1 - Math.pow(1 - progress, 4);
+        
+        setCount(Math.floor(easeProgress * targetValue));
+
+        if (progress < 1) {
+          animationFrame = requestAnimationFrame(animate);
+        }
+      };
+
+      animationFrame = requestAnimationFrame(animate);
+
+      return () => cancelAnimationFrame(animationFrame);
+    }
+  }, [isInView, targetValue, duration]);
+
+  return <span ref={ref}>{count}</span>;
+};
 
 export default function OurStory({ websiteData }) {
   const { lang } = useLanguage();
-  const storyText = (lang === 'en' && websiteData?.ourStoryTextEn ? websiteData?.ourStoryTextEn : websiteData?.ourStoryText) ?? "بدأت رحلتنا من شغف حقيقي باللحوم المدخنة بطيئة الطهي على حطب البلوط الطبيعي. نحن نؤمن بأن البريسكت الحقيقي يحتاج إلى وقت، صبر، وحب، وهذا ما نقدمه في كل قطعة. أضفنا لمستنا الخاصة لسماش برجر لنقدم تجربة لا تُنسى لعشاق اللحوم الحقيقية.";
   
-  // If there's a bRoll video, we use it, otherwise a placeholder image
+  // Use data from Firebase or fallback to empty strings
+  const storyText = (lang === 'en' && websiteData?.ourStoryTextEn ? websiteData?.ourStoryTextEn : websiteData?.ourStoryText) ?? "بدأت رحلتنا من شغف تقديم اللحوم المدخنة بالطرق التقليدية الأصيلة. نحن نؤمن بأن التفاصيل الصغيرة تصنع فرقاً كبيراً ولذلك نأخذ وقتنا في كل خطوة. من اختيار أجود أنواع اللحوم وحتى تقديمها لك.";
   const bRollUrl = websiteData?.bRollVideoUrl;
-  
-  return (
-    <section id="our-story" className="py-24 bg-black-primary text-text-light relative overflow-hidden" id="our-story">
-      {/* Decorative Texture/Gradient */}
-      <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-primary/10 to-transparent pointer-events-none"></div>
+  const signatureImage = websiteData?.signatureDishImageUrl;
 
+  return (
+    <section id="our-story" className="py-24 bg-black-surface relative overflow-hidden">
       <div className="container mx-auto px-6 relative z-10">
-        <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
+        
+        <div className="flex flex-col lg:flex-row gap-16 items-center">
           
-          {/* Text Content */}
+          {/* Left Text Content */}
           <motion.div 
             initial={{ opacity: 0, x: -50 }}
             whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            className="w-full lg:w-1/2 text-center lg:text-right"
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 0.8 }}
+            className="w-full lg:w-1/2"
           >
-            <h2 className="text-4xl md:text-5xl font-display font-black text-text-light mb-6">
-              {lang === 'en' ? (websiteData?.ourStoryTitleEn || 'Our Story & Passion') : (websiteData?.ourStoryTitle || 'قصتنا وشغفنا')}
-            </h2>
-            <div className="h-1 bg-brand-red w-16 mx-auto lg:mx-0 mb-8 rounded-full"></div>
+            <div className="mb-6 flex items-center gap-3">
+              <Flame className="text-brand-red" size={32} />
+              <h2 className="text-4xl md:text-5xl font-display font-black text-text-light uppercase tracking-wider">
+                {lang === 'en' ? (websiteData?.ourStoryTitleEn || 'Our Story & Passion') : (websiteData?.ourStoryTitle || 'قصتنا وشغفنا')}
+              </h2>
+            </div>
             
-            <p className="text-lg md:text-xl text-gray-300 leading-relaxed mb-8">
+            <div className="w-20 h-1.5 bg-brand-red mb-8 rounded-full"></div>
+            
+            <p className="text-lg text-text-light/80 leading-relaxed mb-8 whitespace-pre-line border-l-4 border-brand-red/30 pl-6 rtl:pl-0 rtl:border-l-0 rtl:border-r-4 rtl:pr-6">
               {storyText}
             </p>
             
-            {/* Highlights/Features */}
-            <div className="grid grid-cols-2 gap-6 text-center lg:text-right border-t border-gray-700 pt-8 mt-8">
-              <div>
-                <h4 className="text-3xl font-display font-black text-brand-red mb-2">16</h4>
+            {/* Animated Counters / Stats */}
+            <div className="grid grid-cols-2 gap-8 mt-12">
+              <div className="flex flex-col items-center p-6 bg-black-primary rounded-2xl border border-gray-800 shadow-xl">
+                <Clock className="text-brand-red mb-4" size={40} strokeWidth={1.5} />
+                <h3 className="text-4xl font-black text-white mb-2">
+                  +<AnimatedCounter targetValue={16} />
+                </h3>
                 <p className="text-text-muted font-bold">{lang === 'en' ? 'Hours Slow Smoking' : 'ساعة تدخين بطيء'}</p>
               </div>
-              <div>
-                <h4 className="text-3xl font-display font-black text-brand-red mb-2">100%</h4>
+              <div className="flex flex-col items-center p-6 bg-black-primary rounded-2xl border border-gray-800 shadow-xl">
+                <Award className="text-brand-red mb-4" size={40} strokeWidth={1.5} />
+                <h3 className="text-4xl font-black text-white mb-2">
+                  <AnimatedCounter targetValue={100} />%
+                </h3>
                 <p className="text-text-muted font-bold">{lang === 'en' ? 'Natural Oak Wood' : 'حطب طبيعي'}</p>
               </div>
             </div>
           </motion.div>
-
-          {/* Media / Video */}
+          
+          {/* Right Media Content */}
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
             whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 0.8 }}
             className="w-full lg:w-1/2 relative"
           >
-            <div className="relative rounded-2xl overflow-hidden shadow-2xl aspect-video border border-gray-800 group">
+            <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-gray-800 aspect-square lg:aspect-[4/5] bg-black-primary">
+              
+              {/* Optional Video Background behind image or standalone */}
               {bRollUrl ? (
                 <video 
                   autoPlay 
                   loop 
                   muted 
                   playsInline 
-                  className="w-full h-full object-cover"
+                  className="absolute inset-0 w-full h-full object-cover opacity-60 mix-blend-screen"
                 >
                   <source src={bRollUrl} type="video/mp4" />
                 </video>
+              ) : null}
+
+              {/* Main Signature Dish Image */}
+              {signatureImage ? (
+                <img 
+                  src={signatureImage} 
+                  alt="Signature Dish" 
+                  className="absolute inset-0 w-full h-full object-cover hover:scale-105 transition-transform duration-700 ease-out z-10"
+                />
               ) : (
-                <div className="w-full h-full bg-gray-800 flex items-center justify-center">
-                  <span className="text-text-muted">لا يوجد فيديو</span>
+                <div className="absolute inset-0 w-full h-full bg-gradient-to-tr from-brand-red-dark/20 to-black-primary flex items-center justify-center z-10">
+                   <span className="text-gray-500 font-display text-2xl uppercase tracking-widest opacity-50">Smoke & Smash</span>
                 </div>
               )}
               
-              {/* Overlay Play Button (decorative) */}
-              <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                <div className="w-16 h-16 bg-brand-red-dark rounded-full flex items-center justify-center text-text-light shadow-lg backdrop-blur-sm cursor-pointer hover:scale-110 transition-transform">
-                  <Play size={24} className="ms-" fill="currentColor" />
+              {/* Gradient Overlay for depth */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black-primary via-transparent to-transparent z-20"></div>
+              
+              {/* Floating Badge */}
+              <div className="absolute bottom-8 right-8 z-30 bg-black-primary/90 backdrop-blur-md p-4 rounded-xl border border-brand-red-dark shadow-2xl flex items-center gap-4 transform translate-y-4 hover:-translate-y-0 transition-transform">
+                <div className="bg-brand-red text-white p-3 rounded-full">
+                  <Flame size={24} />
+                </div>
+                <div>
+                  <p className="text-white font-bold text-lg leading-tight tracking-wider">{lang === 'en' ? 'Authentic' : 'أصلي'}</p>
+                  <p className="text-brand-red font-bold text-sm tracking-widest">{lang === 'en' ? 'BBQ' : 'باربيكيو'}</p>
                 </div>
               </div>
             </div>
             
-            {/* Floating Element Decor */}
-            <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-brand-red/20 rounded-full blur-2xl -z-10"></div>
+            {/* Decorative background accent */}
+            <div className="absolute -z-10 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-brand-red/5 rounded-full blur-[100px]"></div>
           </motion.div>
 
         </div>

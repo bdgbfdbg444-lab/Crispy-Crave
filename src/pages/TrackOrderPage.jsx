@@ -1,5 +1,6 @@
 import { useLanguage } from '../context/LanguageContext';
 import React, { useState, useEffect } from 'react';
+import { visitorTracker } from '../services/visitorTracker';
 import { useParams, useNavigate } from 'react-router-dom';
 import { CheckCircle, AlertCircle, ArrowRight, Star, MessageCircle, Edit3, ShieldCheck, Lock, MapPin, Phone, User } from 'lucide-react';
 import { APP_CONFIG } from '../config/appConfig';
@@ -23,6 +24,11 @@ export default function TrackOrderPage({ menuData }) {
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [hasAutoOpenedReview, setHasAutoOpenedReview] = useState(false);
   const [hasFinishedReview, setHasFinishedReview] = useState(false);
+
+  useEffect(() => {
+    visitorTracker.setOrdering(true);
+    return () => visitorTracker.setOrdering(false);
+  }, []);
 
   useEffect(() => {
     if (orderData?.Status === 'Completed' && !hasAutoOpenedReview) {
@@ -88,10 +94,7 @@ export default function TrackOrderPage({ menuData }) {
         // Merge POS updates from the short-ID path into our state
         setOrderData(prev => {
           // Only update if the POS path has a more advanced status
-          if (!prev || prev.Status === 'Pending' || data.Status === 'Cancelled') {
-            return { ...prev, ...data };
-          }
-          return prev;
+          return { ...prev, ...data };
         });
       }
     });
@@ -126,7 +129,7 @@ export default function TrackOrderPage({ menuData }) {
           return;
         }
       }
-    } catch(e) {}
+    } catch(e) { alert('Firebase Error: ' + e.message); console.error(e); }
 
     const currentStatus = orderData?.Status || 'Pending';
     if (['InKitchen', 'Preparing', 'Ready', 'OutForDelivery', 'Completed', 'Cancelled'].includes(currentStatus)) {
@@ -155,7 +158,7 @@ export default function TrackOrderPage({ menuData }) {
                       || localStorage.getItem(`order_#${safeOrderId}_items`) 
                       || localStorage.getItem(`order_${orderId}_items`);
       if (localSaved) {
-         try { savedItems = JSON.parse(localSaved); } catch(e) {}
+         try { savedItems = JSON.parse(localSaved); } catch(e) { alert('Firebase Error: ' + e.message); }
       }
 
       const allProducts = menuData?.categories?.flatMap(c => c.products || []) || [];
@@ -201,7 +204,7 @@ export default function TrackOrderPage({ menuData }) {
               };
             });
           }
-        } catch(e) {}
+        } catch(e) { alert('Firebase Error: ' + e.message); console.error(e); }
       }
 
       if (!savedItems || savedItems.length === 0) {
@@ -213,6 +216,7 @@ export default function TrackOrderPage({ menuData }) {
       const expiresAt = Date.now() + 3 * 60 * 1000;
       localStorage.setItem('modificationExpiresAt', expiresAt.toString());
       localStorage.setItem('editingOrderId', safeOrderId);
+      localStorage.setItem('editingOrderDisplayId', displayId || safeOrderId);
 
       // Reliable original total
       const origTotal = details.originalTotal || orderData?.TotalAmount || parseFloat(localStorage.getItem('activeOrderTotal') || '0') || 0;
@@ -255,8 +259,8 @@ export default function TrackOrderPage({ menuData }) {
         update(ref(db, `PublicTracking/${safeOrderId}`), {
           IsModifying: true,
           ModificationExpiresAt: expiresAt
-        }).catch(() => {});
-      } catch(e) {}
+        }).catch((e) => { console.error('Tracking error:', e); });
+      } catch(e) { alert('Firebase Error: ' + e.message); console.error(e); }
 
       // 6. Open cart and navigate to menu
       if (setIsCartOpen) {
@@ -317,7 +321,7 @@ export default function TrackOrderPage({ menuData }) {
                   || (displayNum && localStorage.getItem(`order_#${displayNum}_details`))
                   || localStorage.getItem(`order_${orderId}_details`);
   let orderDetails = {};
-  try { if (rawDetails) orderDetails = JSON.parse(rawDetails); } catch(e) {}
+  try { if (rawDetails) orderDetails = JSON.parse(rawDetails); } catch(e) { alert('Firebase Error: ' + e.message); console.error(e); }
 
 
   
@@ -407,7 +411,10 @@ export default function TrackOrderPage({ menuData }) {
   }
   statusList.push({ id: 'Cancelled', label: (lang === 'en' ? 'Cancelled' : 'تم الإلغاء') });
 
-  const mappedStatus = orderStatus === 'Accepted' ? 'New' : orderStatus;
+  let mappedStatus = orderStatus === 'Accepted' ? 'New' : orderStatus;
+  if ((orderType || '').toLowerCase() === 'delivery' && mappedStatus === 'Ready') {
+    mappedStatus = 'OutForDelivery';
+  }
   const statusArray = (orderType || '').toLowerCase() === 'delivery' 
       ? ['Pending', 'New', 'InKitchen', 'Ready', 'OutForDelivery', 'Completed', 'Cancelled']
       : ['Pending', 'New', 'InKitchen', 'Ready', 'Completed', 'Cancelled'];
@@ -673,7 +680,7 @@ export default function TrackOrderPage({ menuData }) {
           const safeId = (orderId || '').replace('#', '').trim();
           const rawD = localStorage.getItem(`order_${safeId}_details`) || localStorage.getItem(`order_#${safeId}_details`) || '{}';
           let savedDetails = {};
-          try { savedDetails = JSON.parse(rawD); } catch(e) {}
+          try { savedDetails = JSON.parse(rawD); } catch(e) { alert('Firebase Error: ' + e.message); console.error(e); }
           
           const isExpiredOrModified = (savedDetails.modificationCount >= 1) 
                                    || (orderData?.ModificationCount >= 1) 

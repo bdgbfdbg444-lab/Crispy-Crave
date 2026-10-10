@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+﻿import React, { createContext, useContext, useEffect, useState } from 'react';
+import { visitorTracker } from '../services/visitorTracker';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { ref, get, update } from 'firebase/database';
+import { ref, get, update, onValue } from 'firebase/database';
 
 const AuthContext = createContext();
 
@@ -18,7 +19,8 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
-      if (user) {
+      if(user) visitorTracker.setLoggedIn(true); else visitorTracker.setLoggedIn(false);
+if (user) {
         // Find phone number linked to this UID
         try {
           const mappingRef = ref(db, `UidToPhone/${user.uid}`);
@@ -30,34 +32,35 @@ export function AuthProvider({ children }) {
             
             // Fetch customer data
             const custRef = ref(db, `PublicCustomers/${phone}`);
-            const custSnap = await get(custRef);
-            if (custSnap.exists()) {
-              const data = custSnap.val();
-              
-              // --- LAZY MIGRATION: Single Address to Multiple Addresses ---
-              const legacyAddress = data.address || data.Address;
-              console.log("[Migration Debug 1] Legacy address found:", legacyAddress);
-              console.log("[Migration Debug 1] Current addresses:", data.addresses);
-              
-              if (legacyAddress && (!data.addresses || !Array.isArray(data.addresses) || data.addresses.length === 0)) {
-                console.log("[Migration Debug 1] Triggering migration!");
-                const newAddress = {
-                  id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-                  label: 'الرئيسي',
-                  fullAddress: legacyAddress,
-                  isDefault: true
-                };
-                data.addresses = [newAddress];
-                // Update Firebase in the background
-                update(ref(db, `PublicCustomers/${phone}`), {
-                  addresses: data.addresses
-                }).then(() => console.log("[Migration Debug 1] Update successful!"))
-                  .catch(err => console.error("Address migration failed:", err));
+            // Use onValue to continuously listen to POS updates (History, Points, Tier, etc.)
+            onValue(custRef, (custSnap) => {
+              if (custSnap.exists()) {
+                const data = custSnap.val();
+                
+                // Migrate addresses logic
+                let needsUpdate = false;
+                if (!data.addresses) data.addresses = [];
+                if (data.Address && !data.addresses.some(a => a.fullAddress === data.Address)) {
+                  data.addresses.push({
+                    id: Date.now().toString(),
+                    label: 'المنزل',
+                    fullAddress: data.Address,
+                    isDefault: true
+                  });
+                  needsUpdate = true;
+                }
+                if (needsUpdate) {
+                  import('firebase/database').then(({ update }) => {
+                    update(custRef, { addresses: data.addresses }).catch(err => console.error("Address migration failed:", err));
+                  });
+                }
+                
+                setCustomerData(data);
+              } else {
+                setCustomerData(null);
               }
-              
-              setCustomerData(data);
-            }
-          } else {
+            });
+} else {
             setUserPhone(null);
             setCustomerData(null);
           }

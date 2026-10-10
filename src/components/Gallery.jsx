@@ -1,11 +1,12 @@
 ﻿import { useLanguage } from '../context/LanguageContext';
-import React from 'react';
-import { motion } from 'framer-motion';
-import { Camera } from 'lucide-react';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Camera, X } from 'lucide-react';
 
 export default function Gallery({ websiteData }) {
   const { lang } = useLanguage();
-  // Parse gallery images or use placeholders
+  const [selectedImage, setSelectedImage] = useState(null);
+  
   let images = [];
   
   if (websiteData?.galleryImages) {
@@ -19,14 +20,13 @@ export default function Gallery({ websiteData }) {
   // Fallbacks for empty gallery
   if (images.length === 0) {
     images = [
-      'https://res.cloudinary.com/vgk0saib/image/upload/v1786579629/maq1oncsu8t5u4bpjlnw.png', // Temporary placeholder 1
-      'https://res.cloudinary.com/vgk0saib/image/upload/v1786579629/maq1oncsu8t5u4bpjlnw.png', // Temporary placeholder 2
-      'https://res.cloudinary.com/vgk0saib/image/upload/v1786579629/maq1oncsu8t5u4bpjlnw.png', // Temporary placeholder 3
-      'https://res.cloudinary.com/vgk0saib/image/upload/v1786579629/maq1oncsu8t5u4bpjlnw.png', // Temporary placeholder 4
+      'https://res.cloudinary.com/vgk0saib/image/upload/v1786579629/maq1oncsu8t5u4bpjlnw.png',
+      'https://res.cloudinary.com/vgk0saib/image/upload/v1786579629/maq1oncsu8t5u4bpjlnw.png',
+      'https://res.cloudinary.com/vgk0saib/image/upload/v1786579629/maq1oncsu8t5u4bpjlnw.png',
+      'https://res.cloudinary.com/vgk0saib/image/upload/v1786579629/maq1oncsu8t5u4bpjlnw.png',
     ];
   }
 
-  // We only display the first 4-6 images in the home page grid to keep it clean
   const displayImages = images.slice(0, 4);
 
   return (
@@ -60,36 +60,58 @@ export default function Gallery({ websiteData }) {
           ></motion.div>
         </div>
 
-        {/* Gallery Bento Grid - Guarantees 100% full width */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 auto-rows-[200px] md:auto-rows-[250px]">
-          {images.map((img, index) => {
-            // Bento layout logic for 4 images
-            let spanClass = 'md:col-span-1 md:row-span-1';
-            if (index === 0) spanClass = 'md:col-span-2 md:row-span-2';
-            else if (index === 1) spanClass = 'md:col-span-2 md:row-span-1';
-            
-            return (
-              <motion.div 
-                key={index}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1, duration: 0.6 }}
-                className={`relative rounded-2xl overflow-hidden group bg-black-primary w-full h-full ${spanClass}`}
-              >
-                <img 
-                  src={img} 
-                  alt={`Gallery image ${index + 1}`} 
-                  className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700 ease-in-out"
-                  loading="lazy"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black-primary/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              </motion.div>
-            );
-          })}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {displayImages.map((src, idx) => (
+            <motion.div
+              key={idx}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: idx * 0.1, duration: 0.5 }}
+              className="aspect-square relative group overflow-hidden rounded-2xl cursor-pointer shadow-lg hover:shadow-brand-red/20 transition-all border border-gray-800"
+              onClick={() => setSelectedImage(src)}
+            >
+              <img 
+                src={src} 
+                alt={`Gallery ${idx + 1}`} 
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
+                loading="lazy"
+              />
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                <Camera size={32} className="text-white drop-shadow-lg scale-50 group-hover:scale-100 transition-transform duration-300" />
+              </div>
+            </motion.div>
+          ))}
         </div>
-        
       </div>
+
+      <AnimatePresence>
+        {selectedImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSelectedImage(null)}
+            className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out"
+          >
+            <button
+              onClick={() => setSelectedImage(null)}
+              className="absolute top-6 right-6 text-white hover:text-brand-red transition-colors bg-black/50 p-2 rounded-full"
+            >
+              <X size={28} />
+            </button>
+            <motion.img
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              src={selectedImage}
+              alt="Lightbox"
+              className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }

@@ -140,7 +140,7 @@ export default function CartSidebar() {
                             <h3 className="font-bold text-text-light text-lg leading-tight mb-1 pe-">{item.product.name}</h3>
                             
                             {item.product.isSoldByWeight && (
-                              <span className="text-sm text-text-muted mb-1">الوزن: {item.product.selectedWeight} جرام</span>
+                              <span className="text-sm text-text-muted mb-1">{lang === 'en' ? 'Weight:' : 'الوزن:'} {item.product.selectedWeight} {lang === 'en' ? 'g' : 'جرام'}</span>
                             )}
                             
                             {item.product.selectedModifiers?.length > 0 && (
@@ -188,7 +188,7 @@ export default function CartSidebar() {
             {cartItems.length > 0 && (
               <div className="p-6 bg-black-surface border-t border-brand-red-dark/30 shrink-0 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)]">
                 <div className="flex justify-between items-center mb-6 text-lg">
-                  <span className="font-bold text-text-muted">الإجمالي:</span>
+                  <span className="font-bold text-text-muted">{lang === 'en' ? 'Total:' : 'الإجمالي:'}</span>
                   <span className="font-black text-2xl text-text-light">{cartTotal} {lang === 'en' ? 'EGP' : 'ج.م'}</span>
                 </div>
                 <button 

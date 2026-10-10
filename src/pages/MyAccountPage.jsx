@@ -1,460 +1,494 @@
+import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import AuthModal from '../components/AuthModal';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { auth, db, googleProvider } from '../firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, sendPasswordResetEmail, signOut, signInAnonymously } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, sendPasswordResetEmail, signOut, signInAnonymously, deleteUser } from 'firebase/auth';
 import { ref, get, set, update, onValue, off } from 'firebase/database';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldCheck } from 'lucide-react';
-import { Package, MapPin, Edit3, LogOut, ChevronLeft, Navigation, ChevronDown, ChevronUp, Home, Briefcase, Plus, Trash2, Settings, User, CheckCircle2, RotateCcw } from 'lucide-react';
+import { Package, MapPin, Edit3, LogOut, ChevronLeft, Navigation, ChevronDown, ChevronUp, Home, Briefcase, Plus, Trash2, Settings, User, CheckCircle2, RotateCcw, Star, Flame, PlusCircle } from 'lucide-react';
 import AddressMapPicker, { formatAddressDetails, checkZoneMismatch } from '../components/AddressMapPicker';
 import { APP_CONFIG } from '../config/appConfig';
 import { fetchMenuData } from '../services/firebaseService';
 
-const DashboardView = ({ customerData, onLogout, menuData }) => {
+const DashboardView = ({ customerData, onLogout, onDeleteAccount, menuData }) => {
   const { lang } = useLanguage();
   const navigate = useNavigate();
   const { addToCart, setIsCartOpen } = useCart();
-  const { refreshCustomerData } = useAuth();
+  const [activeView, setActiveView] = useState('dashboard');
+  const [debugError, setDebugError] = useState(null);
+  const [expandedOrder, setExpandedOrder] = useState(null);
+  
+  const [activeOrders, setActiveOrders] = useState([]);
+  const [pastOrders, setPastOrders] = useState([]);
+  const [history, setHistory] = useState([]);
+  
+  const [zoneUpdateInput, setZoneUpdateInput] = useState('');
+  
+  const [isAddingAddress, setIsAddingAddress] = useState(false);
+  const [editingAddressIndex, setEditingAddressIndex] = useState(null);
+    const [addressDraft, setAddressDraft] = useState({ zone: '', street: '', building: '', floor: '', apartment: '', landmark: '', lat: null, lng: null, fullAddress: '' });
+  
+  const [emailEditMode, setEmailEditMode] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [passwordForEmailChange, setPasswordForEmailChange] = useState('');
+
+  const [phoneEditMode, setPhoneEditMode] = useState(false);
+  const [newPhone, setNewPhone] = useState('');
+  const [phoneOtpStep, setPhoneOtpStep] = useState(false);
+  const [phoneOtp, setPhoneOtp] = useState('');
+  const [generatedPhoneOtp, setGeneratedPhoneOtp] = useState('');
+  const [otpError, setOtpError] = useState('');
+
+
+  // Unified Orders Logic: Combine POS History and Web Orders
+  useEffect(() => {
+      if (!customerData?.Phone) return;
+      
+      try {
+        let historyArray = customerData?.History || {};
+        if (!Array.isArray(historyArray)) {
+           historyArray = Object.values(historyArray);
+        }
+        
+        const posOrders = historyArray.map(o => ({
+            OrderNumber: o.OrderNumber,
+            Status: o.Status,
+            OrderDate: o.OrderDate,
+            TotalAmount: o.TotalAmount || 0,
+            Source: 'POS',
+            Items: o.Items || []
+        }));
+        
+        // Use POS orders directly, since POS syncs immediately and we can't read Orders node due to security rules
+        const allOrders = [...posOrders].sort((a, b) => { 
+            const da = new Date(a.OrderDate || 0).getTime(); 
+            const db = new Date(b.OrderDate || 0).getTime(); 
+            return db - da; 
+        });
+        
+        setHistory(allOrders);
+        
+        const terminalStatuses = ['Completed', 'Cancelled', 'Voided', 'Refunded', 'مكتملة', 'ملغاة'];
+        setActiveOrders(allOrders.filter(o => !terminalStatuses.includes(o.Status)));
+        setPastOrders(allOrders.filter(o => terminalStatuses.includes(o.Status)));
+        setDebugError(null);
+      } catch(err) {
+        setDebugError(err.message + " | " + err.stack);
+      }
+    }, [customerData]);
+
+  const translateStatus = (status) => {
+    if (lang === 'en') return status;
+    const map = {
+      'Pending': 'قيد الانتظار',
+      'Accepted': 'مقبول',
+      'Preparing': 'جاري التجهيز',
+      'Ready': 'جاهز للتسليم',
+      'OutForDelivery': 'في الطريق إليك',
+      'Completed': 'مكتمل (تم التوصيل)',
+      'Cancelled': 'ملغي',
+      'Voided': 'ملغي (Voided)',
+      'Refunded': 'مسترجع'
+    };
+    return map[status] || status;
+  };
+
+  const getStatusColor = (status) => {
+    if (['Completed'].includes(status)) return 'bg-green-500/20 text-green-500';
+    if (['Cancelled', 'Voided', 'Refunded'].includes(status)) return 'bg-brand-red/20 text-brand-red';
+    return 'bg-amber-500/20 text-amber-500';
+  };
 
   const handleOrderAgain = (order) => {
-    let itemsList = order.Items || order.items;
-    if (itemsList && typeof itemsList === 'object' && !Array.isArray(itemsList)) {
-      itemsList = Object.values(itemsList);
-    }
-    
-    if (itemsList && Array.isArray(itemsList)) {
-      itemsList.forEach(item => {
-        let product = null;
-        
-        // Handle old nested format (item.product.name) vs new flat format (item.productName) vs raw old format (item.Name)
-        const nestedProduct = item.Product || item.product || {};
-        const itemId = (item.ProductId || item.productId || item.id || nestedProduct.id || '').toString();
-        
-        const fallbackName = (item.ProductName || item.productName || item.name || item.Name || nestedProduct.name || nestedProduct.Name || 'Unknown').toString().trim();
-        const fallbackNameEn = (item.ProductName || item.productName || item.name || item.NameEn || nestedProduct.nameEn || nestedProduct.NameEn || 'Unknown').toString().trim();
-        const fallbackPrice = parseFloat(item.UnitPrice || item.unitPrice || item.price || item.Price || nestedProduct.price || nestedProduct.sellingPrice || nestedProduct.Price || 0) || 0;
-
-        if (menuData && menuData.categories) {
-           const categoriesArray = Array.isArray(menuData.categories) ? menuData.categories : Object.values(menuData.categories);
-           for (const cat of categoriesArray) {
-             const itemsSource = cat.products || cat.items || {};
-             const catItemsArray = Array.isArray(itemsSource) ? itemsSource : Object.values(itemsSource);
-             
-             // Try by ID first
-             let found = catItemsArray.find(i => i.id && i.id.toString() === itemId);
-             
-             // Fallback by Name if ID fails or is empty
-             if (!found && fallbackName !== 'Unknown') {
-                 found = catItemsArray.find(i => (i.name && i.name.trim() === fallbackName) || (i.nameEn && i.nameEn.trim() === fallbackName) || (i.nameEn && i.nameEn.trim() === fallbackNameEn));
-             }
-             
-             if (found) {
-                product = { ...found };
-                break;
-             }
-           }
-        }
-        
-        if (!product) {
-          product = {
-            id: itemId || Date.now().toString(),
-            name: fallbackName,
-            nameEn: fallbackNameEn,
-            sellingPrice: fallbackPrice,
-            imagePath: nestedProduct.image || nestedProduct.imagePath || ''
-          };
-        }
-
-        const qty = parseFloat(item.Quantity || item.quantity || 1) || 1;
-        addToCart(product, qty);
-      });
+    if (order.Items && Array.isArray(order.Items)) {
+      order.Items.forEach(item => addToCart(item));
       setIsCartOpen(true);
     }
   };
 
-  const [activeTab, setActiveTab] = React.useState('overview');
-  const [zoneUpdateInput, setZoneUpdateInput] = React.useState(customerData.Zone || customerData.zone || '');
-  const [savingZone, setSavingZone] = React.useState(false);
-
-  const zonesList = menuData?.deliveryZones || [
-    { id: 1, name: "محرم بك / الشاطبي", deliveryFee: 20 },
-    { id: 2, name: "سموحة", deliveryFee: 30 },
-    { id: 3, name: "سيدي جابر / كليوباترا", deliveryFee: 25 },
-    { id: 4, name: "ميامي / العصافرة", deliveryFee: 35 },
-    { id: 5, name: "العجمي", deliveryFee: 60 }
-  ];
-
-  const handleSaveExistingZone = async () => {
-    if (!zoneUpdateInput) return;
-    setSavingZone(true);
-    try {
-      const phoneToUse = customerData.Phone || customerData.phone || userPhone;
-      if (phoneToUse) {
-        await update(ref(db, `PublicCustomers/${phoneToUse}`), {
-          Zone: zoneUpdateInput,
-          zone: zoneUpdateInput
-        });
-        await refreshCustomerData(phoneToUse);
-        alert('✅ تم حفظ وتحديث منطقتك السكنية بنجاح!');
-      }
-    } catch (err) {
-      alert('فشل حفظ المنطقة: ' + err.message);
-    }
-    setSavingZone(false);
-  };
-  const [editingEmail, setEditingEmail] = React.useState(false);
-  const [newEmail, setNewEmail] = React.useState(customerData.Email || '');
-  const [savingEmail, setSavingEmail] = React.useState(false);
-  const [expandedOrder, setExpandedOrder] = React.useState(null);
-
-  const [addresses, setAddresses] = React.useState(customerData.addresses || []);
-  const [showAddForm, setShowAddForm] = React.useState(false);
-  const [editingAddressId, setEditingAddressId] = React.useState(null);
-  const [newAddress, setNewAddress] = React.useState({ 
-    label: 'المنزل', 
-    zone: '', 
-    street: '', 
-    building: '', 
-    floor: '', 
-    apartment: '', 
-    landmark: '', 
-    lat: null, 
-    lng: null, 
-    mapsUrl: '', 
-    fullAddress: '' 
-  });
-  const [isSavingAddress, setIsSavingAddress] = React.useState(false);
-
-  React.useEffect(() => {
-    if (customerData.addresses) {
-      setAddresses(customerData.addresses);
-    }
-  }, [customerData.addresses]);
-
-  const history = customerData.History || [];
-  let activeOrders = history.filter(o => !['Completed', 'Cancelled', 'Voided', 'Refunded'].includes(o.Status));
-  
-// activeOrders strictly comes from customer history only! No localStorage bleeding.
-
-  const pastOrders = history.filter(o => ['Completed', 'Cancelled', 'Voided', 'Refunded'].includes(o.Status));
-
-  const translateStatus = (status) => {
-    switch(status) {
-      case 'Pending': return lang === 'en' ? 'Pending' : 'قيد الانتظار';
-      case 'Accepted': return lang === 'en' ? 'Preparing' : 'يتم التجهيز';
-      case 'InKitchen': return lang === 'en' ? 'In Kitchen' : 'في المطبخ';
-      case 'Ready': return lang === 'en' ? 'Ready/Out for Delivery' : 'جاهز/في الطريق للاستلام';
-      case 'Completed': return lang === 'en' ? 'Delivered' : 'مكتمل (تم التوصيل)';
-      case 'Cancelled': return lang === 'en' ? 'Cancelled' : 'ملغي';
-      default: return status;
-    }
-  };
-
-  const getStatusColor = (status) => {
-    if (status === 'Completed') return 'bg-green-900/40 text-green-400';
-    if (['Cancelled', 'Voided'].includes(status)) return 'bg-red-900/40 text-red-400';
-    return 'bg-blue-900/40 text-blue-400';
-  };
-
   const handleSaveEmail = async () => {
-    setSavingEmail(true);
-    try {
-      const { db, update, ref } = await import('../firebase');
-      await update(ref(db, `PublicCustomers/${customerData.Phone}`), { Email: newEmail.trim() || null });
-      setEditingEmail(false);
-      alert(lang === 'en' ? 'Email updated successfully!' : 'تم تحديث البريد الإلكتروني بنجاح!');
-      window.location.reload();
-    } catch (err) {
-      alert('حدث خطأ');
+    if (!emailEditMode) {
+      setNewEmail(customerData.Email || '');
+      setEmailEditMode(true);
+      return;
     }
-    setSavingEmail(false);
-  };
-
-  const saveAddressesToFirebase = async (updatedAddresses) => {
+    // Simple mock save for now, usually would update Firebase Auth & DB
     try {
-      const { update, ref } = await import('firebase/database');
-      const { db } = await import('../firebase');
-      await update(ref(db, `PublicCustomers/${customerData.Phone}`), { addresses: updatedAddresses });
-      setAddresses(updatedAddresses);
-    } catch (err) {
-      console.error(err);
-      alert(lang === 'en' ? 'Failed to save address' : 'فشل حفظ العنوان');
+        const updates = {};
+        updates[`PublicCustomers/${customerData.Phone}/Email`] = newEmail;
+        await update(ref(db), updates);
+        setEmailEditMode(false);
+    } catch(e) {
+        alert(e.message);
     }
   };
 
-  const handleAddAddress = async () => {
-    const fullAddr = newAddress.fullAddress || formatAddressDetails(newAddress);
-    if (!newAddress.zone || newAddress.isOutOfZone) {
-      alert(lang === 'en' ? 'Selected location is outside delivery areas' : '⚠️ لا يمكن الحفظ: هذا الموقع يقع خارج نطاق مناطق التوصيل المتاحة للمطعم.');
-      return;
-    }
-    if (!newAddress.street?.trim() && !fullAddr.trim()) {
-      alert(lang === 'en' ? 'Please enter street name' : 'يرجى إدخال اسم الشارع');
-      return;
-    }
-    if (!newAddress.building?.trim() && !fullAddr.trim()) {
-      alert(lang === 'en' ? 'Please enter building name or number' : 'يرجى إدخال رقم أو اسم العمارة');
-      return;
-    }
+  const handleSaveAddress = (addressObj) => {
+      const currentAddresses = customerData.addresses || [];
+      let newAddresses;
+      if (editingAddressIndex !== null) {
+          newAddresses = [...currentAddresses];
+          newAddresses[editingAddressIndex] = addressObj;
+      } else {
+          newAddresses = [...currentAddresses, addressObj];
+      }
+      saveAddressesToFirebase(newAddresses);
+      setIsAddingAddress(false);
+      setEditingAddressIndex(null);
+  };
 
-    // Keyword Mismatch check
-    const mismatchZone = checkZoneMismatch(`${newAddress.street || ''} ${newAddress.landmark || ''} ${fullAddr}`, newAddress.zone, zonesList);
-    if (mismatchZone) {
-      alert(lang === 'en' 
-        ? `Cannot save: The address mentions (${mismatchZone}) which conflicts with selected zone (${newAddress.zone}).` 
-        : `⚠️ تنبيه أمني: لا يمكن حفظ العنوان لأن تفاصيل الشارع تحتوي على منطقة (${mismatchZone}) تختلف عن منطقة التوصيل المحددة (${newAddress.zone}). يرجى اختيار منطقتك الصحيحة.`);
+  const saveAddressesToFirebase = async (addressesArray) => {
+      try {
+          const updates = {};
+          updates[`PublicCustomers/${customerData.Phone}/addresses`] = addressesArray;
+          if (addressesArray.length === 1 && !customerData.Zone) {
+              updates[`PublicCustomers/${customerData.Phone}/Zone`] = addressesArray[0].zone;
+              updates[`PublicCustomers/${customerData.Phone}/zone`] = addressesArray[0].zone;
+          }
+          await update(ref(db), updates);
+      } catch (err) {
+          console.error('Error saving address:', err);
+      }
+  };
+
+  const deleteAddress = (index) => {
+      const current = customerData.addresses || [];
+      const newAddresses = current.filter((_, i) => i !== index);
+      saveAddressesToFirebase(newAddresses);
+  };
+
+
+  const normalizePhone = (p) => {
+    if (!p) return '';
+    let cp = p.replace(/\D/g, '');
+    if (cp.startsWith('20') && cp.length === 12) cp = '0' + cp.substring(2);
+    else if (cp.startsWith('0020') && cp.length === 14) cp = '0' + cp.substring(4);
+    else if (cp.startsWith('+20') && cp.length === 13) cp = '0' + cp.substring(3);
+    else if (cp.length === 10 && !cp.startsWith('0')) cp = '0' + cp;
+    return cp;
+  };
+
+  const handleSendPhoneOtp = async () => {
+    const clean = normalizePhone(newPhone);
+    if (!clean || clean.length !== 11) {
+      alert(lang === 'en' ? 'Please enter a valid 11-digit phone number' : 'يرجى إدخال رقم هاتف صحيح');
       return;
     }
     
-    setIsSavingAddress(true);
-
-    const addressData = {
-      label: newAddress.label || 'المنزل',
-      zone: newAddress.zone,
-      street: (newAddress.street || '').trim(),
-      building: (newAddress.building || '').trim(),
-      floor: (newAddress.floor || '').trim(),
-      apartment: (newAddress.apartment || '').trim(),
-      landmark: (newAddress.landmark || '').trim(),
-      lat: newAddress.lat || null,
-      lng: newAddress.lng || null,
-      mapsUrl: newAddress.mapsUrl || (newAddress.lat && newAddress.lng ? `https://maps.google.com/?q=${newAddress.lat},${newAddress.lng}` : ''),
-      fullAddress: fullAddr.trim()
-    };
-
-    if (editingAddressId) {
-      const updatedAddresses = addresses.map(a => a.id === editingAddressId ? {
-        ...a,
-        ...addressData
-      } : a);
-      await saveAddressesToFirebase(updatedAddresses);
-
-      if (addressData.zone) {
-        const phoneToUse = customerData.Phone || customerData.phone || userPhone;
-        await update(ref(db, `PublicCustomers/${phoneToUse}`), {
-          Zone: addressData.zone,
-          zone: addressData.zone
-        });
-        await refreshCustomerData(phoneToUse);
-      }
-
-      setEditingAddressId(null);
-    } else {
-      const now = Date.now();
-      if (now - (window.lastAddTimestamp || 0) < 3000) {
-        alert(lang === 'en' ? 'Please wait a moment before adding another address' : 'الرجاء الانتظار قليلاً قبل إضافة عنوان آخر');
-        setIsSavingAddress(false);
-        return;
-      }
-      window.lastAddTimestamp = now;
-
-      if (addresses.length >= 5) {
-        alert(lang === 'en' ? 'You have reached the maximum limit of 5 addresses' : 'لقد وصلت للحد الأقصى (5 عناوين)');
-        setIsSavingAddress(false);
-        return;
-      }
-
-      const addressToSave = {
-        id: Date.now().toString(),
-        ...addressData,
-        isDefault: addresses.length === 0
-      };
-
-      const updatedAddresses = [...addresses, addressToSave];
-      await saveAddressesToFirebase(updatedAddresses);
-
-      if (addressData.zone && (!customerData.Zone && !customerData.zone)) {
-        const phoneToUse = customerData.Phone || customerData.phone || userPhone;
-        await update(ref(db, `PublicCustomers/${phoneToUse}`), {
-          Zone: addressData.zone,
-          zone: addressData.zone
-        });
-        await refreshCustomerData(phoneToUse);
-      }
-    }
+    // Generate a random 4-digit code
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    setGeneratedPhoneOtp(code);
     
-    setNewAddress({ 
-      label: 'المنزل', 
-      zone: '', 
-      street: '', 
-      building: '', 
-      floor: '', 
-      apartment: '', 
-      landmark: '', 
-      lat: null, 
-      lng: null, 
-      mapsUrl: '', 
-      fullAddress: '' 
+    // Push to WhatsAppQueue
+    const { push, set: firebaseSet } = await import('firebase/database');
+    const newReqRef = push(ref(db, 'WhatsAppQueue'));
+    await firebaseSet(newReqRef, {
+      phone: clean,
+      message: `كود التحقق لتغيير رقم الهاتف هو: ${code}`,
+      type: 'otp',
+      code: code,
+      timestamp: Date.now()
     });
-    setShowAddForm(false);
-    setIsSavingAddress(false);
+    
+    setPhoneOtpStep(true);
+    setOtpError('');
   };
 
-  const handleDeleteAddress = async (id) => {
-    if (addresses.length === 1) {
-      alert(lang === 'en' ? 'You cannot delete your only address' : 'لا يمكنك حذف عنوانك الوحيد المتبقي');
+  const handleVerifyPhoneOtp = async () => {
+    if (phoneOtp !== generatedPhoneOtp) {
+      setOtpError(lang === 'en' ? 'Invalid OTP code' : 'كود غير صحيح');
       return;
     }
-    const confirmDelete = window.confirm(lang === 'en' ? 'Are you sure you want to delete this address?' : 'هل أنت متأكد أنك تريد حذف هذا العنوان؟');
-    if (!confirmDelete) return;
-
-    let updatedAddresses = addresses.filter(a => a.id !== id);
-    if (!updatedAddresses.some(a => a.isDefault) && updatedAddresses.length > 0) {
-      updatedAddresses[0].isDefault = true;
+    
+    const clean = normalizePhone(newPhone);
+    const { push, set: firebaseSet, update: firebaseUpdate, remove: firebaseRemove } = await import('firebase/database');
+    
+    try {
+      // 1. Send update to POS
+      const updateRef = push(ref(db, 'CustomerUpdates'));
+      await firebaseSet(updateRef, {
+        OldPhone: customerData.Phone,
+        NewPhone: clean,
+        Timestamp: new Date().toISOString()
+      });
+      
+      // 2. Update UidToPhone mapping
+      const { auth } = await import('../firebase');
+      const user = auth.currentUser;
+      if (user) {
+        await firebaseSet(ref(db, `UidToPhone/${user.uid}`), clean);
+      }
+      
+      // 3. Clone PublicCustomer data to new phone key (POS will eventually push it, but this makes it instant)
+      const newData = { ...customerData, Phone: clean };
+      await firebaseSet(ref(db, `PublicCustomers/${clean}`), newData);
+      
+      // We don't delete the old one immediately to avoid race conditions, but we can update our local context
+      alert(lang === 'en' ? 'Phone number updated successfully!' : 'تم تحديث رقم الهاتف بنجاح!');
+      setPhoneEditMode(false);
+      setPhoneOtpStep(false);
+      setPhoneOtp('');
+      
+      // Refresh AuthContext
+      if (window.location) {
+         window.location.reload();
+      }
+    } catch(e) {
+      alert(e.message);
     }
-
-    await saveAddressesToFirebase(updatedAddresses);
   };
 
-  const handleSetDefault = async (id) => {
-    const updatedAddresses = addresses.map(a => ({
-      ...a,
-      isDefault: a.id === id
-    }));
-    await saveAddressesToFirebase(updatedAddresses);
-  };
-
-  const getAddressIcon = (label) => {
-    if (label === 'المنزل' || label === 'Home') return <Home size={18} />;
-    if (label === 'العمل' || label === 'Work') return <Briefcase size={18} />;
-    return <MapPin size={18} />;
-  };
+  const BackButton = () => (
+    <button onClick={() => setActiveView('dashboard')} className="mb-6 px-4 py-2 rounded-lg bg-black-surface border border-brand-red-dark text-text-light font-bold flex items-center gap-2 hover:bg-brand-red/20 transition-all">
+      <ChevronLeft size={20} className={lang === 'ar' ? 'rotate-180' : ''} />
+      {lang === 'en' ? 'Back to Dashboard' : 'العودة للوحة التحكم'}
+    </button>
+  );
 
   return (
-    <div className="flex flex-col md:flex-row gap-6" dir={lang === 'en' ? 'ltr' : 'rtl'}>
-      <div className="w-full md:w-64 flex flex-col gap-2 shrink-0">
-        <button onClick={() => setActiveTab('overview')} className={`p-4 rounded-xl flex items-center gap-3 transition-colors ${activeTab === 'overview' ? 'bg-brand-red text-text-light font-bold' : 'bg-black-surface text-text-muted hover:bg-black-primary'}`}>
-          <User size={20} />
-          <span>{lang === 'en' ? 'Overview' : 'نظرة عامة'}</span>
-        </button>
-        <button onClick={() => setActiveTab('orders')} className={`p-4 rounded-xl flex items-center gap-3 transition-colors ${activeTab === 'orders' ? 'bg-brand-red text-text-light font-bold' : 'bg-black-surface text-text-muted hover:bg-black-primary'}`}>
-          <Package size={20} />
-          <span>{lang === 'en' ? 'My Orders' : 'طلباتي'}</span>
-        </button>
-        <button onClick={() => setActiveTab('addresses')} className={`p-4 rounded-xl flex items-center gap-3 transition-colors ${activeTab === 'addresses' ? 'bg-brand-red text-text-light font-bold' : 'bg-black-surface text-text-muted hover:bg-black-primary'}`}>
-          <MapPin size={20} />
-          <span>{lang === 'en' ? 'My Addresses' : 'عناويني'}</span>
-        </button>
-        <button onClick={() => setActiveTab('settings')} className={`p-4 rounded-xl flex items-center gap-3 transition-colors ${activeTab === 'settings' ? 'bg-brand-red text-text-light font-bold' : 'bg-black-surface text-text-muted hover:bg-black-primary'}`}>
-          <Settings size={20} />
-          <span>{lang === 'en' ? 'Settings' : 'الإعدادات'}</span>
-        </button>
-      </div>
-
-      <div className="flex-1 bg-black-surface p-6 rounded-xl border border-brand-red/10 min-h-[400px]">
-        {/* Missing Zone Alert for Existing Users */}
-        {(!customerData.Zone && !customerData.zone) && (
-          <div className="mb-6 p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 shadow-lg">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div>
-                <h4 className="font-bold text-base flex items-center gap-2">
-                  <span>📍</span> يرجى تحديد منطقتك السكنية لتفعيل خدمة الدليفري
-                </h4>
-                <p className="text-xs text-text-muted mt-1 leading-relaxed">
-                  حدد منطقتك لحساب رسوم التوصيل الصحيحة لطلباتك بدقة وضمان سرعة التوصيل.
-                </p>
-              </div>
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <select 
-                  className="bg-black-primary border border-amber-500/50 text-text-light text-sm p-2.5 rounded-xl font-bold focus:outline-none"
-                  value={zoneUpdateInput}
-                  onChange={e => setZoneUpdateInput(e.target.value)}
-                >
-                  <option value="">-- اختر منطقتك السكنية --</option>
-                  {zonesList.map(z => (
-                    <option key={z.id || z.name} value={z.name}>{z.name}</option>
-                  ))}
-                </select>
-                <button 
-                  type="button"
-                  onClick={handleSaveExistingZone}
-                  disabled={!zoneUpdateInput || savingZone}
-                  className="px-5 py-2.5 bg-amber-500 text-black font-black text-sm rounded-xl hover:bg-amber-400 disabled:opacity-50 shrink-0 transition-colors"
-                >
-                  {savingZone ? 'جاري الحفظ...' : 'حفظ المنطقة'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'overview' && (
-          <div>
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-2xl font-bold text-text-light">{lang === 'en' ? 'Welcome,' : 'أهلاً بك،'} <span className="text-brand-red">{customerData.Name}</span></h3>
-            </div>
-            <div className="grid grid-cols-2 gap-4 mb-8">
-              <div className="bg-black-primary border border-brand-red/30 rounded-xl p-6 text-center">
-                <p className="text-sm text-brand-red font-medium mb-2">{lang === 'en' ? 'Current Points' : 'نقاط الولاء'}</p>
-                <p className="text-4xl font-bold text-brand-red">{customerData.Points || 0}</p>
-              </div>
-              <div className="bg-black-primary border border-brand-red-dark/30 rounded-xl p-6 text-center">
-                <p className="text-sm text-text-light font-medium mb-2">{lang === 'en' ? 'Total Orders' : 'إجمالي الطلبات'}</p>
-                <p className="text-4xl font-bold text-text-light">{customerData.TotalOrders || 0}</p>
-              </div>
-            </div>
+    <div className="w-full bg-black min-h-screen text-text-light font-sans pb-20" dir={lang === 'en' ? 'ltr' : 'rtl'}>
+      <div className="max-w-7xl mx-auto">
+        
+        {activeView === 'dashboard' && (
+          <div className="flex flex-col gap-6 lg:gap-8">
             
-            {activeOrders.length > 0 && (
-              <div>
-                <h4 className="font-bold text-lg mb-4 text-text-light">{lang === 'en' ? 'Active Orders' : 'طلباتك الحالية'}</h4>
-                <div className="border border-brand-red/50 bg-black-primary p-4 rounded-xl flex justify-between items-center">
-                   <div>
-                      <p className="font-bold text-text-light">{lang === 'en' ? 'Order' : 'طلب'} {activeOrders[0].OrderNumber}</p>
-                      <p className="text-brand-red text-sm mt-1">{translateStatus(activeOrders[0].Status)}</p>
-                   </div>
-                   <button onClick={() => { setActiveTab('orders'); setExpandedOrder(activeOrders[0].OrderNumber); }} className="text-sm bg-brand-red px-4 py-2 rounded-lg text-white font-bold">{lang === 'en' ? 'View' : 'عرض التفاصيل'}</button>
+            {/* Header Profile */}
+            <div className="bg-black-surface border border-brand-red/10 rounded-2xl p-6 lg:p-8 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-red to-amber-500 opacity-50"></div>
+              
+              <div className="flex items-center gap-6">
+                <div className="relative">
+                  <div className="w-20 h-20 rounded-full bg-[#0D0D0D] border-2 border-brand-red flex items-center justify-center shadow-[0_0_15px_rgba(230,57,70,0.3)]">
+                    <span className="font-display text-4xl text-brand-red font-black">{customerData.Name ? customerData.Name.charAt(0).toUpperCase() : 'M'}</span>
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-brand-red text-white flex items-center justify-center border-2 border-black-surface">
+                    <CheckCircle2 size={12} />
+                  </div>
+                </div>
+                
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-3">
+                    <h1 className="font-display text-2xl lg:text-3xl font-black">{lang === 'en' ? 'Welcome,' : 'أهلاً بك،'} {customerData.Name}</h1>
+                    <span className="px-3 py-1 rounded-full bg-brand-red/20 text-brand-red text-xs font-bold hidden sm:block">
+                      {lang === 'en' ? 'VIP Member' : 'عضوية النخبة (VIP)'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4 mt-2 text-text-muted text-sm">
+                    <span className="flex items-center gap-1">
+                      <span className="text-amber-500">tag</span> 
+                      {lang === 'en' ? 'ID: ' : 'رقم العضوية '}BB-{customerData.Phone?.substring(customerData.Phone.length - 4) || '0000'}
+                    </span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-text-muted"></span>
+                    <span className="flex items-center gap-1 text-brand-red">
+                      <Flame size={14} />
+                      {lang === 'en' ? 'Active Account' : 'عضو فعال'}
+                    </span>
+                  </div>
                 </div>
               </div>
+              
+              <a href="/#menu" className="w-full md:w-auto px-8 py-3.5 rounded-xl bg-brand-red/10 border border-brand-red text-text-light hover:bg-brand-red font-bold flex items-center justify-center gap-2 transition-all shadow-[0_0_15px_rgba(230,57,70,0.15)] hover:shadow-[0_0_25px_rgba(230,57,70,0.4)]">
+                <PlusCircle size={20} />
+                {lang === 'en' ? 'New Order' : 'طلب جديد'}
+              </a>
+            </div>
+
+            {/* Metrics */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-black-surface border border-brand-red/10 rounded-2xl p-6 flex flex-col justify-between min-h-[140px]">
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-sm font-bold text-text-muted">{lang === 'en' ? 'TOTAL ORDERS' : 'إجمالي الطلبات'}</span>
+                  <Package size={20} className="text-brand-red" />
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-5xl font-black">{customerData.TotalOrders || 0}</span>
+                  <span className="text-sm text-text-muted">{lang === 'en' ? 'Orders' : 'طلب مكتمل'}</span>
+                </div>
+              </div>
+              <div className="bg-black-surface border border-brand-red/10 rounded-2xl p-6 flex flex-col justify-between min-h-[140px]">
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-sm font-bold text-text-muted">{lang === 'en' ? 'SMOKE POINTS' : 'نقاط الدخان'}</span>
+                  <Flame size={20} className="text-amber-500" />
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-5xl font-black text-amber-500">{customerData.Points || 0}</span>
+                  <span className="text-sm text-text-muted">{lang === 'en' ? 'Pts' : 'نقطة'}</span>
+                </div>
+              </div>
+              <div className="bg-black-surface border border-brand-red/10 rounded-2xl p-6 flex flex-col justify-between min-h-[140px]">
+                <div className="flex justify-between items-center mb-4">
+                  <span className="text-sm font-bold text-text-muted">{lang === 'en' ? 'TIER LEVEL' : 'مستوى العضوية'}</span>
+                  <ShieldCheck size={20} className="text-text-light" />
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-black">{customerData.Tier || (lang === 'en' ? ((customerData.Points || 0) > 1000 ? 'Golden Pitmaster' : 'Silver Pitmaster') : ((customerData.Points || 0) > 1000 ? 'الشيف الذهبي' : 'الشيف الفضي'))}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Active Order Tracker */}
+            {activeOrders.length > 0 && (
+              <div className="bg-black-surface border border-brand-red/40 rounded-2xl p-6 lg:p-8 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-red to-amber-500 opacity-50"></div>
+                <div className="flex items-center gap-4">
+                  <div className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-red opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-brand-red"></span>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-text-light text-lg flex flex-wrap items-center gap-3">
+                      {lang === 'en' ? `Active Order #${activeOrders[0].OrderNumber}` : `الطلب الحالي #${activeOrders[0].OrderNumber}`}
+                      <span className="px-3 py-1 rounded-full bg-brand-red/20 text-brand-red text-xs whitespace-nowrap">{translateStatus(activeOrders[0].Status)}</span>
+                    </h4>
+                  </div>
+                </div>
+                <button onClick={() => { if (activeOrders[0].TrackingToken) navigate('/track/' + activeOrders[0].TrackingToken); else { setActiveView('orders'); setExpandedOrder(activeOrders[0].OrderNumber); } }} className="w-full sm:w-auto px-6 py-3 bg-[#0D0D0D] border border-brand-red/50 hover:bg-brand-red text-text-light rounded-xl transition-all text-sm font-bold flex items-center justify-center gap-2">
+                  <Navigation size={18} />
+                  {lang === 'en' ? 'Track Order' : 'تتبع مسار الطلب'}
+                </button>
+              </div>
             )}
+
+            {/* Layout Grid for Recent Orders & Settings */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 pb-10">
+              
+              {/* Recent Orders */}
+              <div className="lg:col-span-7 flex flex-col gap-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-xl font-bold font-display">{lang === 'en' ? 'Recent Orders' : 'الطلبات الأخيرة'}</h2>
+                  <button onClick={() => setActiveView('orders')} className="text-sm text-text-muted hover:text-text-light transition-colors">{lang === 'en' ? 'View Full History' : 'عرض السجل الكامل'}</button>
+                </div>
+                
+                {pastOrders.slice(0, 3).map((order, idx) => (
+                  <div key={idx} className="bg-[#0D0D0D] border border-brand-red/10 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-brand-red/30 transition-all">
+                    <div className="flex flex-col gap-1">
+                      <span className="font-bold text-lg">{lang === 'en' ? 'Order' : 'طلب'} #{order.OrderNumber}</span>
+                      <span className="text-text-muted text-sm">{order.TotalAmount} {lang === 'en' ? 'EGP' : 'ج.م'} • {translateStatus(order.Status)}</span>
+                    </div>
+                    <button onClick={() => { setActiveView('orders'); setExpandedOrder(order.OrderNumber); }} className="px-6 py-2.5 bg-black-surface hover:bg-brand-red/20 border border-brand-red/20 rounded-xl text-sm font-bold transition-colors">
+                      {lang === 'en' ? 'Details' : 'التفاصيل'}
+                    </button>
+                  </div>
+                ))}
+                {pastOrders.length === 0 && (
+                  <div className="bg-[#0D0D0D] border border-brand-red/10 rounded-2xl p-8 text-center text-text-muted">
+                    {lang === 'en' ? 'No past orders yet.' : 'لا يوجد طلبات سابقة.'}
+                  </div>
+                )}
+              </div>
+
+              {/* Side Panels */}
+              <div className="lg:col-span-5 flex flex-col gap-6">
+                
+                
+                  
+                  <div className="bg-black-surface border border-brand-red/10 rounded-2xl p-6 flex flex-col gap-5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-brand-red">
+                      <MapPin size={20} />
+                      <h2 className="text-lg font-bold text-text-light">{lang === 'en' ? 'Delivery Address' : 'عنوان التوصيل الرئيسي'}</h2>
+                    </div>
+                  </div>
+                  {customerData.addresses && customerData.addresses.length > 0 ? (
+                    <div className="bg-[#0D0D0D] rounded-xl p-4 border border-brand-red/10">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-bold">{customerData.addresses[0].label || (lang === 'en' ? 'Home' : 'المنزل')}</span>
+                        <span className="text-xs text-brand-red px-2 py-1 bg-brand-red/10 rounded">{customerData.addresses[0].zone || ''}</span>
+                      </div>
+                      <p className="text-sm text-text-muted leading-relaxed">
+                        {formatAddressDetails(customerData.addresses[0])}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-text-muted">{lang === 'en' ? 'No saved addresses.' : 'لا يوجد عنوان محفوظ.'}</p>
+                  )}
+                  <button onClick={() => setActiveView('addresses')} className="w-full py-3 bg-[#0D0D0D] hover:bg-brand-red/10 border border-brand-red/20 rounded-xl text-sm font-bold transition-colors">
+                    {lang === 'en' ? 'Manage Addresses' : 'إدارة العناوين'}
+                  </button>
+                </div>
+
+                
+                  
+                  <div className="bg-black-surface border border-brand-red/10 rounded-2xl p-6 flex flex-col gap-5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-brand-red">
+                      <User size={20} />
+                      <h2 className="text-lg font-bold text-text-light">{lang === 'en' ? 'Account Info' : 'بيانات الحساب'}</h2>
+                    </div>
+                    <button onClick={() => setActiveView('settings')} className="text-sm text-brand-red hover:underline">{lang === 'en' ? 'Edit' : 'تعديل البيانات'}</button>
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    <div className="bg-[#0D0D0D] rounded-xl p-4 border border-brand-red/10 flex justify-between items-center">
+                      <div className="flex flex-col">
+                        <span className="text-xs text-text-muted">{lang === 'en' ? 'Phone' : 'رقم الجوال'}</span>
+                        <span className="font-bold text-sm" dir="ltr">{customerData.Phone}</span>
+                      </div>
+                      <CheckCircle2 size={16} className="text-amber-500" />
+                    </div>
+                    <div className="bg-[#0D0D0D] rounded-xl p-4 border border-brand-red/10 flex justify-between items-center">
+                      <div className="flex flex-col">
+                        <span className="text-xs text-text-muted">{lang === 'en' ? 'Email' : 'البريد الإلكتروني'}</span>
+                        <span className="font-bold text-sm" dir="ltr">{customerData.Email || '---'}</span>
+                      </div>
+                      {customerData.Email && <CheckCircle2 size={16} className="text-amber-500" />}
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
           </div>
         )}
 
-        {activeTab === 'orders' && (
-          <div>
-            <h3 className="text-2xl font-bold mb-6 text-text-light">{lang === 'en' ? 'Order History' : 'سجل الطلبات'}</h3>
+        {activeView === 'orders' && (
+          <div className="w-full max-w-4xl mx-auto">
+            <BackButton />
+            <h3 className="text-3xl font-display font-bold mb-8 text-text-light">{lang === 'en' ? 'Order History' : 'سجل الطلبات'}</h3>
+              
+              {debugError && <div className="p-4 bg-brand-red text-white">{debugError}</div>}
             {history.length === 0 ? (
-               <p className="text-text-muted text-center py-10">{lang === 'en' ? 'No orders yet.' : 'لم تقم بأي طلبات بعد.'}</p>
+               <div className="bg-black-surface rounded-2xl p-10 text-center border border-brand-red/10">
+                 <p className="text-text-muted">{lang === 'en' ? 'No orders yet.' : 'لم تقم بأي طلبات بعد.'}</p>
+               </div>
             ) : (
               <div className="space-y-4">
-                {[...activeOrders, ...pastOrders].map((order, i) => {
+                {history.map((order, i) => {
                   const isExpanded = expandedOrder === order.OrderNumber;
                   const isActive = !['Completed', 'Cancelled', 'Voided', 'Refunded'].includes(order.Status);
                   return (
-                    <div key={i} className={`border ${isActive ? 'border-brand-red/50' : 'border-brand-red-dark/30'} bg-black-primary rounded-xl overflow-hidden transition-all duration-200`}>
-                      <div 
-                        className="p-4 cursor-pointer hover:bg-black-surface/50 flex justify-between items-center"
-                        onClick={() => setExpandedOrder(isExpanded ? null : order.OrderNumber)}
-                      >
+                    <div key={i} className={`bg-black-surface border ${isActive ? 'border-brand-red' : 'border-brand-red/20'} rounded-2xl overflow-hidden transition-all duration-300`}>
+                      <div className="p-5 cursor-pointer hover:bg-black-primary flex flex-col md:flex-row justify-between items-start md:items-center gap-4" onClick={() => setExpandedOrder(isExpanded ? null : order.OrderNumber)}>
                         <div className="flex items-center gap-4">
-                          <div className={`w-12 h-12 rounded-full flex items-center justify-center ${getStatusColor(order.Status)}`}>
-                            <Package size={20} />
+                          <div className={`w-14 h-14 rounded-full flex items-center justify-center ${getStatusColor(order.Status)}`}>
+                            <Package size={24} />
                           </div>
                           <div>
-                            <p className="font-bold text-text-light text-lg">{lang === 'en' ? 'Order' : 'طلب'} {order.OrderNumber}</p>
-                            <p className="text-sm text-text-muted">{new Date(order.OrderDate).toLocaleDateString(lang === 'en' ? 'en-US' : 'ar-EG', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
+                            <p className="font-bold text-xl">{lang === 'en' ? 'Order' : 'طلب'} #{order.OrderNumber}</p>
+                            <p className="text-sm text-text-muted mt-1">{new Date(order.OrderDate).toLocaleDateString(lang === 'en' ? 'en-US' : 'ar-EG', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
                           </div>
                         </div>
-                        <div className="flex flex-col items-end">
-                          <p className="font-bold text-lg text-text-light">{order.TotalAmount} {lang === 'en' ? 'EGP' : 'ج.م'}</p>
-                          <p className={`text-sm font-semibold ${isActive ? 'text-brand-red' : 'text-text-muted'}`}>{translateStatus(order.Status)}</p>
+                        <div className="flex flex-col md:items-end">
+                          <p className="font-bold text-2xl">{order.TotalAmount} {lang === 'en' ? 'EGP' : 'ج.م'}</p>
+                          <p className={`text-sm font-bold ${isActive ? 'text-brand-red' : 'text-text-muted'} mt-1`}>{translateStatus(order.Status)}</p>
                         </div>
                       </div>
                       
                       {isExpanded && (
-                        <div className="p-4 border-t border-brand-red/20 bg-black-surface flex gap-2">
-                             <button onClick={() => handleOrderAgain(order)} className={`${isActive ? 'w-1/3' : 'w-full'} bg-black-primary border border-brand-red/50 hover:bg-black-surface text-brand-red font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors`}>
-                                <RotateCcw size={18} />
-                                {lang === 'en' ? 'Reorder' : 'اطلب مجدداً'}
+                        <div className="p-5 border-t border-brand-red/10 bg-[#0D0D0D] flex flex-col md:flex-row gap-4">
+                           <button onClick={() => handleOrderAgain(order)} className={`w-full md:w-auto px-8 py-3 bg-brand-red/10 hover:bg-brand-red border border-brand-red text-text-light font-bold rounded-xl flex items-center justify-center gap-2 transition-colors`}>
+                              <RotateCcw size={18} />
+                              {lang === 'en' ? 'Reorder' : 'اطلب مجدداً'}
+                           </button>
+                           {isActive && (
+                             <button onClick={() => navigate('/track/' + order.TrackingToken)} className="w-full md:w-auto px-8 py-3 bg-black-surface border border-text-muted hover:border-brand-red hover:text-brand-red text-text-light font-bold rounded-xl flex items-center justify-center gap-2 transition-colors">
+                                <Navigation size={18} />
+                                {lang === 'en' ? 'Track Order' : 'تتبع الطلب'}
                              </button>
-                             {isActive && (
-                               <button onClick={() => navigate('/track/' + encodeURIComponent(order.OrderNumber))} className="w-2/3 bg-brand-red hover:bg-brand-red-dark text-text-light font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors">
-                                  <Navigation size={18} />
-                                  {lang === 'en' ? 'Track Order' : 'تتبع الطلب مباشرة'}
-                               </button>
-                             )}
+                           )}
                         </div>
                       )}
                     </div>
@@ -465,178 +499,163 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
           </div>
         )}
 
-        {activeTab === 'addresses' && (
-          <div>
-            <div className="flex justify-between items-center mb-6">
-               <h3 className="text-2xl font-bold text-text-light">{lang === 'en' ? 'My Addresses' : 'عناويني المحفوظة'}</h3>
-               {!showAddForm && addresses.length < 5 && (
-                 <button onClick={() => setShowAddForm(true)} className="flex items-center gap-1 bg-brand-red hover:bg-brand-red-dark text-white px-3 py-2 rounded-lg text-sm transition-colors">
-                   <Plus size={16} />
-                   <span>{lang === 'en' ? 'Add New' : 'إضافة عنوان'}</span>
-                 </button>
-               )}
-            </div>
-
-            {showAddForm && (
-              <div className="bg-black-primary border border-brand-red/30 p-4 rounded-xl mb-6">
-                <h4 className="font-bold text-text-light mb-4">{editingAddressId ? (lang === 'en' ? 'Edit Address' : 'تعديل العنوان') : (lang === 'en' ? 'New Address' : 'عنوان جديد')}</h4>
-                <div className="flex gap-2 mb-4">
-                  {['المنزل', 'العمل', 'أخرى'].map((lbl) => (
-                    <button 
-                      key={lbl}
-                      onClick={() => setNewAddress({...newAddress, label: lbl})}
-                      className={`px-4 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors ${newAddress.label === lbl ? 'bg-brand-red text-white' : 'bg-black-surface text-text-muted border border-brand-red-dark/30'}`}
-                    >
-                      {getAddressIcon(lbl)}
-                      {lang === 'en' ? (lbl === 'المنزل' ? 'Home' : lbl === 'العمل' ? 'Work' : 'Other') : lbl}
-                    </button>
-                  ))}
-                </div>
-                <AddressMapPicker 
-                  value={newAddress} 
-                  onChange={setNewAddress} 
-                  zonesList={zonesList} 
-                  lang={lang} 
-                />
-                <div className="flex justify-end gap-3">
-                  <button 
-                    onClick={() => {
-                      setShowAddForm(false);
-                      setEditingAddressId(null);
-                      setNewAddress({ label: 'المنزل', zone: '', fullAddress: '' });
-                    }} 
-                    className="px-4 py-2 text-text-muted hover:text-text-light"
-                  >
-                    {lang === 'en' ? 'Cancel' : 'إلغاء'}
+        {activeView === 'addresses' && (
+          <div className="w-full max-w-4xl mx-auto">
+            <BackButton />
+            <div className="bg-black-surface rounded-3xl border border-brand-red/10 overflow-hidden shadow-2xl p-6 lg:p-10">
+              <div className="flex justify-between items-center mb-8">
+                <h3 className="text-2xl lg:text-3xl font-display font-bold">{lang === 'en' ? 'Saved Addresses' : 'عناويني المحفوظة'}</h3>
+                {!isAddingAddress && (
+                  <button onClick={() => { setEditingAddressIndex(null); setIsAddingAddress(true); }} className="bg-brand-red text-white font-bold px-6 py-3 rounded-xl flex items-center gap-2 hover:bg-brand-red-dark transition-colors">
+                    <Plus size={18} />
+                    <span className="hidden sm:inline">{lang === 'en' ? 'Add Address' : 'إضافة عنوان'}</span>
                   </button>
-                  <button onClick={handleAddAddress} disabled={isSavingAddress || !newAddress.fullAddress.trim() || !newAddress.zone || newAddress.isOutOfZone} className="bg-brand-red text-white px-6 py-2 rounded-lg disabled:opacity-50 font-bold">
-                    {isSavingAddress ? '...' : (editingAddressId ? (lang === 'en' ? 'Update' : 'حفظ التعديلات') : (lang === 'en' ? 'Save' : 'حفظ العنوان'))}
-                  </button>
-                </div>
+                )}
               </div>
-            )}
-
-            {addresses.length === 0 ? (
-               <div className="text-center py-10 bg-black-primary rounded-xl border border-brand-red-dark/20">
-                  <MapPin size={40} className="mx-auto text-text-muted mb-3" />
-                  <p className="text-text-light mb-4">{lang === 'en' ? 'You have no saved addresses.' : 'ليس لديك أي عناوين محفوظة.'}</p>
-                  <button onClick={() => setShowAddForm(true)} className="bg-brand-red text-white px-6 py-2 rounded-lg">{lang === 'en' ? 'Add Your First Address' : 'أضف أول عنوان الآن'}</button>
-               </div>
-            ) : (
-              <div className="grid gap-4">
-                {addresses.map((addr) => (
-                  <div key={addr.id} className={`p-4 rounded-xl border ${addr.isDefault ? 'border-brand-red bg-brand-red/5' : 'border-brand-red-dark/30 bg-black-primary'} flex justify-between items-start`}>
-                     <div className="flex gap-4 items-start">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${addr.isDefault ? 'bg-brand-red text-white' : 'bg-black-surface text-text-muted'}`}>
-                           {getAddressIcon(addr.label)}
-                        </div>
-                        <div>
-                           <div className="flex items-center gap-2 mb-1">
-                              <h5 className="font-bold text-text-light">{lang === 'en' ? (addr.label === 'المنزل' ? 'Home' : addr.label === 'العمل' ? 'Work' : 'Other') : addr.label}</h5>
-                              {addr.isDefault && (
-                                <span className="text-[10px] bg-brand-red text-white px-2 py-0.5 rounded-full uppercase tracking-wider">{lang === 'en' ? 'Default' : 'الافتراضي'}</span>
-                              )}
-                           </div>
-                           {addr.zone && (
-                                <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                                  <span className="inline-flex items-center gap-1 text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-md font-bold">
-                                    <MapPin size={12} /> {addr.zone}
-                                  </span>
-                                  {addr.mapsUrl && (
-                                    <a 
-                                      href={addr.mapsUrl} 
-                                      target="_blank" 
-                                      rel="noopener noreferrer" 
-                                      className="inline-flex items-center gap-1 text-[11px] bg-blue-500/20 text-blue-400 hover:text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-md font-bold transition-colors"
-                                    >
-                                      🗺️ خريطة الموقع
-                                    </a>
-                                  )}
-                                </div>
-                              )}
-                              <p className="text-text-light text-sm font-semibold mb-1">{addr.fullAddress}</p>
-                              {(addr.building || addr.floor || addr.apartment) && (
-                                <p className="text-xs text-text-muted">
-                                  {addr.building && <span>عمارة: {addr.building} </span>}
-                                  {addr.floor && <span>| دور: {addr.floor} </span>}
-                                  {addr.apartment && <span>| شقة: {addr.apartment} </span>}
-                                  {addr.landmark && <span>| علامة: {addr.landmark}</span>}
-                                </p>
-                              )}
-                        </div>
-                     </div>
-                     <div className="flex flex-col gap-2 items-end shrink-0">
-                        {!addr.isDefault && (
-                          <button onClick={() => handleSetDefault(addr.id)} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
-                            <CheckCircle2 size={14} /> {lang === 'en' ? 'Set Default' : 'تعيين كافتراضي'}
-                          </button>
-                        )}
-                        <button 
-                          onClick={() => {
-                            setEditingAddressId(addr.id);
-                            setNewAddress({ 
-                              label: addr.label, 
-                              zone: addr.zone || '', 
-                              street: addr.street || '',
-                              building: addr.building || '',
-                              floor: addr.floor || '',
-                              apartment: addr.apartment || '',
-                              landmark: addr.landmark || '',
-                              lat: addr.lat || null,
-                              lng: addr.lng || null,
-                              mapsUrl: addr.mapsUrl || '',
-                              fullAddress: addr.fullAddress || '' 
-                            });
-                            setShowAddForm(true);
-                          }} 
-                          className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer"
-                        >
-                          <Edit3 size={14} /> {lang === 'en' ? 'Edit' : 'تعديل'}
-                        </button>
-                        <button onClick={() => handleDeleteAddress(addr.id)} className="text-xs text-red-500 hover:text-red-400 flex items-center gap-1">
-                          <Trash2 size={14} /> {lang === 'en' ? 'Delete' : 'حذف'}
-                        </button>
-                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'settings' && (
-          <div className="max-w-md">
-            <h3 className="text-2xl font-bold mb-6 text-text-light">{lang === 'en' ? 'Account Settings' : 'إعدادات الحساب'}</h3>
-            
-            <div className="bg-black-primary rounded-xl p-5 mb-6 border border-brand-red-dark/30">
-              <h4 className="font-bold text-text-light mb-3">{lang === 'en' ? 'Email Address' : 'البريد الإلكتروني'}</h4>
-              {editingEmail ? (
-                <div className="flex flex-col gap-3">
-                  <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} className="bg-black-surface border border-brand-red/50 text-text-light p-3 rounded-lg focus:outline-none" placeholder={lang === 'en' ? 'Enter Email' : 'أدخل البريد الإلكتروني'} />
-                  <div className="flex gap-2">
-                    <button onClick={handleSaveEmail} disabled={savingEmail} className="bg-brand-red text-text-light px-4 py-2 rounded-lg text-sm font-bold flex-1">
-                      {savingEmail ? '...' : (lang === 'en' ? 'Save' : 'حفظ التعديل')}
-                    </button>
-                    <button onClick={() => {setEditingEmail(false); setNewEmail(customerData.Email || '');}} className="bg-black-surface text-text-light border border-text-muted px-4 py-2 rounded-lg text-sm">
+              
+              {isAddingAddress ? (
+                <div className="bg-[#0D0D0D] rounded-2xl p-6 border border-brand-red/20 relative">
+                  <div className="flex justify-between items-center mb-6">
+                    <h4 className="font-bold text-xl">{editingAddressIndex !== null ? (lang === 'en' ? 'Edit Address' : 'تعديل العنوان') : (lang === 'en' ? 'Add New Address' : 'إضافة عنوان جديد')}</h4>
+                    <button onClick={() => { setIsAddingAddress(false); setEditingAddressIndex(null); }} className="text-text-muted hover:text-brand-red">
                       {lang === 'en' ? 'Cancel' : 'إلغاء'}
                     </button>
                   </div>
+                  <AddressMapPicker 
+                      value={addressDraft}
+                      onChange={setAddressDraft}
+                      zonesList={menuData?.deliveryZones || []} 
+                      lang={lang}
+                    />
+                    <div className="mt-4 pt-4 border-t border-brand-red/10 flex justify-end">
+                      <button 
+                        onClick={() => {
+                          const formatted = formatAddressDetails(addressDraft);
+                          addressDraft.fullAddress = formatted;
+                          addressDraft.label = addressDraft.label || (lang === 'en' ? 'Address' : 'عنوان');
+                          handleSaveAddress(addressDraft);
+                        }}
+                        disabled={!addressDraft.street || !addressDraft.building || !addressDraft.floor || !addressDraft.apartment || !addressDraft.zone}
+                        className="px-8 py-3 bg-brand-red hover:bg-brand-red-light text-white font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {lang === 'en' ? 'Save Address' : 'حفظ العنوان'}
+                      </button>
+                    </div>
                 </div>
               ) : (
-                <div className="flex justify-between items-center">
-                  <p className="text-text-muted">{customerData.Email || (lang === 'en' ? 'No email linked' : 'لا يوجد بريد إلكتروني مرتبط')}</p>
-                  <button onClick={() => setEditingEmail(true)} className="text-sm text-blue-400 flex items-center gap-1 hover:text-blue-300">
-                    <Edit3 size={14} /> {lang === 'en' ? 'Edit' : 'تعديل'}
-                  </button>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {customerData.addresses?.map((addr, i) => (
+                    <div key={i} className="bg-[#0D0D0D] border border-brand-red/20 rounded-2xl p-6 relative group hover:border-brand-red transition-all">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-brand-red/10 text-brand-red flex items-center justify-center">
+                            <MapPin size={20} />
+                          </div>
+                          <div>
+                            <span className="font-bold text-lg">{addr.label || (lang === 'en' ? 'Address' : 'عنوان')}</span>
+                            {i === 0 && <span className="ml-2 px-2 py-0.5 text-xs bg-brand-red text-white rounded">{lang === 'en' ? 'Default' : 'الافتراضي'}</span>}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={() => { setEditingAddressIndex(i); setIsAddingAddress(true); }} className="text-amber-500 hover:text-amber-400 p-2"><Edit3 size={16} /></button>
+                          <button onClick={() => deleteAddress(i)} className="text-brand-red hover:text-brand-red-dark p-2"><Trash2 size={16} /></button>
+                        </div>
+                      </div>
+                      <p className="text-text-muted text-sm leading-relaxed mb-4">{formatAddressDetails(addr)}</p>
+                      <div className="inline-block px-3 py-1 bg-brand-red/10 text-brand-red text-sm rounded-lg font-bold border border-brand-red/20">
+                        {addr.zone}
+                      </div>
+                    </div>
+                  ))}
+                  {(!customerData.addresses || customerData.addresses.length === 0) && (
+                    <div className="col-span-full py-12 text-center text-text-muted bg-[#0D0D0D] rounded-2xl border border-dashed border-text-muted/30">
+                      {lang === 'en' ? 'You have no saved addresses.' : 'ليس لديك عناوين محفوظة.'}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
+          </div>
+        )}
 
-            <div className="pt-4 border-t border-brand-red-dark/30">
-               <button onClick={onLogout} className="w-full flex items-center justify-center gap-2 text-red-500 hover:text-red-400 bg-red-500/10 hover:bg-red-500/20 py-3 rounded-xl transition-colors font-bold">
-                 <LogOut size={18} />
-                 <span>{lang === 'en' ? 'Sign Out' : 'تسجيل الخروج'}</span>
-               </button>
+        {activeView === 'settings' && (
+          <div className="w-full max-w-2xl mx-auto">
+            <BackButton />
+            <div className="bg-black-surface rounded-3xl border border-brand-red/10 p-6 lg:p-10 shadow-2xl">
+              <h3 className="text-3xl font-display font-bold mb-8 text-center">{lang === 'en' ? 'Account Settings' : 'إعدادات الحساب'}</h3>
+              
+              <div className="bg-[#0D0D0D] p-6 rounded-2xl border border-brand-red/20 space-y-6">
+
+                 {/* Phone Number Section */}
+                 <div className="space-y-3 pb-6 border-b border-brand-red/10">
+                   <div className="flex justify-between items-center">
+                     <p className="text-sm font-bold text-text-muted">{lang === 'en' ? 'Phone Number' : 'رقم الجوال'}</p>
+                     {!phoneEditMode && (
+                       <button onClick={() => { setNewPhone(customerData.Phone || ''); setPhoneEditMode(true); }} className="text-brand-red text-sm font-bold flex items-center gap-1 hover:underline">
+                         <Edit3 size={14}/> {lang === 'en' ? 'Edit' : 'تعديل'}
+                       </button>
+                     )}
+                   </div>
+                   
+                   {!phoneEditMode ? (
+                     <p className="font-bold text-xl" dir="ltr">{customerData.Phone || '---'}</p>
+                   ) : !phoneOtpStep ? (
+                     <div className="flex flex-col gap-3">
+                       <input type="tel" value={newPhone} onChange={e => setNewPhone(e.target.value)} placeholder="01X XXXX XXXX" className="w-full bg-black-surface border border-brand-red/50 text-white rounded-lg p-3 outline-none" dir="ltr" />
+                       <div className="flex gap-3">
+                         <button onClick={handleSendPhoneOtp} className="flex-1 bg-brand-red hover:bg-brand-red-dark text-white font-bold py-2 rounded-lg transition-colors">
+                           {lang === 'en' ? 'Send OTP' : 'إرسال كود التحقق'}
+                         </button>
+                         <button onClick={() => setPhoneEditMode(false)} className="px-4 bg-black-surface text-text-muted hover:text-white py-2 rounded-lg border border-brand-red/20">
+                           {lang === 'en' ? 'Cancel' : 'إلغاء'}
+                         </button>
+                       </div>
+                     </div>
+                   ) : (
+                     <div className="flex flex-col gap-3 bg-brand-red/5 p-4 rounded-xl border border-brand-red/20">
+                       <p className="text-sm text-text-muted">{lang === 'en' ? 'Enter the 4-digit code sent to your WhatsApp' : 'أدخل الكود المكون من 4 أرقام المرسل إلى واتساب'}</p>
+                       <input type="text" maxLength={4} value={phoneOtp} onChange={e => setPhoneOtp(e.target.value)} placeholder="----" className="w-full bg-black-surface border border-brand-red/50 text-brand-red text-center font-bold tracking-[1em] rounded-lg p-3 outline-none" dir="ltr" />
+                       {otpError && <p className="text-brand-red text-xs">{otpError}</p>}
+                       <div className="flex gap-3">
+                         <button onClick={handleVerifyPhoneOtp} className="flex-1 bg-brand-red hover:bg-brand-red-dark text-white font-bold py-2 rounded-lg transition-colors">
+                           {lang === 'en' ? 'Verify & Save' : 'تحقق وحفظ'}
+                         </button>
+                         <button onClick={() => { setPhoneOtpStep(false); setPhoneOtp(''); }} className="px-4 bg-black-surface text-text-muted hover:text-white py-2 rounded-lg border border-brand-red/20">
+                           {lang === 'en' ? 'Cancel' : 'إلغاء'}
+                         </button>
+                       </div>
+                     </div>
+                   )}
+                 </div>
+                 
+                 {/* Email Address Section */}
+                 <div className="space-y-3">
+                   <div className="flex justify-between items-center">
+                     <p className="text-sm font-bold text-text-muted">{lang === 'en' ? 'Email Address' : 'البريد الإلكتروني'}</p>
+                     <button onClick={handleSaveEmail} className="text-brand-red text-sm font-bold flex items-center gap-1 hover:underline">
+                       <Edit3 size={14}/> {emailEditMode ? (lang === 'en' ? 'Save' : 'حفظ') : (lang === 'en' ? 'Edit' : 'تعديل')}
+                     </button>
+                   </div>
+                   {emailEditMode ? (
+                     <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} className="w-full bg-black-surface border border-brand-red/50 text-white rounded-lg p-3 outline-none" />
+                   ) : (
+                     <p className="font-bold text-xl" dir="ltr">{customerData.Email || '---'}</p>
+                   )}
+                 </div>
+
+                 <div className="pt-6 border-t border-brand-red/10 space-y-4">
+                   <button onClick={onLogout} className="w-full bg-[#1A1815] border border-brand-red-dark hover:bg-brand-red text-text-light py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all">
+                     <LogOut size={20} />
+                     {lang === 'en' ? 'Sign Out' : 'تسجيل الخروج'}
+                   </button>
+                   
+                   <button onClick={onDeleteAccount} className="w-full bg-transparent border border-brand-red hover:bg-brand-red text-brand-red hover:text-text-light py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all">
+                     <Trash2 size={20} />
+                     {lang === 'en' ? 'Permanently Delete Account' : 'حذف الحساب نهائي من كل الأماكن'}
+                   </button>
+                 </div>
+
+              </div>
             </div>
           </div>
         )}
@@ -647,563 +666,75 @@ const DashboardView = ({ customerData, onLogout, menuData }) => {
 };
 
 
-export default function MyAccountPage({ menuData }) {
+
+
+export default function MyAccountPage() {
   const { lang } = useLanguage();
-  const { currentUser, userPhone, customerData, loading: authLoading, refreshCustomerData } = useAuth();
-  
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [address, setAddress] = useState('');
-  const [selectedZone, setSelectedZone] = useState('');
-  
-  const zonesForAuth = menuData?.deliveryZones || [
-    { id: 1, name: "محرم بك / الشاطبي", deliveryFee: 20 },
-    { id: 2, name: "سموحة", deliveryFee: 30 },
-    { id: 3, name: "سيدي جابر / كليوباترا", deliveryFee: 25 },
-    { id: 4, name: "ميامي / العصافرة", deliveryFee: 35 },
-    { id: 5, name: "العجمي", deliveryFee: 60 }
-  ];
-  const [email, setEmail] = useState('');
-  const [resetCode, setResetCode] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  
-  const [step, setStep] = useState('phone');
-
-  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
-  const [otpInput, setOtpInput] = useState('');
-  const [otpError, setOtpError] = useState('');
-  const [generatedOtp, setGeneratedOtp] = useState('');
-  const [otpExpiry, setOtpExpiry] = useState(0);
+  const navigate = useNavigate();
+  const { customerData, refreshCustomerData, userPhone, loading: authLoading } = useAuth();
+  const [menuData, setMenuData] = useState(null);
 
   useEffect(() => {
-    let unsubscribe;
-    if (isOtpModalOpen && phone) {
-      const cleanPhone = normalizePhone(phone);
-      const verifyRef = ref(db, `OtpVerifications/${cleanPhone}`);
-      unsubscribe = onValue(verifyRef, (snapshot) => {
-        if (snapshot.exists()) {
-          const data = snapshot.val();
-          if (data.code) {
-            setGeneratedOtp(data.code);
-            setOtpExpiry(data.expiresAt);
-            console.log('Received OTP from POS:', data.code);
-          }
-        }
-      });
-    }
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, [isOtpModalOpen, phone]);
+    fetchMenuData().then(data => setMenuData(data));
+  }, []);
 
-  const [isSendingOtp, setIsSendingOtp] = useState(false);
-  const [isExistingCustomer, setIsExistingCustomer] = useState(false);
-  const [isForgotPasswordFlow, setIsForgotPasswordFlow] = useState(false);
-  
-  const normalizePhone = (p) => {
-    let cp = p.replace(/\D/g, '');
-    if (cp.startsWith('20') && cp.length === 12) cp = '0' + cp.substring(2);
-    else if (cp.startsWith('0020') && cp.length === 14) cp = '0' + cp.substring(4);
-    else if (cp.startsWith('+20') && cp.length === 13) cp = '0' + cp.substring(3);
-    else if (cp.length === 10 && !cp.startsWith('0')) cp = '0' + cp;
-    return cp;
-  };
-
-  const sendWhatsAppOtp = async (targetPhone) => {
-    const cleanPhone = normalizePhone(targetPhone);
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiry = Date.now() + 5 * 60 * 1000;
-    setGeneratedOtp(code);
-    console.log('OTP GENERATED:', code);
-    setOtpExpiry(expiry);
-    
-    if (!auth.currentUser) {
-        await signInAnonymously(auth);
-    }
-    
-    const reqId = `otp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    await set(ref(db, `PendingOtpRequests/${reqId}`), {
-      phone: cleanPhone,
-      uid: auth.currentUser.uid,
-      otp: code,
-      createdAt: Date.now()
-    });
-    return code;
-  };
-
-  const handleConfirmOtp = async (e) => {
-    if (e) e.preventDefault();
-    if (!otpInput || otpInput.trim().length !== 6) return setOtpError('يرجى إدخال الكود المكون من 6 أرقام.');
-    if (Date.now() > otpExpiry) return setOtpError('الكود منتهي الصلاحية، يرجى طلب كود جديد.');
-    console.log('Comparing:', { otpInput: otpInput.trim(), generatedOtp, type1: typeof otpInput, type2: typeof generatedOtp });
-    if (otpInput.trim() !== String(generatedOtp)) return setOtpError('الكود غير صحيح.');
-    
-    // OTP Success!
-    setIsOtpModalOpen(false);
-    setOtpError('');
-    setOtpInput('');
-    setLoading(true);
+  const handleLogout = async () => {
     try {
-      const cleanPhone = normalizePhone(phone);
-      const custRef = ref(db, `CustomerLoginEmails/${cleanPhone}`);
-      const custSnap = await get(custRef);
-      if (custSnap.exists()) {
-        if (isForgotPasswordFlow) {
-          setStep('set_password');
-        } else {
-          await signInAnonymously(auth);
-          await set(ref(db, `UidToPhone/${auth.currentUser.uid}`), cleanPhone);
-          await refreshCustomerData(cleanPhone);
-          setStep('dashboard');
-        }
-      } else {
-        await signInAnonymously(auth);
-        setStep('register');
-      }
-    } catch (err) {
-      console.error(err);
-      setOtpError('حدث خطأ أثناء فحص الحساب.');
+      await signOut(auth);
+      await signInAnonymously(auth);
+      navigate('/');
+    } catch (error) {
+      console.error('Logout error:', error);
     }
-    setLoading(false);
   };
 
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    // If auth state resolved and we have both user and data, go to dashboard
-    if (!authLoading && currentUser && customerData) {
-      setStep('dashboard');
-    }
-  }, [currentUser, customerData, authLoading]);
-
-  if (authLoading) return <div className="text-center mt-20">جاري التحميل...</div>;
-
-  const getInternalEmail = (p) => `${p}@internal.smokeandsmash.com`;
-
-  const handlePhoneSubmit = async (e) => {
-    e.preventDefault();
-    let cleanPhone = phone.trim();
-    if (!/^01[0125][0-9]{8}$/.test(cleanPhone)) {
-       return setError('يجب إدخال رقم هاتف مصري صحيح مكون من 11 رقم (مثال: 01012345678)');
-    }
-    setError('');
-    setIsSendingOtp(true);
-    setLoading(true);
-    try {
-      setIsForgotPasswordFlow(false);
-      await sendWhatsAppOtp(phone);
-      setIsOtpModalOpen(true);
-    } catch (err) {
-      console.error('OTP Send Error:', err);
-        setError('حدث خطأ أثناء إرسال كود واتساب');
-    }
-    setIsSendingOtp(false);
-    setLoading(false);
-  };
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    if (!password) return setError('يرجى إدخال كلمة المرور');
-    setError('');
-    setLoading(true);
-
-    try {
-      const cleanPhone = normalizePhone(phone);
-      const custRef = ref(db, `CustomerLoginEmails/${cleanPhone}`);
-      const custSnap = await get(custRef);
-      const authEmail = custSnap.exists() ? custSnap.val().trim() : null;
-      const internalEmail = getInternalEmail(cleanPhone);
-      
-      const emailToTry1 = authEmail || internalEmail;
-      
+  const handleDeleteAccount = async () => {
+    if (window.confirm(lang === 'en' ? 'Are you sure you want to permanently delete your account?' : 'هل أنت متأكد من حذف الحساب نهائياً؟')) {
       try {
-        await signInWithEmailAndPassword(auth, emailToTry1, password);
-      } catch (firstErr) {
-        throw firstErr;
-      }
-      
-      await refreshCustomerData(cleanPhone);
-      setStep('dashboard');
-    } catch (err) {
-      setError('كلمة المرور غير صحيحة أو الحساب غير موجود');
-    }
-    setLoading(false);
-  };
-
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    if (!name) return setError('يرجى إدخال اسمك');
-    if (!selectedZone) return setError('يرجى اختيار منطقتك السكنية (إجباري لتوصيل الطلبات)');
-    if (password.length < 6) return setError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
-    setError('');
-    setLoading(true);
-
-    try {
-      const emailToUse = email.trim() ? email.trim() : getInternalEmail(phone);
-      const res = await createUserWithEmailAndPassword(auth, emailToUse, password);
-      
-      await set(ref(db, `UidToPhone/${res.user.uid}`), phone);
-      await update(ref(db, `PublicCustomers/${phone}`), {
-        Name: name,
-        Phone: phone,
-        Email: email.trim() || null,
-        Address: address.trim() || null,
-        Zone: selectedZone,
-        zone: selectedZone,
-        uid: res.user.uid,
-        RegisteredDate: new Date().toISOString(),
-        Points: 0,
-        TotalOrders: 0
-      });
-
-      await refreshCustomerData(phone);
-      setStep('dashboard');
-    } catch (err) {
-      setError('حدث خطأ أثناء التسجيل: ' + err.message);
-    }
-    setLoading(false);
-  };
-
-  const handleGoogleLogin = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const res = await signInWithPopup(auth, googleProvider);
-      
-      const mapSnap = await get(ref(db, `UidToPhone/${res.user.uid}`));
-      if (!mapSnap.exists()) {
-        setStep('link_phone');
-      } else {
-        await refreshCustomerData(mapSnap.val());
-        setStep('dashboard');
-      }
-    } catch (err) {
-      setError('فشل تسجيل الدخول بجوجل');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLinkPhone = async (e) => {
-    e.preventDefault();
-    let cleanPhone = phone.trim();
-    if (!/^01[0125][0-9]{8}$/.test(cleanPhone)) {
-       return setError('يجب إدخال رقم هاتف مصري صحيح مكون من 11 رقم (مثال: 01012345678)');
-    }
-    setError('');
-    setLoading(true);
-    try {
-      const custSnap = await get(ref(db, `PublicCustomers/${phone}`));
-      if (custSnap.exists() && custSnap.val().uid && custSnap.val().uid !== auth.currentUser.uid) {
-        throw new Error('هذا الرقم مسجل مسبقاً لحساب آخر');
-      }
-
-      await set(ref(db, `UidToPhone/${auth.currentUser.uid}`), phone);
-      
-      if (!custSnap.exists()) {
-        await update(ref(db, `PublicCustomers/${phone}`), {
-          Name: auth.currentUser.displayName || 'عميل جوجل',
-          Phone: phone,
-          Email: auth.currentUser.email,
-          Address: address.trim() || null,
-          uid: auth.currentUser.uid,
-          RegisteredDate: new Date().toISOString(),
-          Points: 0,
-          TotalOrders: 0
-        });
-      } else {
-        await update(ref(db, `PublicCustomers/${phone}`), {
-          Email: auth.currentUser.email,
-          uid: auth.currentUser.uid
-        });
-      }
-      
-      await refreshCustomerData(phone);
-      setStep('dashboard');
-    } catch (err) {
-      setError(err.message);
-    }
-    setLoading(false);
-  };
-
-  const handleForgotPassword = () => {
-    setError('');
-    setStep('reset_options');
-  };
-
-  const handleResetViaCode = async (e) => {
-    e.preventDefault();
-    if (!resetCode || !newPassword) return setError('يرجى إدخال الكود وكلمة المرور الجديدة');
-    if (newPassword.length < 6) return setError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
-    setError('');
-    setLoading(true);
-    try {
-      const custRef = ref(db, `PublicCustomers/${phone}`);
-      const custSnap = await get(custRef);
-      if (custSnap.exists()) {
-        const data = custSnap.val();
-        if (data.RegistrationCode && data.RegistrationCode === resetCode.trim()) {
-          const newAuthEmail = `${phone}_${Date.now()}@internal.smokeandsmash.com`;
-          await createUserWithEmailAndPassword(auth, newAuthEmail, newPassword);
-          await update(custRef, {
-            AuthEmail: newAuthEmail,
-            RegistrationCode: null
-          });
-          await refreshCustomerData(phone);
-          setStep("dashboard");
-        } else {
-          setError("كود التفعيل غير صحيح أو تم استخدامه.");
+        if (userPhone) {
+          const updates = {};
+          updates[`PublicCustomers/${userPhone}/Deleted`] = true;
+          updates[`PublicCustomers/${userPhone}/DeletedAt`] = new Date().toISOString();
+          await update(ref(db), updates);
         }
-      } else {
-        setError("حساب غير موجود.");
-      }
-    } catch (err) {
-      console.error(err);
-      setError("حدث خطأ أثناء التحديث.");
-    }
-    setLoading(false);
-  };
-
-  const handleSendResetLink = async () => {
-    setError('');
-    setLoading(true);
-    try {
-      const custSnap = await get(ref(db, `PublicCustomers/${phone}`));
-      if (custSnap.exists()) {
-        const data = custSnap.val();
-        if (data.Email && !data.Email.includes('@internal')) {
-          await sendPasswordResetEmail(auth, data.Email);
-          alert('تم إرسال رابط استعادة كلمة المرور إلى: ' + data.Email);
-        } else {
-          setError('لا يوجد بريد إلكتروني مسجل. يرجى اختيار طريقة الكود.');
+        const user = auth.currentUser;
+        if (user && !user.isAnonymous) {
+          await deleteUser(user);
         }
+        await signInAnonymously(auth);
+        navigate('/');
+      } catch (error) {
+        console.error('Error deleting account:', error);
+        alert(lang === 'en' ? 'Error deleting account. Please contact support.' : 'حدث خطأ. يرجى التواصل مع الدعم.');
       }
-    } catch (err) {
-      setError('حدث خطأ.');
     }
-    setLoading(false);
   };
 
-  const handleLogout = () => {
-    signOut(auth);
-    localStorage.removeItem('activeOrderId');
-    localStorage.removeItem('activeOrderNumber');
-    localStorage.removeItem('editingOrderId');
-    for (let key in localStorage) {
-      if (key.startsWith('order_') && key.endsWith('_details')) {
-        localStorage.removeItem(key);
-      }
-      if (key.startsWith('activeOrder_')) {
-        localStorage.removeItem(key);
-      }
-    }
-    setStep('phone');
-    setIsForgotPasswordFlow(false);
-    setPhone('');
-    setPassword('');
-  };
+  if (authLoading) return <div className="min-h-screen flex items-center justify-center bg-black"><p className="text-white">Loading...</p></div>;
 
   return (
     <>
-
-      <AnimatePresence>
-        {isOtpModalOpen && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" dir="rtl">
-            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-black-surface border border-brand-red/30 rounded-2xl max-w-md w-full p-6 shadow-2xl relative text-text-light">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                  <ShieldCheck size={26} />
-                </div>
-                <div>
-                  <h3 className="text-lg font-black text-text-light">تأكيد رقم الموبايل</h3>
-                  <p className="text-sm text-text-muted">أدخل الكود المرسل إليك عبر واتساب</p>
-                </div>
-              </div>
-
-              <form onSubmit={handleConfirmOtp}>
-                <div className="mb-4">
-                  <input
-                    type="text"
-                    maxLength={6}
-                    placeholder="رقم كود الواتساب (6 أرقام)"
-                    className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-4 rounded-xl text-center text-2xl font-black tracking-[0.5em] focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red"
-                    value={otpInput}
-                    onChange={e => setOtpInput(e.target.value.replace(/\D/g, ''))}
-                    disabled={loading}
-                    autoFocus
-                  />
-                  {otpError && <p className="text-red-400 text-sm mt-2 text-center">{otpError}</p>}
-                </div>
-
-                <div className="flex gap-3 mt-6">
-                  <button type="button" onClick={() => setIsOtpModalOpen(false)} className="flex-1 p-3 rounded-xl bg-black-primary text-text-muted hover:text-text-light transition-colors" disabled={loading}>
-                    إلغاء
-                  </button>
-                  <button type="submit" className="flex-1 bg-brand-red hover:bg-brand-red-dark text-text-light font-bold py-3 rounded-xl transition-colors disabled:opacity-50" disabled={loading || otpInput.length !== 6}>
-                    {loading ? 'جاري التحقق...' : 'تأكيد ومتابعة'}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-    <div className={`${step === "dashboard" ? "max-w-5xl md:max-w-6xl" : "max-w-md"} mx-auto mt-10 p-6 bg-black-surface rounded-xl shadow-lg`} dir="rtl">
-      <h2 className="text-2xl font-bold mb-6 text-center text-text-light">{lang === 'en' ? 'My Account' : 'حسابي'}</h2>
-      
-      {error && <div className="bg-red-900/40 text-red-400 border border-red-900/50 p-3 rounded mb-4 text-sm">{error}</div>}
-
-      {step === 'phone' && (
-        <div>
-          <form onSubmit={handlePhoneSubmit}>
-            <div className="mb-4">
-              <label className="block text-text-light mb-2">رقم الموبايل</label>
-              <input type="tel" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={phone} onChange={e => setPhone(e.target.value)} placeholder="01012345678" />
-            </div>
-            <p className="text-xs text-text-muted mb-2 text-center">سيوصلك رمز تأكيد فوري عبر واتساب للتحقق من أمان حسابك.</p>
-            <button type="submit" disabled={loading} className="w-full bg-brand-red text-text-light font-bold p-3 rounded-xl hover:bg-brand-red-dark disabled:opacity-50 shadow-lg shadow-brand-red/20 mb-3">
-              {loading ? 'جاري التحقق...' : 'متابعة عبر كود واتساب (سريع وآمن)'}
-            </button>
-            <button type="button" onClick={() => setStep('login')} className="w-full text-center text-sm text-blue-400 hover:text-blue-800 transition-colors font-medium">
-              أو تسجيل الدخول بكلمة المرور مباشرة 🔑
-            </button>
-          </form>
-        </div>
-      )}
-
-      {step === 'login' && (
-        <form onSubmit={handleLogin}>
-          <div className="mb-4 text-center">
-            <p className="text-text-muted">أهلاً بك مجدداً</p>
-          </div>
-          <div className="mb-4">
-            <label className="block text-text-light mb-2">كلمة المرور</label>
-            <input type="password" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={password} onChange={e => setPassword(e.target.value)} />
-          </div>
-          <button type="submit" disabled={loading} className="w-full bg-brand-red text-text-light p-3 rounded hover:bg-brand-red-dark disabled:opacity-50 mb-3">
-            {loading ? 'جاري الدخول...' : 'تسجيل الدخول'}
-          </button>
-          <button type="button" onClick={handleForgotPassword} className="w-full text-center text-sm text-blue-400 hover:text-blue-800 transition-colors mb-3">
-            هل نسيت كلمة المرور؟
-          </button>
-          <button type="button" onClick={() => {setStep('phone'); setPassword('');}} className="w-full text-center text-sm text-text-muted hover:text-brand-red transition-colors">
-            تغيير رقم الموبايل
-          </button>
-        </form>
-      )}
-
-            {step === 'reset_options' && (
-        <div className="text-center">
-          <p className="text-text-muted mb-4">اختر طريقة استعادة كلمة المرور:</p>
-          <button onClick={() => setStep('reset_via_code')} className="w-full bg-brand-red text-text-light font-bold p-3 rounded-lg hover:bg-brand-red-dark transition-colors mb-3">
-            لدي كود تفعيل من الكاشير
-          </button>
-          <button onClick={handleSendResetLink} disabled={loading} className="w-full bg-brand-red text-text-light font-bold p-3 rounded-lg hover:bg-brand-red-dark disabled:opacity-50 transition-colors mb-3">
-            إرسال رابط عبر {lang === 'en' ? 'Email Address' : 'البريد الإلكتروني'} (إن وجد)
-          </button>
-          <button onClick={() => setStep('login')} className="w-full text-text-muted font-medium p-3 rounded-lg hover:bg-black-primary transition-colors">
-            رجوع
-          </button>
-        </div>
-      )}
-
-      {step === 'reset_via_code' && (
-        <form onSubmit={handleResetViaCode}>
-          <div className="mb-4 text-center">
-            <p className="text-text-muted">إعادة تعيين باستخدام الكود</p>
-            <p className="text-sm text-text-muted mt-2">إذا لم يكن لديك بريد إلكتروني، ا{lang === 'en' ? 'Order' : 'طلب'} من الكاشير إعادة تعيين كلمة المرور، ثم أدخل الكود هنا.</p>
-          </div>
-          <div className="mb-4">
-            <label className="block text-text-light mb-2">كود التفعيل (من الكاشير)</label>
-            <input type="text" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={resetCode} onChange={e => setResetCode(e.target.value)} />
-          </div>
-          <div className="mb-4">
-            <label className="block text-text-light mb-2">كلمة المرور الجديدة</label>
-            <input type="password" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
-          </div>
-          <button type="submit" disabled={loading} className="w-full bg-brand-red text-text-light font-bold p-3 rounded-lg hover:bg-brand-red-dark disabled:opacity-50 transition-colors mt-2">
-            {loading ? 'جاري التحديث...' : 'تحديث كلمة المرور'}
-          </button>
-          <button type="button" onClick={() => setStep('reset_options')} className="w-full text-text-muted font-medium p-3 rounded-lg hover:bg-black-primary transition-colors mt-2">
-            رجوع
-          </button>
-        </form>
-      )}
-
-      {step === 'register' && (
-        <form onSubmit={handleRegister}>
-          <div className="mb-4 text-center">
-            <p className="text-text-muted">تسجيل حساب جديد</p>
-          </div>
-          <div className="mb-4">
-            <label className="block text-text-light mb-2">الاسم</label>
-            <input type="text" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={name} onChange={e => setName(e.target.value)} />
-          </div>
-          <div className="mb-4">
-            <label className="block text-text-light mb-2 font-bold">منطقتك السكنية (إجباري للتوصيل) *</label>
-            <select 
-              required
-              className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold"
-              value={selectedZone}
-              onChange={e => setSelectedZone(e.target.value)}
-            >
-              <option value="">-- اختر منطقتك السكنية --</option>
-              {zonesForAuth.map(z => (
-                <option key={z.id || z.name} value={z.name}>{z.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="mb-4">
-            <label className="block text-text-light mb-2">العنوان التفصيلي (اسم الشارع، رقم العمارة، الشقة) *</label>
-            <input type="text" placeholder="مثال: شارع مصطفى كامل، عمارة 12، الدور 3" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={address} onChange={e => setAddress(e.target.value)} />
-          </div>
-          <div className="mb-4">
-            <label className="block text-text-light mb-2">{lang === 'en' ? 'Email Address' : 'البريد الإلكتروني'} (اختياري)</label>
-            <input type="email" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={email} onChange={e => setEmail(e.target.value)} />
-          </div>
-          <div className="mb-4">
-            <label className="block text-text-light mb-2">كلمة المرور (6 أحرف على الأقل)</label>
-            <input type="password" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={password} onChange={e => setPassword(e.target.value)} />
-          </div>
-          <button type="submit" disabled={loading} className="w-full bg-brand-red text-text-light p-3 rounded hover:bg-brand-red-dark disabled:opacity-50 mb-3">
-            {loading ? 'جاري التسجيل...' : 'إنشاء حساب'}
-          </button>
-          <button type="button" onClick={() => {setStep('phone'); setPassword(''); setName('');}} className="w-full text-center text-sm text-text-muted hover:text-brand-red transition-colors">
-            رجوع
-          </button>
-        </form>
-      )}
-
-      {step === 'link_phone' && (
-        <form onSubmit={handleLinkPhone}>
-          <div className="mb-4 text-center">
-            <p className="text-text-muted">خطوة أخيرة لإكمال تسجيل جوجل</p>
-          </div>
-          <div className="mb-4">
-            <label className="block text-text-light mb-2">رقم الموبايل</label>
-            <input type="tel" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={phone} onChange={e => setPhone(e.target.value)} placeholder="01012345678" />
-          </div>
-          <div className="mb-4">
-            <label className="block text-text-light mb-2">العنوان (اختياري لتسهيل ال{lang === 'en' ? 'Order' : 'طلب'})</label>
-            <input type="text" className="w-full bg-black-primary border border-brand-red-dark/30 text-text-light p-3 rounded-xl focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" value={address} onChange={e => setAddress(e.target.value)} />
-          </div>
-          <button type="submit" disabled={loading} className="w-full bg-brand-red text-text-light p-3 rounded hover:bg-brand-red-dark disabled:opacity-50 mb-3">
-            {loading ? 'جاري الربط...' : 'ربط وإكمال'}
-          </button>
-        </form>
-      )}
-
-      {step === 'dashboard' && customerData && (
-        <DashboardView 
-          customerData={customerData} 
-          onLogout={handleLogout} 
-          menuData={menuData}
+      {!customerData ? (
+        <AuthModal
+          zonesList={menuData?.deliveryZones || []}
+          isOpen={true}
+          onClose={() => navigate('/')}
+          onSuccess={(cleanPhone) => {
+            setTimeout(() => {
+              if (auth.currentUser) refreshCustomerData(cleanPhone);
+            }, 500);
+          }}
         />
+      ) : (
+        <div className="w-full bg-black min-h-screen pt-28 pb-12" dir="rtl">
+          <DashboardView 
+            customerData={customerData} 
+            onLogout={handleLogout} 
+            onDeleteAccount={handleDeleteAccount} 
+            menuData={menuData}
+          />
+        </div>
       )}
-    </div>
-  </>
+    </>
   );
 }

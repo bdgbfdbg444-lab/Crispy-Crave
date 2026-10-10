@@ -12,7 +12,7 @@ class ErrorBoundary extends React.Component {
     }
 
     componentDidCatch(error, errorInfo) {
-        logIncident('REACT_RENDER_ERROR', 'CRITICAL', error, { 
+        logIncident('REACT', 'CRITICAL', error, { 
             reactErrorInfo: errorInfo, 
             source: 'WEBSITE' 
         });

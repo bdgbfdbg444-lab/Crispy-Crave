@@ -1,4 +1,4 @@
-﻿import { useLanguage } from '../context/LanguageContext';
+import { useLanguage } from '../context/LanguageContext';
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Star, MessageSquareQuote } from 'lucide-react';
@@ -90,7 +90,7 @@ export default function Testimonials({ websiteData }) {
 
         <motion.div 
           className="flex gap-6 w-max py-4 px-4"
-          animate={{ x: ["0%", "50%"] }} 
+          animate={{ x: lang === 'ar' ? ["0%", "50%"] : ["0%", "-50%"] }} 
           transition={{ 
             repeat: Infinity, 
             ease: "linear", 

@@ -1,10 +1,11 @@
-﻿import { useLanguage } from '../context/LanguageContext';
+import { useLanguage } from '../context/LanguageContext';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Star, Upload, Loader2, CheckCircle2 } from 'lucide-react';
 import { APP_CONFIG } from '../config/appConfig';
 import { sanitizeText } from '../utils/sanitizer';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
+import { signInAnonymously } from 'firebase/auth';
 import { ref, push, set } from 'firebase/database';
 import imageCompression from 'browser-image-compression';
 
@@ -105,13 +106,17 @@ export default function ReviewModal({ isOpen, onClose, onReviewSubmitted }) {
         rating: Math.min(5, Math.max(1, Number(formData.rating) || 5)),
         comment: sanitizeText(formData.comment, 500),
         imageUrl: imageUrl, // null if no image or upload failed
-        status: 'pending', // Requires admin approval
+        status: 'Pending', // Requires admin approval
         date: (() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0') + 'T' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ':' + String(d.getSeconds()).padStart(2,'0'); })()
       };
 
       // 3. Save to Firebase
       // 3. Save to Firebase using SDK (includes auth token automatically)
-      const newReviewRef = push(ref(db, 'PendingReviews'));
+      if (!auth.currentUser) {
+          await signInAnonymously(auth);
+        }
+
+        const newReviewRef = push(ref(db, 'PendingReviews'));
       await set(newReviewRef, {
         customerName: reviewData.customerName,
         rating: reviewData.rating,

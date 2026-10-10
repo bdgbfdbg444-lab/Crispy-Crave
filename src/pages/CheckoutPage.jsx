@@ -6,7 +6,7 @@ import { ShoppingBag, ArrowRight, Wallet, CheckCircle, AlertCircle, MessageSquar
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { db, auth } from '../firebase';
-import { ref, set, push, update, remove, get, serverTimestamp } from 'firebase/database';
+import { ref, onValue, set, push, update, remove, get, serverTimestamp } from 'firebase/database';
 import { signInAnonymously } from 'firebase/auth';
 import { validateReceiptFile } from '../services/receiptValidator';
 import AddressMapPicker, { checkZoneMismatch, validateDeliveryAddress, formatAddressDetails } from '../components/AddressMapPicker';
@@ -206,6 +206,7 @@ export default function CheckoutPage({ menuData }) {
       } catch(e) {}
     }
     localStorage.removeItem('editingOrderId');
+        localStorage.removeItem('editingOrderDisplayId');
     localStorage.removeItem('editingOrderDetails');
     localStorage.removeItem('modificationExpiresAt');
     clearCart();
@@ -223,6 +224,7 @@ export default function CheckoutPage({ menuData }) {
           if (!data || data.Status === 'Cancelled' || data.Status === 'Completed' || data.Status === 'InKitchen' || data.Status === 'Ready' || data.Status === 'OutForDelivery') {
             // Order was cancelled, completed, or already being prepared in kitchen! Auto-clear editing session immediately!
             localStorage.removeItem('editingOrderId');
+        localStorage.removeItem('editingOrderDisplayId');
             localStorage.removeItem('editingOrderDetails');
             setShowPayment(false);
             if (data?.Status === 'InKitchen') {
@@ -238,6 +240,7 @@ export default function CheckoutPage({ menuData }) {
           if (data.CustomerPhone && activePhone && data.CustomerPhone.trim() !== activePhone.trim()) {
             console.warn('[Security Guard] Attempted to modify order belonging to another customer!');
             localStorage.removeItem('editingOrderId');
+        localStorage.removeItem('editingOrderDisplayId');
             localStorage.removeItem('editingOrderDetails');
             setShowPayment(false);
             return;
@@ -286,6 +289,7 @@ export default function CheckoutPage({ menuData }) {
   const [otpInput, setOtpInput] = useState('');
   const [generatedOtp, setGeneratedOtp] = useState('');
   const [otpExpiry, setOtpExpiry] = useState(0);
+  const [currentOtpReqId, setCurrentOtpReqId] = useState(null);
   const [otpCountdown, setOtpCountdown] = useState(0);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [verifiedPhone, setVerifiedPhone] = useState(null);
@@ -303,27 +307,41 @@ export default function CheckoutPage({ menuData }) {
 
   const sendWhatsAppOtp = async (targetPhone) => {
     const cleanPhone = normalizePhone(targetPhone);
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiry = Date.now() + 5 * 60 * 1000; // 5 minutes valid
-
     if (!auth.currentUser) {
       await signInAnonymously(auth);
     }
 
-    setGeneratedOtp(code);
-    setOtpExpiry(expiry);
-    setOtpCountdown(120); // Strict 120s client cooldown
-
-    // 2. Send silently to Firebase PendingOtpRequests for the POS WhatsApp server
     const reqId = `otp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    setCurrentOtpReqId(reqId);
+    setOtpCountdown(120);
+
+    // Write to pending without the OTP (Gateway will generate it)
     await set(ref(db, `PendingOtpRequests/${reqId}`), {
       phone: cleanPhone,
       uid: auth.currentUser.uid,
-      otp: code,
       createdAt: Date.now()
     });
 
-    return code;
+    // Listen for results from the Gateway
+    const resultRef = ref(db, `OtpResults/${reqId}`);
+    onValue(resultRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        if (data.status === 'success') {
+          setVerifiedPhone(cleanPhone);
+          setIsOtpModalOpen(false);
+          setOtpError('');
+          setOtpInput('');
+          setShowPayment(true);
+          // Cleanup
+          set(resultRef, null);
+          setCurrentOtpReqId(null);
+        } else if (data.status === 'failed') {
+          setOtpError(lang === 'en' ? 'Incorrect verification code.' : '\u0643\u0648\u062f \u0627\u0644\u062a\u062d\u0642\u0642 \u063a\u064a\u0631 \u0635\u062d\u064a\u062d.');
+          set(resultRef, null);
+        }
+      }
+    });
   };
 
   const handleTriggerOtp = async () => {
@@ -333,38 +351,34 @@ export default function CheckoutPage({ menuData }) {
     try {
       await sendWhatsAppOtp(formData.customerPhone);
     } catch (err) {
-      setOtpError(lang === 'en' ? 'Failed to send OTP code: ' + err.message : 'فشل إرسال كود الواتساب: ' + err.message);
+      setOtpError(lang === 'en' ? 'Failed to send OTP code: ' + err.message : '\u0641\u0634\u0644 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0643\u0648\u062f: ' + err.message);
     } finally {
       setIsSendingOtp(false);
     }
   };
 
-  const handleConfirmOtp = (e) => {
+  const handleConfirmOtp = async (e) => {
     if (e) e.preventDefault();
     if (!otpInput || otpInput.trim().length !== 6) {
-      setOtpError(lang === 'en' ? 'Please enter the 6-digit verification code.' : 'يرجى إدخال كود التحقق المكون من 6 أرقام.');
+      setOtpError(lang === 'en' ? 'Please enter the 6-digit verification code.' : '\u064a\u0631\u062c\u0649 \u0625\u062f\u062e\u0627\u0644 \u0627\u0644\u0643\u0648\u062f.');
       return;
     }
-    if (Date.now() > otpExpiry) {
-      setOtpError(lang === 'en' ? 'Verification code expired. Please request a new one.' : 'انتهت صلاحية كود التحقق. يرجى طلب كود جديد.');
-      return;
-    }
-    if (otpInput.trim() !== generatedOtp) {
-      setOtpError(lang === 'en' ? 'Incorrect verification code.' : 'رمز التحقق غير صحيح، يرجى المحاولة مرة أخرى.');
+    if (!currentOtpReqId) {
+      setOtpError(lang === 'en' ? 'Session expired. Request a new code.' : '\u0627\u0646\u062a\u0647\u062a \u0627\u0644\u062c\u0644\u0633\u0629. \u0627\u0637\u0644\u0628 \u0643\u0648\u062f \u062c\u062f\u064a\u062f.');
       return;
     }
 
-    // Successfully verified!
-    const cleanPhone = normalizePhone(formData.customerPhone);
-    setVerifiedPhone(cleanPhone);
-    setIsOtpModalOpen(false);
     setOtpError('');
-    setOtpInput('');
-    // Automatically proceed to payment view!
-    setShowPayment(true);
+    
+    // Write guess to Firebase. The Gateway will read it, compare it, and reply in OtpResults
+    await set(ref(db, `OtpValidations/${currentOtpReqId}`), {
+      guess: otpInput.trim(),
+      phone: normalizePhone(formData.customerPhone),
+      uid: auth.currentUser.uid
+    });
   };
 
-  const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
+const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
   const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'unsigned_preset';
 
   const marketing = menuData?.marketing || {};
@@ -696,6 +710,7 @@ export default function CheckoutPage({ menuData }) {
           const trkData = await trkRes.json();
           if (trkData && ['InKitchen', 'Preparing', 'Ready', 'OutForDelivery', 'Completed', 'Cancelled'].includes(trkData.Status)) {
             localStorage.removeItem('editingOrderId');
+        localStorage.removeItem('editingOrderDisplayId');
             localStorage.removeItem('editingOrderDetails');
             setShowPayment(false);
             isSubmittingRef.current = false;
@@ -872,7 +887,7 @@ export default function CheckoutPage({ menuData }) {
 
     try {
       // 1. Prepare Order Data
-      let displayOrderId = '#' + Math.floor(1000 + Math.random() * 9000);
+      let displayOrderId = localStorage.getItem('editingOrderDisplayId') || ('#' + Math.floor(1000 + Math.random() * 9000));
       
       const items = cartItems.map(item => {
         let modifierText = '';
@@ -905,6 +920,7 @@ export default function CheckoutPage({ menuData }) {
       });
 
       let paymentReceiptUrl = null;
+      let aiVerdict = null;
       if (receiptFile) {
         let fileToUpload = receiptFile;
         try {
@@ -926,10 +942,47 @@ export default function CheckoutPage({ menuData }) {
           method: 'POST',
           body: cloudData,
         });
-        if (res.ok) {
-          const cloudResult = await res.json();
-          paymentReceiptUrl = cloudResult.secure_url;
-        }
+        
+          if (res.ok) {
+            const cloudResult = await res.json();
+            paymentReceiptUrl = cloudResult.secure_url;
+            
+            // --- AI RECEIPT VERIFICATION ---
+            try {
+                const reqId = 'vrf_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+                await set(ref(db, `ReceiptVerificationRequests/${reqId}`), {
+                    imageUrl: paymentReceiptUrl,
+                    expectedAmount: finalTotal,
+                    walletNumber: walletNumber,
+                    orderId: displayOrderId,
+                    phone: formData.customerPhone || userPhone || 'unknown',
+                    timestamp: new Date().toISOString()
+                });
+                
+                // Wait for verdict
+                const verdict = await new Promise((resolve) => {
+                    const verdictRef = ref(db, `ReceiptVerdicts/${reqId}`);
+                    let timeout = setTimeout(() => {
+                        resolve({ scoreText: '⚪ لم يتم الفحص', verdict: 'orange' });
+                    }, 15000); // 15 seconds max wait
+                    
+                    const unsubscribe = onValue(verdictRef, (snap) => {
+                        if (snap.exists()) {
+                            clearTimeout(timeout);
+                            unsubscribe();
+                            resolve(snap.val());
+                        }
+                    });
+                });
+                
+                aiVerdict = verdict;
+                
+            } catch(aiErr) {
+                console.warn('AI Verification skipped/failed:', aiErr);
+                aiVerdict = { scoreText: '⚪ لم يتم الفحص', verdict: 'orange', error: aiErr.message };
+            }
+          }
+
       }
 
       const matchedAddr = customerData?.addresses?.find(a => a.fullAddress === formData.deliveryAddress);
@@ -1001,7 +1054,8 @@ export default function CheckoutPage({ menuData }) {
         status: 'New',
         items: items,
         displayOrderId: displayOrderId,
-        paymentReceiptUrl: paymentReceiptUrl
+        paymentReceiptUrl: paymentReceiptUrl,
+        aiVerdict: aiVerdict
       };
 
       if (editingOrderId) {
@@ -1012,6 +1066,7 @@ export default function CheckoutPage({ menuData }) {
             const trackData = await trackRes.json();
             if (trackData && ['InKitchen', 'Preparing', 'Ready', 'OutForDelivery', 'Completed', 'Cancelled'].includes(trackData.Status)) {
               localStorage.removeItem('editingOrderId');
+        localStorage.removeItem('editingOrderDisplayId');
               localStorage.removeItem('editingOrderDetails');
               setShowPayment(false);
               setIsSubmitting(false);
@@ -1026,7 +1081,7 @@ export default function CheckoutPage({ menuData }) {
           console.warn('Pre-flight status check warning:', statusErr);
         }
 
-        orderPayload.displayOrderId = cleanEditId;
+        orderPayload.displayOrderId = displayOrderId;
         orderPayload.isModification = true;
 
         if (rawOrigItems) {
@@ -1057,7 +1112,8 @@ export default function CheckoutPage({ menuData }) {
         } catch(e) {}
         
         localStorage.removeItem('editingOrderId');
-        displayOrderId = editingOrderId;
+        localStorage.removeItem('editingOrderDisplayId');
+        
       } else {
         // 2. Send to Firebase using SDK to include auth token
         let responseData = null;
@@ -1114,6 +1170,7 @@ export default function CheckoutPage({ menuData }) {
       localStorage.setItem(`order_${trackingToken}_details`, JSON.stringify(savedDetailsObj));
 
       localStorage.removeItem('editingOrderId');
+        localStorage.removeItem('editingOrderDisplayId');
       localStorage.removeItem('editingOrderDetails');
 
       // Thoghra 22: Immediately initialize PublicTracking node with 0% PII (Status, OrderType, DisplayOrderId, LastUpdate)

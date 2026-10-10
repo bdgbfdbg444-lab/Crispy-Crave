@@ -28,7 +28,6 @@ if (typeof window !== "undefined") {
 
 // Zero-Trust Bot Protection: Firebase App Check
 // Temporarily disabled for local testing to avoid 401/403 token errors
-/*
 if (typeof window !== "undefined") {
   if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
     // Enable self-debug token for local dev environments
@@ -37,12 +36,11 @@ if (typeof window !== "undefined") {
   try {
     const siteKey = (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_RECAPTCHA_SITE_KEY) 
       || "6Lf-theblackbox-recaptcha-v3-placeholder";
-    initializeAppCheck(app, {
-      provider: new ReCaptchaV3Provider(siteKey),
-      isTokenAutoRefreshEnabled: true
-    });
+    // initializeAppCheck(app, {
+    //   provider: new ReCaptchaV3Provider(siteKey),
+    //   isTokenAutoRefreshEnabled: true
+    // });
   } catch (err) {
     console.warn("[AppCheck] App Check provider initialization:", err?.message || err);
   }
 }
-*/

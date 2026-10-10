@@ -180,7 +180,7 @@ export default function ProductModal({ product, category, menuData, isOpen, onCl
             {product.isSoldByWeight && (
               <div className="mb-8 bg-black-surface p-5 rounded-2xl border border-brand-red-dark/30">
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-bold text-lg">{lang === 'en' ? 'Choose' : 'اختر'} الوزن</h3>
+                  <h3 className="font-bold text-lg">{lang === 'en' ? 'Choose Weight' : 'اختر الوزن'}</h3>
                   <span className="text-brand-red font-bold">{basePrice} {lang === 'en' ? 'EGP' : 'ج.م'}</span>
                 </div>
                 

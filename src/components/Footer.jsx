@@ -1,9 +1,11 @@
+import { useLanguage } from '../context/LanguageContext';
 import React, { useState } from 'react';
 import { APP_CONFIG } from '../config/appConfig';
 import { MessageCircle, Star } from 'lucide-react';
 import ReviewModal from './ReviewModal';
 
 export default function Footer({ websiteData }) {
+  const { lang } = useLanguage();
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   
   // Use data from settings root level
@@ -56,7 +58,7 @@ export default function Footer({ websiteData }) {
               className="flex items-center gap-2 bg-gray-800 hover:bg-brand-red text-text-light py-2 px-6 rounded-full text-sm font-bold transition-colors border border-gray-700 hover:border-brand-red"
             >
               <Star size={16} className="fill-current" />
-              شاركنا رأيك
+              {lang === 'en' ? 'Share Your Opinion' : 'شاركنا رأيك'}
             </button>
           </div>
           

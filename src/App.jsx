@@ -1,5 +1,5 @@
-import { useLanguage } from './context/LanguageContext';
-import { useState, useEffect } from 'react';
+﻿import { useLanguage } from './context/LanguageContext';
+import React, { useState, useEffect, Suspense } from 'react';
 import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { fetchWebsiteData, fetchMenuData, fetchSystemState } from './services/firebaseService';
@@ -7,28 +7,35 @@ import Header from './components/Header';
 import ModificationBanner from './components/ModificationBanner';
 import CartSidebar from './components/Cart/CartSidebar';
 import MobileBottomNav from './components/MobileBottomNav';
-import Home from './pages/Home';
-import MenuPage from './pages/MenuPage';
-import CheckoutPage from './pages/CheckoutPage';
-import MyAccountPage from './pages/MyAccountPage';
-import TrackOrderPage from './pages/TrackOrderPage';
-import ProtectionPage from './pages/ProtectionPage';
-import ReviewModal from './components/ReviewModal';
 import LoadingScreen from './components/LoadingScreen';
 import PageTransition from './components/PageTransition';
 import { ShoppingBag, Star } from 'lucide-react';
 import { useCart } from './context/CartContext';
+import { logIncident } from './monitoring/IncidentLogger';
+
+// Code Splitting for Pages
+const Home = React.lazy(() => import('./pages/Home'));
+const MenuPage = React.lazy(() => import('./pages/MenuPage'));
+const CheckoutPage = React.lazy(() => import('./pages/CheckoutPage'));
+const MyAccountPage = React.lazy(() => import('./pages/MyAccountPage'));
+const TrackOrderPage = React.lazy(() => import('./pages/TrackOrderPage'));
+const ProtectionPage = React.lazy(() => import('./pages/ProtectionPage'));
+const OurStoryPage = React.lazy(() => import('./pages/OurStoryPage'));
+const DriverPortal = React.lazy(() => import('./pages/DriverPortal'));
+const ReviewModal = React.lazy(() => import('./components/ReviewModal'));
 
 function AnimatedRoutes({ websiteData, menuData }) {
   const location = useLocation();
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<PageTransition><Home websiteData={websiteData} menuData={menuData} /></PageTransition>} />
-        <Route path="/menu" element={<PageTransition><MenuPage menuData={menuData} /></PageTransition>} />
-        <Route path="/checkout" element={<PageTransition><CheckoutPage menuData={menuData} /></PageTransition>} />
-        <Route path="/account" element={<PageTransition><MyAccountPage menuData={menuData} /></PageTransition>} />
-        <Route path="/track/:orderId" element={<PageTransition><TrackOrderPage menuData={menuData} /></PageTransition>} />
+        <Route path="/" element={<PageTransition><Suspense fallback={<LoadingScreen />}><Home websiteData={websiteData} menuData={menuData} /></Suspense></PageTransition>} />
+        <Route path="/menu" element={<PageTransition><Suspense fallback={<LoadingScreen />}><MenuPage menuData={menuData} /></Suspense></PageTransition>} />
+        <Route path="/checkout" element={<PageTransition><Suspense fallback={<LoadingScreen />}><CheckoutPage menuData={menuData} /></Suspense></PageTransition>} />
+        <Route path="/our-story" element={<PageTransition><Suspense fallback={<LoadingScreen />}><OurStoryPage websiteData={websiteData} /></Suspense></PageTransition>} />
+        <Route path="/account" element={<PageTransition><Suspense fallback={<LoadingScreen />}><MyAccountPage menuData={menuData} /></Suspense></PageTransition>} />
+        <Route path="/track/:orderId" element={<PageTransition><Suspense fallback={<LoadingScreen />}><TrackOrderPage menuData={menuData} /></Suspense></PageTransition>} />
+        <Route path="/driver" element={<PageTransition><Suspense fallback={<LoadingScreen />}><DriverPortal /></Suspense></PageTransition>} />
       </Routes>
     </AnimatePresence>
   );
@@ -85,6 +92,11 @@ function App() {
 
   useEffect(() => {
     const handleMessage = (event) => {
+      // Security Check: Verify origin to prevent cross-site scripting
+      const allowedOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173', window.location.origin];
+      if (!allowedOrigins.includes(event.origin) && !event.origin.startsWith('file://')) {
+        return;
+      }
       if (event.data && event.data.type === 'EDITOR_UPDATE') {
         const { section, field, value } = event.data;
         if (section) {
@@ -97,6 +109,9 @@ function App() {
           if (section === 'FAQ') targetId = 'faq';
           if (section === 'Testimonials') targetId = 'testimonials';
           if (section === 'Social Feed') targetId = 'social';
+          if (section === 'Press Quote') targetId = 'pressquote';
+          if (section === 'Order CTA') targetId = 'ordercta';
+          if (section === 'Newsletter') targetId = 'newsletter';
           
           const el = document.getElementById(targetId);
           if (el) {
@@ -122,7 +137,11 @@ function App() {
   }, [menuData]);
 
   if (!loading && systemState?.status === 'PROTECTED') {
-    return <ProtectionPage reason={systemState.reason} />;
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <ProtectionPage reason={systemState.reason} />
+      </Suspense>
+    );
   }
 
   return (
@@ -156,10 +175,13 @@ function App() {
           className="fixed bottom-24 md:bottom-6 left-6 z-30 bg-black-primary text-text-light px-5 py-3 rounded-full shadow-2xl flex items-center gap-2 hover:scale-105 transition-transform border border-gray-700 hover:border-brand-red hover:text-brand-red"
         >
           <Star size={20} className="fill-current" />
-          <span className="font-bold text-sm hidden md:inline">{lang === 'en' ? 'Share Your Opinion' : '???? ????'}</span>
+          <span className="font-bold text-sm hidden md:inline">{lang === 'en' ? 'Share Your Opinion' : 'شاركنا رأيك'}</span>
         </button>
 
-        <ReviewModal isOpen={isReviewModalOpen} onClose={() => setIsReviewModalOpen(false)} />
+        <Suspense fallback={null}>
+          <ReviewModal isOpen={isReviewModalOpen} onClose={() => setIsReviewModalOpen(false)} />
+        </Suspense>
+        
         <CartSidebar />
         <MobileBottomNav />
       </div>
@@ -168,3 +190,4 @@ function App() {
 }
 
 export default App;
+

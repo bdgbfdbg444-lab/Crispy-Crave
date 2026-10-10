@@ -1,6 +1,6 @@
 ﻿import { useLanguage } from '../context/LanguageContext';
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useRef } from 'react';
+import { motion, useScroll, useTransform } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { APP_CONFIG } from '../config/appConfig';
 import { ChevronDown, Utensils } from 'lucide-react';
@@ -8,87 +8,128 @@ import Logo from './Logo';
 
 export default function Hero({ websiteData }) {
   const { lang } = useLanguage();
+  const ref = useRef(null);
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ['start start', 'end start']
+  });
+  
+  const y = useTransform(scrollYProgress, [0, 1], ['0%', '50%']);
+  
   // Use data from Firebase or fallback to empty strings
-  const headline = (lang === 'en' && websiteData?.heroHeadlineEn ? websiteData?.heroHeadlineEn : websiteData?.heroHeadline) ?? `THE BLACK BOX`;
+  const headline = (lang === 'en' && websiteData?.heroHeadlineEn ? websiteData?.heroHeadlineEn : websiteData?.heroHeadline) ?? 'THE BLACK BOX';
   const subtitle = (lang === 'en' && websiteData?.heroSubtitleEn ? websiteData?.heroSubtitleEn : websiteData?.heroSubtitle) ?? "SMOKED BRISKET & GOURMET BURGERS • ELITE STREET FOOD\nبرجر ولحم بريسكيت مدخن • مأكولات الشارع الراقية";
   const bgMedia = websiteData?.heroMediaUrl;
   
   const isVideo = bgMedia && (bgMedia.toLowerCase().endsWith('.mp4') || bgMedia.toLowerCase().endsWith('.webm') || bgMedia.toLowerCase().endsWith('.mov') || bgMedia.toLowerCase().endsWith('.avi'));
 
   return (
-    <section id="hero" className="relative w-full h-screen overflow-hidden bg-black-primary text-text-light flex flex-col justify-center items-center">
-      {/* Background Media */}
-      {bgMedia && isVideo && (
-        <video 
-          key={bgMedia} /* Forces React to reload video on source change */
-          autoPlay 
-          loop 
-          muted 
-          playsInline 
-          className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-overlay"
-        >
-          <source src={bgMedia} type="video/mp4" />
-        </video>
-      )}
-      {bgMedia && !isVideo && (
-        <img 
-          key={bgMedia}
-          src={bgMedia}
-          alt="Hero Background"
-          className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-overlay"
-        />
-      )}
-      
-      {/* Dark Overlay - Centered gradient to focus on the middle */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black-primary/90 via-black-primary/50 to-black-primary/90"></div>
-      <div className="absolute inset-0 bg-black-primary/30"></div>
+    <section ref={ref} id="hero" className="relative w-full h-[100vh] overflow-hidden bg-black-primary text-text-light flex flex-col justify-center items-center">
+      {/* Background Media with Parallax */}
+      <motion.div style={{ y, x: '-50%', left: '50%', minWidth: '100%', height: '120%', top: '-10%' }} className="absolute z-0">
+        {bgMedia && isVideo ? (
+          <video 
+            key={bgMedia} /* Forces React to reload video on source change */
+            autoPlay 
+            loop 
+            muted 
+            playsInline 
+            className="w-full h-full object-cover opacity-40 mix-blend-overlay"
+          >
+            <source src={bgMedia} type="video/mp4" />
+          </video>
+        ) : bgMedia ? (
+          <img 
+            src={bgMedia} 
+            alt="Hero Background" 
+            className="w-full h-full object-cover opacity-40 mix-blend-overlay" 
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-gray-900 to-black-primary" />
+        )}
+      </motion.div>
+
+      {/* Decorative gradient overlay */}
+      <div className="absolute inset-0 z-10 bg-gradient-to-b from-black-primary/90 via-black-primary/50 to-black-primary/90 pointer-events-none" />
+      <div className="absolute inset-0 z-10 bg-black-primary/30 pointer-events-none" />
 
       {/* Content Container - Fully Centered */}
-      <div className="relative z-10 container mx-auto px-6 h-full flex flex-col justify-center items-center text-center">
-        
+      <div className="relative z-20 container mx-auto px-6 h-full flex flex-col justify-center items-center text-center mt-10 md:mt-20">
         <div className="max-w-4xl flex flex-col items-center">
           
-          {/* Main Neon Title - Crisp outline glow like the image */}
-          <div className="mb-6 flex justify-center w-full z-10 scale-90 md:scale-100"><Logo className="text-[12vw] sm:text-7xl md:text-8xl lg:text-[9rem] drop-shadow-[0_0_20px_rgba(230,57,70,0.4)]" /></div>
-
-          {/* Subtitle - Clean, readable, non-glowing text with white space pre-line for the line break */}
-          <motion.p 
-            initial={{ opacity: 0, y: 10 }}
+          {/* Subtle top badge */}
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8, duration: 1 }}
+            transition={{ duration: 0.8, delay: 0.2, ease: 'easeOut' }}
+            className="mb-8 hidden md:block"
+          >
+            <span className="bg-brand-red/20 text-brand-red border border-brand-red/30 px-6 py-2 rounded-full text-sm font-bold tracking-[0.2em] uppercase">
+              {lang === 'en' ? 'Premium Quality' : 'جودة استثنائية'}
+            </span>
+          </motion.div>
+
+          {/* Main Neon Title - Crisp outline glow like the original */}
+          <motion.div 
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+            className="mb-6 flex justify-center w-full z-10 scale-90 md:scale-100"
+          >
+            <Logo className="text-[12vw] sm:text-7xl md:text-8xl lg:text-[9rem] drop-shadow-[0_0_20px_rgba(230,57,70,0.4)]" />
+          </motion.div>
+          
+          {/* Subtitle */}
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.6 }}
             className="text-sm md:text-xl lg:text-2xl text-text-light/90 mb-10 font-bold tracking-wide drop-shadow-lg whitespace-pre-line leading-relaxed"
           >
             {subtitle}
           </motion.p>
-
-          {/* Single Action Button - Centered */}
+          
+          {/* Action Buttons */}
           <motion.div 
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.2, duration: 0.8 }}
-            className="flex justify-center w-full"
+            transition={{ duration: 0.8, delay: 0.8 }}
+            className="flex flex-col sm:flex-row gap-5 justify-center w-full"
           >
-            <Link to="/menu" className="bg-brand-red hover:bg-brand-red-dark text-text-light font-bold py-4 px-12 rounded-lg shadow-lg hover:shadow-brand-red/40 transition-all duration-300 flex items-center justify-center gap-3 text-lg md:text-xl border border-brand-red-light/20">
-              {lang === 'en' ? 'Order Now' : 'اطلب الآن'}
+            <Link 
+              to="/menu" 
+              className="bg-brand-red hover:bg-brand-red-dark text-text-light font-bold py-4 px-12 rounded-lg shadow-lg hover:shadow-brand-red/40 transition-all duration-300 flex items-center justify-center gap-3 text-lg md:text-xl border border-brand-red-light/20"
+            >
+              <Utensils size={20} />
+              <span>{lang === 'en' ? 'Order Now' : 'اطلب الآن'}</span>
             </Link>
+            
+            <a 
+              href="#our-story" 
+              className="px-10 py-4 bg-transparent border-2 border-white/30 hover:border-white text-white text-lg font-bold tracking-widest uppercase transition-colors duration-300 rounded-lg flex items-center justify-center"
+            >
+              {lang === 'en' ? 'Our Story' : 'قصتنا'}
+            </a>
           </motion.div>
         </div>
       </div>
 
-      {/* Decorative Bottom Elements */}
+      {/* Scroll indicator */}
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 1.5, duration: 1.5 }}
-        className="absolute bottom-10 left-1/2 transform -translate-x-1/2 z-10 flex flex-col items-center gap-2"
+        transition={{ delay: 1.5, duration: 1 }}
+        className="absolute bottom-10 z-20 flex flex-col items-center gap-2 cursor-pointer opacity-70 hover:opacity-100 transition-opacity"
+        onClick={() => {
+          document.getElementById('signature-dishes')?.scrollIntoView({ behavior: 'smooth' });
+        }}
       >
-        
-        <span className="text-xs uppercase tracking-[0.2em] text-text-muted font-bold">{lang === 'en' ? 'SCROLL DOWN' : 'انزل للأسفل'}</span>
-        <motion.div
-           animate={{ y: [0, 8, 0] }}
-           transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+        <span className="text-xs tracking-[0.3em] uppercase text-gray-400 font-semibold">{lang === 'en' ? 'Scroll' : 'انزل'}</span>
+        <motion.div 
+          animate={{ y: [0, 8, 0] }} 
+          transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
         >
-          <ChevronDown size={24} className="text-text-muted" />
+          <ChevronDown size={28} className="text-brand-red" />
         </motion.div>
       </motion.div>
     </section>
