@@ -8,7 +8,7 @@ import { useCart } from '../../context/CartContext';
 
 export default function CartSidebar() {
   const { lang } = useLanguage();
-  const { cartItems, isCartOpen, setIsCartOpen, removeFromCart, updateQuantity, cartTotal } = useCart();
+  const { cartItems, isCartOpen, setIsCartOpen, closeCart, continueShopping, removeFromCart, updateQuantity, cartTotal } = useCart();
   const [activeOrderId, setActiveOrderId] = useState(() => {
     const editingId = localStorage.getItem('editingOrderId');
     if (editingId) return null;
@@ -64,7 +64,7 @@ export default function CartSidebar() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setIsCartOpen(false)}
+            onClick={closeCart}
             className="fixed inset-0 bg-black-primary/60 backdrop-blur-sm z-[100]"
           />
 
@@ -86,7 +86,7 @@ export default function CartSidebar() {
                 </span>
               </div>
               <button 
-                onClick={() => setIsCartOpen(false)}
+                onClick={closeCart}
                 className="w-10 h-10 rounded-full bg-black-surface hover:bg-black-surface flex items-center justify-center text-text-muted transition-colors"
               >
                 <X size={20} />
@@ -196,10 +196,25 @@ export default function CartSidebar() {
                     setIsCartOpen(false);
                     navigate('/checkout');
                   }}
-                  className="w-full py-4 bg-brand-red text-text-light font-bold rounded-xl text-lg flex items-center justify-center gap-2 hover:bg-brand-red-dark transition-colors shadow-lg shadow-brand-red/30"
+                  className="w-full py-4 bg-brand-red text-text-light font-bold rounded-xl text-lg flex items-center justify-center gap-2 hover:bg-brand-red-dark transition-colors shadow-lg shadow-brand-red/30 active:scale-[0.99]"
                 >
                   <span>{lang === 'en' ? 'Checkout' : 'إتمام الطلب'}</span>
                   <ArrowLeft size={20} />
+                </button>
+
+                {/* زر أضف منتج آخر */}
+                <button 
+                  type="button"
+                  onClick={() => {
+                    continueShopping();
+                    navigate('/menu');
+                  }}
+                  className="group w-full mt-2.5 py-3.5 px-4 bg-black-primary/80 hover:bg-black-primary active:bg-white/[0.08] text-text-light hover:text-white font-bold rounded-xl text-base flex items-center justify-center gap-2.5 border border-white/10 hover:border-brand-red/60 transition-all duration-200 cursor-pointer shadow-sm active:scale-[0.99]"
+                >
+                  <div className="w-6 h-6 rounded-lg bg-brand-red/15 text-brand-red flex items-center justify-center shrink-0 group-hover:bg-brand-red group-hover:text-white transition-all duration-200">
+                    <Plus size={15} strokeWidth={2.5} />
+                  </div>
+                  <span className="tracking-wide font-bold">{lang === 'en' ? 'Add Another Item' : 'أضف منتج آخر'}</span>
                 </button>
               </div>
             )}

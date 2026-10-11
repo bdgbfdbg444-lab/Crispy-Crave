@@ -1,7 +1,7 @@
 import { useLanguage } from './context/LanguageContext';
 import React, { useState, useEffect, Suspense } from 'react';
 import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { fetchWebsiteData, fetchMenuData, fetchSystemState } from './services/firebaseService';
 import Header from './components/Header';
 import ModificationBanner from './components/ModificationBanner';
@@ -12,6 +12,7 @@ import PageTransition from './components/PageTransition';
 import { ShoppingBag, Star } from 'lucide-react';
 import { useCart } from './context/CartContext';
 import PromoPopup from './components/PromoPopup';
+import OrderTypeModal from './components/OrderTypeModal';
 
 // Code Splitting for Pages
 const Home = React.lazy(() => import('./pages/Home'));
@@ -48,9 +49,20 @@ function App() {
   const [systemState, setSystemState] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [toastNotification, setToastNotification] = useState(null);
 
-  const { cartItems, setIsCartOpen, tableNumber, setTableNumber } = useCart();
+  const { cartItems, setIsCartOpen, isCartOpen, lastAddedItem, tableNumber, setTableNumber } = useCart();
   const cartItemsCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
+
+  useEffect(() => {
+    if (lastAddedItem && !isCartOpen) {
+      setToastNotification(lastAddedItem);
+      const timer = setTimeout(() => {
+        setToastNotification(null);
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [lastAddedItem, isCartOpen]);
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -192,7 +204,37 @@ function App() {
         </Suspense>
         
         <PromoPopup websiteData={websiteData} />
+
+        {/* Floating Toast notification when adding item to cart without auto-opening drawer */}
+        <AnimatePresence>
+          {toastNotification && !isCartOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: 30, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              className="fixed bottom-20 md:bottom-8 left-1/2 -translate-x-1/2 z-40 bg-black-surface/95 border border-brand-red/40 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3 text-text-light max-w-[92vw] sm:max-w-md pointer-events-auto"
+            >
+              <div className="w-7 h-7 rounded-full bg-brand-red/20 text-brand-red flex items-center justify-center font-bold text-xs shrink-0">
+                ✓
+              </div>
+              <div className="overflow-hidden">
+                <p className="text-[11px] text-text-muted">{lang === 'en' ? 'Added to cart' : 'تمت الإضافة للسلة'}</p>
+                <p className="text-sm font-bold text-text-light truncate">{toastNotification.name}</p>
+              </div>
+              <button 
+                onClick={() => {
+                  setToastNotification(null);
+                  setIsCartOpen(true);
+                }}
+                className="ms-auto shrink-0 px-3 py-1.5 bg-brand-red text-text-light text-xs font-bold rounded-xl hover:bg-brand-red-dark transition-colors shadow-md"
+              >
+                {lang === 'en' ? 'View Cart' : 'عرض السلة'}
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
         
+        <OrderTypeModal />
         <CartSidebar />
         <MobileBottomNav />
       </div>

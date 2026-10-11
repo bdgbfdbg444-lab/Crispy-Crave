@@ -489,6 +489,10 @@
         "LastOrderDate": {
           ".validate": "newData.isString()"
         },
+        "cart": {
+          ".write": "auth != null && (newData.parent().child('uid').val() === auth.uid || root.child('UidToPhone').child(auth.uid).val() === $phone)",
+          ".validate": "true"
+        },
         "$other": {
           ".validate": false
         }
@@ -610,6 +614,12 @@
             ".validate": false
           }
         }
+      }
+    },
+    "UserCarts": {
+      "$phone": {
+        ".read": "auth != null",
+        ".write": "auth != null"
       }
     },
     "CustomerLoginEmails": {

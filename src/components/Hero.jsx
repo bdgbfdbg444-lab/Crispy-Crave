@@ -1,13 +1,16 @@
-﻿import { useLanguage } from '../context/LanguageContext';
+import { useLanguage } from '../context/LanguageContext';
 import React, { useRef } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { APP_CONFIG } from '../config/appConfig';
 import { ChevronDown, Utensils } from 'lucide-react';
 import Logo from './Logo';
+import { useCart } from '../context/CartContext';
 
 export default function Hero({ websiteData }) {
   const { lang } = useLanguage();
+  const { orderType, setIsOrderTypeModalOpen } = useCart();
+  const navigate = useNavigate();
   const ref = useRef(null);
   const { scrollYProgress } = useScroll({
     target: ref,
@@ -96,13 +99,20 @@ export default function Hero({ websiteData }) {
             transition={{ duration: 0.8, delay: 0.8 }}
             className="flex flex-col sm:flex-row gap-5 justify-center w-full"
           >
-            <Link 
-              to="/menu" 
-              className="bg-brand-red hover:bg-brand-red-dark text-text-light font-bold py-4 px-12 rounded-lg shadow-lg hover:shadow-brand-red/40 transition-all duration-300 flex items-center justify-center gap-3 text-lg md:text-xl border border-brand-red-light/20"
+            <button 
+              type="button"
+              onClick={() => {
+                if (!orderType) {
+                  setIsOrderTypeModalOpen(true);
+                } else {
+                  navigate('/menu');
+                }
+              }} 
+              className="bg-brand-red hover:bg-brand-red-dark text-text-light font-bold py-4 px-12 rounded-lg shadow-lg hover:shadow-brand-red/40 transition-all duration-300 flex items-center justify-center gap-3 text-lg md:text-xl border border-brand-red-light/20 cursor-pointer"
             >
               <Utensils size={20} />
               <span>{lang === 'en' ? 'Order Now' : 'اطلب الآن'}</span>
-            </Link>
+            </button>
             
             <a 
               href="#our-story" 

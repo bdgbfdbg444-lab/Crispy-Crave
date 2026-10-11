@@ -1,11 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import MenuSection from '../components/Menu/MenuSection';
 import ProductModal from '../components/Menu/ProductModal';
 import { APP_CONFIG } from '../config/appConfig';
+import { useCart } from '../context/CartContext';
 
 export default function MenuPage({ menuData }) {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const { orderType, setIsOrderTypeModalOpen, tableNumber } = useCart();
+
+  useEffect(() => {
+    // If visitor enters menu directly without picking order type yet, prompt them
+    if (!orderType && !tableNumber) {
+      setIsOrderTypeModalOpen(true);
+    }
+  }, [orderType, tableNumber]);
 
   const handleProductClick = (product, category) => {
     setSelectedProduct(product);

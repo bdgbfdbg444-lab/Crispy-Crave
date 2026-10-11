@@ -1,10 +1,16 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { useAuth } from './AuthContext';
+import { db } from '../firebase';
+import { ref, get, set, onValue, off } from 'firebase/database';
 
 const CartContext = createContext();
 
 export const useCart = () => useContext(CartContext);
 
 export const CartProvider = ({ children }) => {
+  const { userPhone } = useAuth();
+
+  // 1. Local cart items state initialized from localStorage
   const [cartItems, setCartItems] = useState(() => {
     try {
       const saved = localStorage.getItem('crispy_cart_items');
@@ -16,14 +22,76 @@ export const CartProvider = ({ children }) => {
   
   const [isCartOpen, setIsCartOpen] = useState(false);
   
+  // Flag to avoid repeatedly auto-opening the cart once the user has dismissed it or chosen to continue shopping
+  const [dontAutoOpenCart, setDontAutoOpenCart] = useState(() => {
+    try {
+      return sessionStorage.getItem('crispy_dont_auto_open_cart') === 'true';
+    } catch (e) {
+      return false;
+    }
+  });
+
+  // Track last added item for toast feedback
+  const [lastAddedItem, setLastAddedItem] = useState(null);
+
   const [tableNumber, setTableNumber] = useState(() => {
     return localStorage.getItem('crispy_cart_table') || null;
   });
 
+  // Order Type State (delivery, takeaway, DineIn)
+  const [orderType, setOrderTypeState] = useState(() => {
+    try {
+      const savedTable = localStorage.getItem('crispy_cart_table');
+      if (savedTable) return 'DineIn';
+      return localStorage.getItem('crispy_order_type') || null;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  const [isOrderTypeModalOpen, setIsOrderTypeModalOpen] = useState(false);
+
+  const setOrderType = (type) => {
+    setOrderTypeState(type);
+    try {
+      if (type) {
+        localStorage.setItem('crispy_order_type', type);
+      } else {
+        localStorage.removeItem('crispy_order_type');
+      }
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    if (tableNumber) {
+      setOrderTypeState('DineIn');
+      try {
+        localStorage.setItem('crispy_order_type', 'DineIn');
+      } catch (e) {}
+    }
+  }, [tableNumber]);
+
+  // Refs for tracking sync source to prevent echo loops
+  const isSyncingFromCloudRef = useRef(false);
+  const activeUserPhoneRef = useRef(null);
+
+  // Helper to normalize Egyptian / International phone format for Firebase key
+  const getCleanPhone = (p) => {
+    if (!p) return null;
+    let clean = p.toString().replace(/\D/g, '');
+    if (clean.startsWith('20') && clean.length === 12) clean = '0' + clean.substring(2);
+    else if (clean.startsWith('0020') && clean.length === 14) clean = '0' + clean.substring(4);
+    else if (clean.startsWith('+20') && clean.length === 13) clean = '0' + clean.substring(3);
+    else if (clean.length === 10 && !clean.startsWith('0')) clean = '0' + clean;
+    return clean;
+  };
+
+  // 2. Persist cart to localStorage on any local change
   useEffect(() => {
     localStorage.setItem('crispy_cart_items', JSON.stringify(cartItems));
   }, [cartItems]);
 
+  // 3. Persist table number
   useEffect(() => {
     if (tableNumber) {
       localStorage.setItem('crispy_cart_table', tableNumber);
@@ -32,6 +100,102 @@ export const CartProvider = ({ children }) => {
     }
   }, [tableNumber]);
 
+  // 4. Cloud Cart Synchronization across browsers / devices
+  // When a user logs in with their phone, fetch their cloud cart and sync
+  useEffect(() => {
+    const cleanPhone = getCleanPhone(userPhone);
+    activeUserPhoneRef.current = cleanPhone;
+
+    if (!cleanPhone) return;
+
+    const cartRef = ref(db, `UserCarts/${cleanPhone}`);
+
+    // Initial fetch on login
+    get(cartRef).then((snap) => {
+      if (snap.exists()) {
+        const cloudData = snap.val();
+        const cloudItems = Array.isArray(cloudData?.items) ? cloudData.items : [];
+
+        setCartItems((localItems) => {
+          // If local cart is empty (e.g. newly opened browser or cleared cache), load cloud cart!
+          if (!localItems || localItems.length === 0) {
+            return cloudItems;
+          }
+
+          // If local cart has items, merge intelligently without duplicate product configurations
+          if (cloudItems.length === 0) {
+            set(cartRef, { items: localItems, updatedAt: Date.now() }).catch(() => {});
+            return localItems;
+          }
+
+          const merged = [...localItems];
+          cloudItems.forEach((cItem) => {
+            const exists = merged.find((lItem) => 
+              lItem.product.id === cItem.product.id &&
+              lItem.product.selectedWeight === cItem.product.selectedWeight &&
+              JSON.stringify(lItem.product.selectedModifiers || []) === JSON.stringify(cItem.product.selectedModifiers || [])
+            );
+            if (!exists) {
+              merged.push(cItem);
+            }
+          });
+
+          // Update cloud with merged cart
+          set(cartRef, { items: merged, updatedAt: Date.now() }).catch(() => {});
+          return merged;
+        });
+      } else {
+        // No cloud cart exists yet. If we have local items, upload them immediately
+        setCartItems((localItems) => {
+          if (localItems && localItems.length > 0) {
+            set(cartRef, { items: localItems, updatedAt: Date.now() }).catch(() => {});
+          }
+          return localItems;
+        });
+      }
+    }).catch((err) => {
+      console.warn('[CartSync] Cloud cart fetch error:', err);
+    });
+
+    // Real-time listener for remote cart changes (e.g. user modified cart in another tab/browser)
+    const listener = onValue(cartRef, (snap) => {
+      if (isSyncingFromCloudRef.current) return;
+      if (snap.exists()) {
+        const data = snap.val();
+        if (Array.isArray(data?.items)) {
+          isSyncingFromCloudRef.current = true;
+          setCartItems(data.items);
+          setTimeout(() => {
+            isSyncingFromCloudRef.current = false;
+          }, 300);
+        }
+      }
+    });
+
+    return () => {
+      off(cartRef);
+    };
+  }, [userPhone]);
+
+  // 5. Upload local cart changes to Cloud when user is logged in
+  useEffect(() => {
+    const cleanPhone = activeUserPhoneRef.current;
+    if (!cleanPhone || isSyncingFromCloudRef.current) return;
+
+    const cartRef = ref(db, `UserCarts/${cleanPhone}`);
+    const timeout = setTimeout(() => {
+      set(cartRef, {
+        items: cartItems,
+        updatedAt: Date.now()
+      }).catch((err) => {
+        console.warn('[CartSync] Cloud cart update error:', err);
+      });
+    }, 400);
+
+    return () => clearTimeout(timeout);
+  }, [cartItems]);
+
+  // 6. Add to Cart Handler
   const addToCart = (customProduct, quantity) => {
     const isSoldOut = Boolean(customProduct?.isSoldOut || customProduct?.IsSoldOut || customProduct?.isAvailable === false || customProduct?.IsAvailable === false);
     if (isSoldOut) {
@@ -64,6 +228,40 @@ export const CartProvider = ({ children }) => {
       return [...prev, { product: customProduct, quantity: validQty }];
     });
     
+    // Provide toast notification
+    setLastAddedItem({
+      name: customProduct.name,
+      quantity: validQty,
+      time: Date.now()
+    });
+
+    // Auto-open logic:
+    // Only auto-open if the user hasn't explicitly clicked "أضف منتج آخر" or closed the cart
+    if (!dontAutoOpenCart) {
+      setIsCartOpen(true);
+    }
+  };
+
+  // 7. Continue Shopping / Dismiss Cart
+  const continueShopping = () => {
+    setDontAutoOpenCart(true);
+    try {
+      sessionStorage.setItem('crispy_dont_auto_open_cart', 'true');
+    } catch (e) {}
+    setIsCartOpen(false);
+  };
+
+  // Close Cart helper
+  const closeCart = () => {
+    setDontAutoOpenCart(true);
+    try {
+      sessionStorage.setItem('crispy_dont_auto_open_cart', 'true');
+    } catch (e) {}
+    setIsCartOpen(false);
+  };
+
+  // Open Cart helper
+  const openCart = () => {
     setIsCartOpen(true);
   };
 
@@ -97,6 +295,13 @@ export const CartProvider = ({ children }) => {
 
   const clearCart = () => {
     setCartItems([]);
+    const cleanPhone = activeUserPhoneRef.current;
+    if (cleanPhone) {
+      set(ref(db, `UserCarts/${cleanPhone}`), {
+        items: [],
+        updatedAt: Date.now()
+      }).catch(() => {});
+    }
   };
 
   const syncCartWithMenu = (menuData) => {
@@ -139,7 +344,6 @@ export const CartProvider = ({ children }) => {
                 }
              }
           } else {
-             // If not weighted, calculatedPrice should match sellingPrice
              if (newProduct.calculatedPrice !== liveP.sellingPrice) {
                  newProduct.calculatedPrice = liveP.sellingPrice;
                  itemChanged = true;
@@ -187,8 +391,17 @@ export const CartProvider = ({ children }) => {
       cartTotal,
       isCartOpen,
       setIsCartOpen,
+      openCart,
+      closeCart,
+      continueShopping,
+      dontAutoOpenCart,
+      lastAddedItem,
       tableNumber,
-      setTableNumber
+      setTableNumber,
+      orderType,
+      setOrderType,
+      isOrderTypeModalOpen,
+      setIsOrderTypeModalOpen
     }}>
       {children}
     </CartContext.Provider>

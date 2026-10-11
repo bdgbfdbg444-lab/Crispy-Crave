@@ -1,11 +1,14 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
+import { useCart } from '../context/CartContext';
 import { motion } from 'framer-motion';
 import { Utensils } from 'lucide-react';
 
 export default function OrderCta({ websiteData }) {
   const { lang } = useLanguage();
+  const { orderType, setIsOrderTypeModalOpen } = useCart();
+  const navigate = useNavigate();
 
   if (!websiteData) return null;
 
@@ -33,13 +36,20 @@ export default function OrderCta({ websiteData }) {
           <p className="text-xl md:text-2xl mb-10 text-white/90 font-medium">
             {text || (lang === 'en' ? 'Get your smoked brisket delivered to your door' : 'بالطعم الأصلي للبريسكيت')}
           </p>
-          <Link 
-            to="/menu" 
-            className="inline-flex items-center gap-3 bg-black-primary text-white hover:bg-gray-900 font-bold text-xl py-5 px-12 rounded-full transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 transform duration-300"
+          <button 
+            type="button"
+            onClick={() => {
+              if (!orderType) {
+                setIsOrderTypeModalOpen(true);
+              } else {
+                navigate('/menu');
+              }
+            }}
+            className="inline-flex items-center gap-3 bg-black-primary text-white hover:bg-gray-900 font-bold text-xl py-5 px-12 rounded-full transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 transform duration-300 cursor-pointer"
           >
             <Utensils size={24} />
             {button || (lang === 'en' ? 'Order Now' : 'اطلب الآن')}
-          </Link>
+          </button>
         </motion.div>
       </div>
     </section>

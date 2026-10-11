@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ChevronRight } from 'lucide-react'; // Added ChevronRight for back button (RTL uses right arrow for back)
+import { Search, ChevronRight, Bike, ShoppingBag, UtensilsCrossed } from 'lucide-react';
+import { useCart } from '../../context/CartContext';
 import ProductCard from './ProductCard';
 
 const SkeletonLoader = () => (
@@ -34,6 +35,7 @@ const SkeletonLoader = () => (
 
 export default function MenuSection({ menuData, onProductClick }) {
   const { lang, t } = useLanguage();
+  const { orderType, setIsOrderTypeModalOpen, tableNumber } = useCart();
   if (!menuData || !menuData.categories) {
     return <SkeletonLoader />;
   }
@@ -72,6 +74,35 @@ export default function MenuSection({ menuData, onProductClick }) {
     <section id="menu" className="py-24 bg-black-surface relative min-h-screen">
       <div className="container mx-auto px-6">
         
+        {/* Active Order Type Bar */}
+        <div className="mb-8 flex items-center justify-between gap-4 p-3.5 px-5 rounded-2xl bg-black-primary/90 border border-brand-red-dark/30 shadow-lg">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-brand-red/15 text-brand-red flex items-center justify-center shrink-0">
+              {orderType === 'delivery' ? <Bike size={20} /> : orderType === 'DineIn' ? <UtensilsCrossed size={20} /> : <ShoppingBag size={20} />}
+            </div>
+            <div>
+              <span className="text-[11px] text-text-muted font-bold block">{lang === 'en' ? 'Order Method' : 'طريقة الاستلام:'}</span>
+              <span className="font-black text-sm md:text-base text-text-light">
+                {orderType === 'delivery' 
+                  ? (lang === 'en' ? 'Home Delivery 🛵' : 'توصيل للمنزل 🛵') 
+                  : orderType === 'DineIn' 
+                    ? (lang === 'en' ? `Dine-In ${tableNumber ? `(Table ${tableNumber})` : ''} 🍽️` : `تناول بالصالة ${tableNumber ? `(طاولة ${tableNumber})` : ''} 🍽️`) 
+                    : (lang === 'en' ? 'Takeaway / Pickup 🛍️' : 'استلام من الفرع 🛍️')}
+              </span>
+            </div>
+          </div>
+
+          {!tableNumber && (
+            <button 
+              type="button"
+              onClick={() => setIsOrderTypeModalOpen(true)}
+              className="text-xs font-bold text-brand-red hover:text-white px-3.5 py-1.5 rounded-xl border border-brand-red/30 hover:bg-brand-red transition-all cursor-pointer shadow-sm"
+            >
+              {lang === 'en' ? 'Change' : 'تغيير'}
+            </button>
+          )}
+        </div>
+
         {/* Header & Search */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-12 gap-6">
           <div className="flex items-center gap-4">

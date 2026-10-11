@@ -2,7 +2,7 @@ import { useLanguage } from '../context/LanguageContext';
 import PaymentSection from '../components/PaymentSection';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingBag, ArrowRight, Wallet, CheckCircle, AlertCircle, MessageSquare, ShieldCheck, RefreshCw } from 'lucide-react';
+import { ShoppingBag, ArrowRight, Wallet, CheckCircle, AlertCircle, MessageSquare, ShieldCheck, RefreshCw, Bike, UtensilsCrossed, Flame, UploadCloud, CheckCircle2, Loader2 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { db, auth } from '../firebase';
@@ -21,7 +21,7 @@ import { getDeviceId, getClientIp, checkLocalDailyOtpLimit, recordLocalOtpAttemp
 
 export default function CheckoutPage({ menuData }) {
   const { lang } = useLanguage();
-  const { cartItems, cartTotal, clearCart, tableNumber } = useCart();
+  const { cartItems, cartTotal, clearCart, tableNumber, orderType, setOrderType, setIsOrderTypeModalOpen } = useCart();
   const { customerData, userPhone } = useAuth();
   const navigate = useNavigate();
   
@@ -29,8 +29,16 @@ export default function CheckoutPage({ menuData }) {
     customerName: customerData?.Name || '',
     customerPhone: userPhone || '',
     notes: '',
-    orderType: tableNumber ? 'DineIn' : 'takeaway', deliveryAddress: customerData?.addresses?.find(a => a.isDefault)?.fullAddress || customerData?.Address || '', tableNumber: tableNumber || ''
+    orderType: orderType || (tableNumber ? 'DineIn' : 'takeaway'),
+    deliveryAddress: customerData?.addresses?.find(a => a.isDefault)?.fullAddress || customerData?.Address || '',
+    tableNumber: tableNumber || ''
   });
+
+  useEffect(() => {
+    if (orderType && formData.orderType !== orderType) {
+      setFormData(prev => ({ ...prev, orderType }));
+    }
+  }, [orderType]);
 
   const [mapAddress, setMapAddress] = useState({
     zone: '', 
@@ -124,6 +132,7 @@ export default function CheckoutPage({ menuData }) {
   const grandTotal = Math.max(0, Math.round((subtotal - couponDiscount + taxAmount + deliveryFee) * 100) / 100);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStep, setSubmitStep] = useState(null); // 'preparing' | 'compressing' | 'uploading' | 'saving' | 'redirecting'
   const isSubmittingRef = React.useRef(false);
   const [orderStatus, setOrderStatus] = useState("New");
   const [isSuccess, setIsSuccess] = useState(false);
@@ -903,6 +912,7 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
     }
 
     setIsSubmitting(true);
+    setSubmitStep('preparing');
     setErrorMessage("");
 
     try {
@@ -945,6 +955,7 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
         let fileToUpload = receiptFile;
         try {
           if (receiptFile.size > 300 * 1024) {
+            setSubmitStep('compressing');
             fileToUpload = await imageCompression(receiptFile, {
               maxSizeMB: 0.3,
               maxWidthOrHeight: 1280,
@@ -955,6 +966,7 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
           console.warn('Compression fallback:', compErr);
         }
 
+        setSubmitStep('uploading');
         const cloudData = new FormData();
         cloudData.append('file', fileToUpload);
         cloudData.append('upload_preset', UPLOAD_PRESET);
@@ -963,47 +975,31 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
           body: cloudData,
         });
         
-          if (res.ok) {
-            const cloudResult = await res.json();
-            paymentReceiptUrl = cloudResult.secure_url;
+        if (res.ok) {
+          const cloudResult = await res.json();
+          paymentReceiptUrl = cloudResult.secure_url;
+          
+          // Non-blocking background registration of receipt
+          try {
+            const reqId = 'vrf_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+            set(ref(db, `ReceiptVerificationRequests/${reqId}`), {
+              imageUrl: paymentReceiptUrl,
+              expectedAmount: grandTotal,
+              walletNumber: walletNumber,
+              orderId: displayOrderId,
+              phone: formData.customerPhone || userPhone || 'unknown',
+              timestamp: new Date().toISOString()
+            }).catch(() => {});
             
-            // --- AI RECEIPT VERIFICATION ---
-            try {
-                const reqId = 'vrf_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-                await set(ref(db, `ReceiptVerificationRequests/${reqId}`), {
-                    imageUrl: paymentReceiptUrl,
-                    expectedAmount: finalTotal,
-                    walletNumber: walletNumber,
-                    orderId: displayOrderId,
-                    phone: formData.customerPhone || userPhone || 'unknown',
-                    timestamp: new Date().toISOString()
-                });
-                
-                // Wait for verdict
-                const verdict = await new Promise((resolve) => {
-                    const verdictRef = ref(db, `ReceiptVerdicts/${reqId}`);
-                    let timeout = setTimeout(() => {
-                        resolve({ scoreText: '⚪ لم يتم الفحص', verdict: 'orange' });
-                    }, 15000); // 15 seconds max wait
-                    
-                    const unsubscribe = onValue(verdictRef, (snap) => {
-                        if (snap.exists()) {
-                            clearTimeout(timeout);
-                            unsubscribe();
-                            resolve(snap.val());
-                        }
-                    });
-                });
-                
-                aiVerdict = verdict;
-                
-            } catch(aiErr) {
-                console.warn('AI Verification skipped/failed:', aiErr);
-                aiVerdict = { scoreText: '⚪ لم يتم الفحص', verdict: 'orange', error: aiErr.message };
-            }
+            aiVerdict = { scoreText: '⚪ في انتظار مراجعة الكاشير', verdict: 'pending' };
+          } catch(aiErr) {
+            console.warn('Receipt verification recording fallback:', aiErr);
+            aiVerdict = { scoreText: '⚪ لم يتم الفحص', verdict: 'orange', error: aiErr.message };
           }
-
+        }
       }
+
+      setSubmitStep('saving');
 
       const matchedAddr = customerData?.addresses?.find(a => a.fullAddress === formData.deliveryAddress);
 
@@ -1225,10 +1221,14 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
       localStorage.setItem('activeOrderNumber', cleanId);
       localStorage.setItem('activeOrderTotal', grandTotal);
       isSubmittingRef.current = false;
-      setIsSubmitting(false);
+      setSubmitStep('redirecting');
 
       sessionStorage.setItem('placed_order_' + cleanId, 'true');
       sessionStorage.setItem('placed_order_' + trackingToken, 'true');
+
+      // Allow customer to see the 100% success checkmark before smooth transition
+      await new Promise(r => setTimeout(r, 600));
+      setIsSubmitting(false);
 
       // Navigate with secure high-entropy trackingToken (Anti-Enumeration Guard)
       navigate('/track/' + trackingToken);
@@ -1251,6 +1251,7 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
       }
       
       setErrorMessage(msg);
+      setSubmitStep(null);
       isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
@@ -1453,31 +1454,35 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
                 </div>
               )}
 
-              {/* Order Type */}
+              {/* Selected Order Type Card */}
               <div className="mb-8">
-                <h3 className="text-xl font-bold text-text-light mb-4">{lang === 'en' ? 'Order Type' : 'نوع الطلب'}</h3>
-                
-                {!tableNumber ? (
-                  <div className="grid grid-cols-3 gap-4">
-                    {['DineIn', 'takeaway', 'delivery'].map(type => (
-                      <label key={type} className={`cursor-pointer border-2 rounded-xl p-4 text-center transition-all ${formData.orderType === type ? 'border-brand-red bg-brand-red/5 text-brand-red' : 'border-brand-red-dark/30 text-text-muted hover:border-brand-red-dark/50'}`}>
-                        <input 
-                          type="radio" 
-                          name="orderType" 
-                          value={type} 
-                          checked={formData.orderType === type}
-                          onChange={handleChange}
-                          className="hidden" 
-                        />
-                        <span className="font-bold block">{type === 'DineIn' ? (lang === 'en' ? 'Dine-in' : 'صالة') : type === 'delivery' ? (lang === 'en' ? 'Delivery' : 'توصيل') : (lang === 'en' ? 'Takeaway' : 'تيك اواي')}</span>
-                      </label>
-                    ))}
+                <div className="p-4.5 rounded-2xl bg-black-primary border border-brand-red-dark/40 flex items-center justify-between shadow-sm">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-11 h-11 rounded-xl bg-brand-red/15 text-brand-red flex items-center justify-center shrink-0">
+                      {formData.orderType === 'delivery' ? <Bike size={22} /> : formData.orderType === 'DineIn' ? <UtensilsCrossed size={22} /> : <ShoppingBag size={22} />}
+                    </div>
+                    <div>
+                      <span className="text-[11px] text-text-muted font-bold block">{lang === 'en' ? 'Selected Order Method' : 'طريقة الاستلام المحددة:'}</span>
+                      <span className="text-base sm:text-lg font-black text-text-light">
+                        {formData.orderType === 'delivery' 
+                          ? (lang === 'en' ? 'Home Delivery 🛵' : 'توصيل للمنزل 🛵') 
+                          : formData.orderType === 'DineIn' 
+                            ? (lang === 'en' ? `Dine-In ${tableNumber ? `(Table ${tableNumber})` : ''} 🍽️` : `تناول في الصالة ${tableNumber ? `(طاولة ${tableNumber})` : ''} 🍽️`) 
+                            : (lang === 'en' ? 'Takeaway / Pickup 🛍️' : 'استلام من المطعم (تيك أواي) 🛍️')}
+                      </span>
+                    </div>
                   </div>
-                ) : (
-                  <div className="bg-brand-red/10 border border-brand-red text-brand-red p-4 rounded-xl text-center">
-                    <span className="font-bold text-lg">أنت تطلب من طاولة رقم {tableNumber}</span>
-                  </div>
-                )}
+
+                  {!tableNumber && (
+                    <button 
+                      type="button"
+                      onClick={() => setIsOrderTypeModalOpen(true)}
+                      className="text-xs font-bold text-brand-red hover:text-white px-3.5 py-1.5 rounded-xl border border-brand-red/30 hover:bg-brand-red transition-all cursor-pointer shadow-sm"
+                    >
+                      {lang === 'en' ? 'Change' : 'تغيير'}
+                    </button>
+                  )}
+                </div>
 
                 {/* Manual Table Number Input if DineIn and not scanned by QR */}
                 {formData.orderType === 'DineIn' && !tableNumber && (
@@ -1488,7 +1493,7 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
                     <input 
                       type="number" 
                       min="1" 
-                      max="50"
+                      max="50" 
                       required
                       value={formData.tableNumber || ''} 
                       onChange={(e) => setFormData(prev => ({ ...prev, tableNumber: e.target.value }))}
@@ -1497,7 +1502,6 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
                     />
                   </div>
                 )}
-
               </div>
 
               {/* Customer Info */}
@@ -1706,9 +1710,26 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
                     <button 
                       type="submit" 
                       disabled={!isStoreOpen || isSubmitting}
-                      className={`w-full mt-8 py-4 rounded-xl font-bold text-lg text-text-light transition-all shadow-lg ${isSubmitting ? 'bg-brand-red-dark/50 text-text-muted cursor-not-allowed' : 'bg-brand-red hover:bg-brand-red-dark shadow-brand-red/30'}`}
+                      className={`w-full mt-8 py-4 rounded-xl font-bold text-lg text-text-light transition-all shadow-lg flex items-center justify-center gap-2.5 ${isSubmitting ? 'bg-brand-red-dark/50 text-text-muted cursor-not-allowed' : 'bg-brand-red hover:bg-brand-red-dark shadow-brand-red/30'}`}
                     >
-                      {isSubmitting ? 'جاري الإرسال...' : (lang === 'en' ? 'Confirm and Submit Order' : 'تأكيد وإرسال الطلب')}
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 size={20} className="animate-spin text-brand-red" />
+                          <span>
+                            {submitStep === 'compressing'
+                              ? (lang === 'en' ? 'Optimizing receipt...' : 'جاري ضغط الإيصال...')
+                              : submitStep === 'uploading'
+                              ? (lang === 'en' ? 'Uploading receipt...' : 'جاري رفع الإيصال...')
+                              : submitStep === 'saving'
+                              ? (lang === 'en' ? 'Booking in kitchen...' : 'جاري تسجيل الطلب...')
+                              : submitStep === 'redirecting'
+                              ? (lang === 'en' ? 'Opening tracker...' : 'تم! جاري فتح التتبع...')
+                              : (lang === 'en' ? 'Processing order...' : 'جاري إرسال الطلب...')}
+                          </span>
+                        </>
+                      ) : (
+                        lang === 'en' ? 'Confirm and Submit Order' : 'تأكيد وإرسال الطلب'
+                      )}
                     </button>
                     </div>
                   )}
@@ -1821,6 +1842,88 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
 
         </div>
       </div>
+
+      {/* Real-Time Order Submission Progress Modal */}
+      <AnimatePresence>
+        {isSubmitting && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-black-surface border border-brand-red/40 rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-[0_0_50px_rgba(230,57,70,0.3)] relative text-center text-text-light overflow-hidden"
+            >
+              {/* Ambient Glow */}
+              <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-44 h-44 bg-brand-red/20 rounded-full blur-3xl pointer-events-none" />
+
+              {/* Pulsing Icon */}
+              <div className="relative mx-auto w-20 h-20 rounded-full bg-gradient-to-b from-brand-red/20 to-black-primary border-2 border-brand-red/50 flex items-center justify-center shadow-lg mb-5">
+                {submitStep === 'redirecting' ? (
+                  <CheckCircle2 size={40} className="text-emerald-400 animate-bounce" />
+                ) : submitStep === 'uploading' ? (
+                  <UploadCloud size={38} className="text-purple-400 animate-pulse" />
+                ) : submitStep === 'compressing' ? (
+                  <RefreshCw size={36} className="text-amber-400 animate-spin" />
+                ) : (
+                  <Flame size={40} className="text-brand-red animate-pulse" />
+                )}
+                {submitStep !== 'redirecting' && (
+                  <span className="absolute inset-0 rounded-full border-2 border-brand-red border-t-transparent animate-spin" />
+                )}
+              </div>
+
+              {/* Title & Step Info */}
+              <h3 className="text-xl font-black text-text-light mb-1">
+                {submitStep === 'redirecting'
+                  ? (lang === 'en' ? 'Order Confirmed!' : 'تم تأكيد طلبك بنجاح!')
+                  : (lang === 'en' ? 'Securing Your Order...' : 'جاري إتمام طلبك...')}
+              </h3>
+
+              <div className="mt-2 min-h-[50px] flex flex-col items-center justify-center">
+                <span className="text-sm font-bold text-brand-red bg-brand-red/10 border border-brand-red/20 px-3 py-1 rounded-full inline-block">
+                  {submitStep === 'compressing' && (lang === 'en' ? '📸 Optimizing Receipt Image...' : '📸 ضغط وتجهيز صورة الإيصال...')}
+                  {submitStep === 'uploading' && (lang === 'en' ? '☁️ Uploading Transfer Receipt...' : '☁️ رفع إيصال التحويل بأمان...')}
+                  {submitStep === 'saving' && (lang === 'en' ? '🔥 Sending Order to Kitchen...' : '🔥 تسجيل وحجز الطلب بالمطعم...')}
+                  {submitStep === 'redirecting' && (lang === 'en' ? '🚀 Opening Live Tracker...' : '🚀 تم التسجيل! جاري الانتقال للتتبع...')}
+                  {(submitStep === 'preparing' || !submitStep) && (lang === 'en' ? '⏳ Verifying Order Details...' : '⏳ تجهيز ومراجعة بيانات الطلب...')}
+                </span>
+                <p className="text-xs text-text-muted mt-2">
+                  {submitStep === 'redirecting'
+                    ? (lang === 'en' ? 'Redirecting to your live order tracking page...' : 'جاري فتح شاشة المتابعة والتتبع المباشر لطلبك...')
+                    : (lang === 'en' ? 'Please hold on, this will take just a few seconds.' : 'ثوانٍ معدودة وينتهي التسجيل، برجاء عدم إغلاق الصفحة.')}
+                </p>
+              </div>
+
+              {/* Animated Progress Bar */}
+              <div className="w-full bg-black-primary/80 h-2.5 rounded-full overflow-hidden border border-white/5 my-5">
+                <motion.div
+                  className="h-full bg-gradient-to-r from-amber-500 via-brand-red to-emerald-500 rounded-full"
+                  initial={{ width: '15%' }}
+                  animate={{
+                    width:
+                      submitStep === 'compressing' ? '45%' :
+                      submitStep === 'uploading' ? '70%' :
+                      submitStep === 'saving' ? '88%' :
+                      submitStep === 'redirecting' ? '100%' : '25%'
+                  }}
+                  transition={{ duration: 0.4, ease: 'easeInOut' }}
+                />
+              </div>
+
+              {/* Reassurance Footer */}
+              <div className="text-[11px] text-text-muted/70 bg-black-primary/50 rounded-xl py-2 px-3 border border-white/5 flex items-center justify-center gap-1.5">
+                <ShieldCheck size={14} className="text-emerald-400 shrink-0" />
+                <span>{lang === 'en' ? 'Bank-grade encryption & anti-duplicate protection' : 'نظام محمي ومشفر بالكامل لمنع تكرار الطلبات'}</span>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* THOGHRA 17: WhatsApp Phone Ownership Verification Modal */}
       <AnimatePresence>
