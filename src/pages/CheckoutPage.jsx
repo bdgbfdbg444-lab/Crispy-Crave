@@ -339,6 +339,12 @@ export default function CheckoutPage({ menuData }) {
         } else if (data.status === 'failed') {
           setOtpError(lang === 'en' ? 'Incorrect verification code.' : '\u0643\u0648\u062f \u0627\u0644\u062a\u062d\u0642\u0642 \u063a\u064a\u0631 \u0635\u062d\u064a\u062d.');
           set(resultRef, null);
+        } else if (data.status === 'daily_limit_exceeded') {
+          setOtpError(lang === 'en' ? 'Daily OTP limit reached (3 codes max per day). Please try again tomorrow.' : 'تم استنفاد الحد الأقصى لمحاولات إرسال الكود اليوم (3 محاولات كحد أقصى). يرجى المحاولة غداً.');
+          set(resultRef, null);
+        } else if (data.status === 'rate_limited') {
+          setOtpError(lang === 'en' ? (data.message || 'Please wait before requesting another code.') : (data.message || 'يرجى الانتظار قبل طلب كود جديد.'));
+          set(resultRef, null);
         }
       }
     });

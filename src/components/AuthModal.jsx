@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, MapPin, CheckCircle2, AlertCircle, Eye, EyeOff } from 'lucide-react';
@@ -134,6 +134,15 @@ export default function AuthModal({ isOpen, onClose, onSuccess, zonesList = [] }
               setError(lang === 'en' ? 'Incorrect code.' : 'الكود غير صحيح.');
               off(resultRef);
               setLoading(false);
+            } else if (data.status === 'daily_limit_exceeded') {
+              setError(lang === 'en' ? 'Daily OTP limit reached (3 codes max per day). Please try again tomorrow.' : 'تم استنفاد الحد الأقصى لمحاولات إرسال الكود اليوم (3 محاولات كحد أقصى). يرجى المحاولة غداً.');
+              off(resultRef);
+              setStep('form');
+              setLoading(false);
+            } else if (data.status === 'rate_limited') {
+              setError(lang === 'en' ? (data.message || 'Please wait before requesting another code.') : (data.message || 'يرجى الانتظار قبل طلب كود جديد.'));
+              off(resultRef);
+              setLoading(false);
             }
           }
         });
@@ -199,6 +208,15 @@ export default function AuthModal({ isOpen, onClose, onSuccess, zonesList = [] }
             finalizeRegistration(cleanPhone, reqId, resultRef);
           } else if (data.status === 'failed') {
             setError(lang === 'en' ? 'Incorrect code.' : 'كود التحقق غير صحيح.');
+            off(resultRef);
+            setLoading(false);
+          } else if (data.status === 'daily_limit_exceeded') {
+            setError(lang === 'en' ? 'Daily OTP limit reached (3 codes max per day). Please try again tomorrow.' : 'تم استنفاد الحد الأقصى لمحاولات إرسال الكود اليوم (3 محاولات كحد أقصى). يرجى المحاولة غداً.');
+            off(resultRef);
+            setStep('form');
+            setLoading(false);
+          } else if (data.status === 'rate_limited') {
+            setError(lang === 'en' ? (data.message || 'Please wait before requesting another code.') : (data.message || 'يرجى الانتظار قبل طلب كود جديد.'));
             off(resultRef);
             setLoading(false);
           }
