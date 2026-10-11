@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { visitorTracker } from '../services/visitorTracker';
 import { auth, db } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -78,35 +78,45 @@ if (user) {
   }, []);
 
   const refreshCustomerData = async (phoneToFetch = null) => {
-    const targetPhone = phoneToFetch || userPhone;
+    let targetPhone = phoneToFetch || userPhone;
+    if (!targetPhone && auth.currentUser) {
+      try {
+        const mappingSnap = await get(ref(db, `UidToPhone/${auth.currentUser.uid}`));
+        if (mappingSnap.exists()) {
+          targetPhone = mappingSnap.val();
+        }
+      } catch (e) {}
+    }
     if (targetPhone) {
       setUserPhone(targetPhone);
       const custRef = ref(db, `PublicCustomers/${targetPhone}`);
-        const custSnap = await get(custRef);
-        if (custSnap.exists()) {
-          const data = custSnap.val();
-          
-          const legacyAddress = data.address || data.Address;
-          console.log("[Migration Debug 2] Legacy address found:", legacyAddress);
-          console.log("[Migration Debug 2] Current addresses:", data.addresses);
-          
-          if (legacyAddress && (!data.addresses || !Array.isArray(data.addresses) || data.addresses.length === 0)) {
-            console.log("[Migration Debug 2] Triggering migration!");
-            const newAddress = {
-              id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-              label: 'المنزل',
-              fullAddress: legacyAddress,
-              isDefault: true
-            };
-            data.addresses = [newAddress];
-            update(ref(db, `PublicCustomers/${targetPhone}`), {
-              addresses: data.addresses
-            }).then(() => console.log("[Migration Debug 2] Update successful!"))
-              .catch(err => console.error("Address migration failed:", err));
-          }
-          
-          setCustomerData(data);
+      const custSnap = await get(custRef);
+      if (custSnap.exists()) {
+        const data = custSnap.val();
+        
+        const legacyAddress = data.address || data.Address;
+        if (legacyAddress && (!data.addresses || !Array.isArray(data.addresses) || data.addresses.length === 0)) {
+          const newAddress = {
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+            label: 'المنزل',
+            fullAddress: legacyAddress,
+            isDefault: true
+          };
+          data.addresses = [newAddress];
+          update(ref(db, `PublicCustomers/${targetPhone}`), {
+            addresses: data.addresses
+          }).catch(err => console.error("Address migration failed:", err));
         }
+        
+        setCustomerData(data);
+      } else {
+        setCustomerData({
+          Name: auth.currentUser?.displayName || 'العميل',
+          Phone: targetPhone,
+          Points: 0,
+          History: []
+        });
+      }
     }
   };
 

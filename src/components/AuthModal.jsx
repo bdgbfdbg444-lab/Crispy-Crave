@@ -122,14 +122,11 @@ export default function AuthModal({ isOpen, onClose, onSuccess, zonesList = [] }
           const data = snapshot.val();
           if (data) {
             if (data.status === 'success') {
-              // Sign in the user properly if possible, but since we are just OTPing, we can generate a custom token or rely on email.
-              // Wait, standard OTP in this app is handled by checking if OTP is correct, then logging them in.
-              // Since we don't have custom tokens, we might need them to reset password. But wait, earlier we linked Phone to Uid.
-              // We can just rely on anonymous auth + CustomerData mapping!
               await set(ref(db, `UidToPhone/${auth.currentUser.uid}`), cleanPhone);
               off(resultRef);
-              onSuccess();
-              onClose();
+              setLoading(false);
+              if (onSuccess) onSuccess(cleanPhone);
+              if (onClose) onClose();
             } else if (data.status === 'failed') {
               setError(lang === 'en' ? 'Incorrect code.' : 'الكود غير صحيح.');
               off(resultRef);
@@ -281,9 +278,10 @@ export default function AuthModal({ isOpen, onClose, onSuccess, zonesList = [] }
 
       off(resultRef);
       setOtpReqId(null);
+      setLoading(false);
       
-      onSuccess();
-      onClose();
+      if (onSuccess) onSuccess(cleanPhone);
+      if (onClose) onClose();
     } catch (err) {
       console.error(err);
       if (err.code === 'auth/email-already-in-use') {

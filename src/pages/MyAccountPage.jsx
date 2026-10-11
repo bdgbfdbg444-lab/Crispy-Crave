@@ -720,9 +720,7 @@ export default function MyAccountPage() {
           isOpen={true}
           onClose={() => navigate('/')}
           onSuccess={(cleanPhone) => {
-            setTimeout(() => {
-              if (auth.currentUser) refreshCustomerData(cleanPhone);
-            }, 500);
+            refreshCustomerData(cleanPhone);
           }}
         />
       ) : (
