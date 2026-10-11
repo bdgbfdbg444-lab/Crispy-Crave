@@ -115,6 +115,11 @@ function App() {
           
           if (section === 'Announcement Popup' || section === 'Promo Popup' || field === 'promoPopup') {
             window.dispatchEvent(new CustomEvent('OPEN_PROMO_POPUP_PREVIEW'));
+          } else if (section === 'Footer' || section === 'Footer & Social Links') {
+            const el = document.getElementById('footer');
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
           } else {
             const el = document.getElementById(targetId);
             if (el) {

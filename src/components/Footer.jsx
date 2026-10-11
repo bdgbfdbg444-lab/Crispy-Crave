@@ -12,10 +12,32 @@ export default function Footer({ websiteData }) {
   const facebookLink = websiteData?.facebookLink || "#";
   const instagramLink = websiteData?.instagramLink || "#";
   const tikTokLink = websiteData?.tikTokLink || "#";
-  const whatsAppLink = websiteData?.whatsAppLink || "#";
+  
+  let rawWhatsApp = websiteData?.whatsAppLink || "";
+  let whatsAppLink = "#";
+  if (rawWhatsApp) {
+    if (rawWhatsApp.startsWith('http://') || rawWhatsApp.startsWith('https://')) {
+      whatsAppLink = rawWhatsApp;
+    } else {
+      const cleanNumber = rawWhatsApp.replace(/[^0-9]/g, '');
+      if (cleanNumber) {
+        whatsAppLink = cleanNumber.startsWith('20') 
+          ? `https://wa.me/${cleanNumber}` 
+          : `https://wa.me/2${cleanNumber.startsWith('0') ? cleanNumber.slice(1) : cleanNumber}`;
+      }
+    }
+  }
+
+  const copyrightText = lang === 'en'
+    ? (websiteData?.footerCopyrightEn || `© ${new Date().getFullYear()} All Rights Reserved. ${APP_CONFIG.restaurantName}`)
+    : (websiteData?.footerCopyright || `© ${new Date().getFullYear()} جميع الحقوق محفوظة. ${APP_CONFIG.restaurantName}`);
+
+  const taglineText = lang === 'en'
+    ? (websiteData?.footerTaglineEn || 'CRAFTED BRISKET & SMASH BURGERS')
+    : (websiteData?.footerTagline || 'أشهى بريسكت وبرجر مدخن على الحطب');
 
   return (
-    <footer className="bg-black-primary text-text-light pt-16 pb-24 md:pb-12 border-t border-gray-800">
+    <footer id="footer" className="bg-black-primary text-text-light pt-16 pb-24 md:pb-12 border-t border-gray-800">
       <div className="container mx-auto px-6">
         <div className="flex flex-col md:flex-row justify-between items-center gap-8 mb-8">
           
@@ -25,30 +47,66 @@ export default function Footer({ websiteData }) {
               {APP_CONFIG.restaurantName}
             </div>
             <p className="text-text-muted text-sm">
-              &copy; {new Date().getFullYear()} جميع الحقوق محفوظة. مطعم جمر وحطب.
+              {copyrightText}
             </p>
             <p className="text-text-light/50 text-xs font-bold tracking-wider mt-1">
-              CRAFTED BRISKET & SMASH BURGERS
+              {taglineText}
             </p>
           </div>
 
           <div className="flex flex-col items-center md:items-end gap-6">
             {/* Social Media Links */}
             <div className="flex items-center gap-4">
-              <a href={facebookLink} target="_blank" rel="noopener noreferrer" className="w-12 h-12 bg-gray-800 hover:bg-[#1877F2] text-text-muted hover:text-text-light rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
+              {/* WhatsApp */}
+              <a 
+                href={whatsAppLink} 
+                target={whatsAppLink !== '#' ? '_blank' : undefined} 
+                rel="noopener noreferrer" 
+                title="WhatsApp"
+                className="w-12 h-12 bg-gray-800 hover:bg-[#25D366] text-text-muted hover:text-white rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110"
+              >
+                <MessageCircle size={22} />
               </a>
-              
-              <a href={instagramLink} target="_blank" rel="noopener noreferrer" className="w-12 h-12 bg-gray-800 hover:bg-[#E4405F] text-text-muted hover:text-text-light rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+
+              {/* TikTok */}
+              <a 
+                href={tikTokLink} 
+                target={tikTokLink !== '#' ? '_blank' : undefined} 
+                rel="noopener noreferrer" 
+                title="TikTok"
+                className="w-12 h-12 bg-gray-800 hover:bg-[#FE2C55] text-text-muted hover:text-white rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"></path>
+                </svg>
               </a>
-              
-              <a href={tikTokLink} target="_blank" rel="noopener noreferrer" className="w-12 h-12 bg-gray-800 hover:bg-[#FE2C55] text-text-muted hover:text-text-light rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"></path></svg>
+
+              {/* Instagram */}
+              <a 
+                href={instagramLink} 
+                target={instagramLink !== '#' ? '_blank' : undefined} 
+                rel="noopener noreferrer" 
+                title="Instagram"
+                className="w-12 h-12 bg-gray-800 hover:bg-[#E4405F] text-text-muted hover:text-white rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                  <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                  <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+                </svg>
               </a>
-              
-              <a href={whatsAppLink} target="_blank" rel="noopener noreferrer" className="w-12 h-12 bg-gray-800 hover:bg-green-600 text-text-muted hover:text-text-light rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110">
-                <MessageCircle size={20} />
+
+              {/* Facebook */}
+              <a 
+                href={facebookLink} 
+                target={facebookLink !== '#' ? '_blank' : undefined} 
+                rel="noopener noreferrer" 
+                title="Facebook"
+                className="w-12 h-12 bg-gray-800 hover:bg-[#1877F2] text-text-muted hover:text-white rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path>
+                </svg>
               </a>
             </div>
             
