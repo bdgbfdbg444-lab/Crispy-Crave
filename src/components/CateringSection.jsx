@@ -1,14 +1,101 @@
 import { useLanguage } from '../context/LanguageContext';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, ArrowLeft, Send, CheckCircle, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { 
+  Users, ArrowLeft, ArrowRight, Send, CheckCircle, Loader2, AlertCircle, 
+  RefreshCw, Calendar, Clock, MapPin, Sparkles, Check, Phone, User, 
+  Utensils, Flame 
+} from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { useAuth } from '../context/AuthContext';
 import { db, auth } from '../firebase';
 import { ref, set, get } from 'firebase/database';
 import { signInAnonymously } from 'firebase/auth';
 import { getDeviceId, getClientIp, checkLocalDailyOtpLimit, recordLocalOtpAttempt } from '../utils/deviceTracker';
+
+const EVENT_TYPES = [
+  { id: 'family', labelAr: 'لمة عائلة / بيت', labelEn: 'Family / Home Gathering', icon: '🏠' },
+  { id: 'birthday', labelAr: 'عيد ميلاد / احتفال', labelEn: 'Birthday / Celebration', icon: '🎂' },
+  { id: 'corporate', labelAr: 'عمل / شركات', labelEn: 'Corporate / Office', icon: '💼' },
+  { id: 'friends', labelAr: 'سهرة أصحاب', labelEn: 'Friends Hangout', icon: '👥' },
+  { id: 'other', labelAr: 'مناسبة خاصة', labelEn: 'Special Occasion', icon: '✨' },
+];
+
+const GUEST_PRESETS = [
+  { labelAr: '10 - 15 فرد', labelEn: '10 - 15 Guests', value: '10 - 15' },
+  { labelAr: '15 - 25 فرد', labelEn: '15 - 25 Guests', value: '15 - 25' },
+  { labelAr: '25 - 50 فرد', labelEn: '25 - 50 Guests', value: '25 - 50' },
+  { labelAr: '50+ فرد', labelEn: '50+ Guests', value: '50+' },
+  { labelAr: 'عدد مخصص', labelEn: 'Custom Count', value: 'custom' },
+];
+
+const TIME_SLOTS = [
+  { id: 'lunch', labelAr: 'غداء (1:00 م - 5:00 م)', labelEn: 'Lunch (1:00 PM - 5:00 PM)', icon: '☀️' },
+  { id: 'dinner', labelAr: 'عشاء (6:00 م - 11:00 م)', labelEn: 'Dinner (6:00 PM - 11:00 PM)', icon: '🌙' },
+  { id: 'custom', labelAr: 'ساعة محددة', labelEn: 'Specific Time', icon: '⏰' },
+];
+
+const FOOD_OPTIONS = [
+  { 
+    id: 'smoked', 
+    titleAr: 'لحوم وبريسكت مدخن', 
+    titleEn: 'Smoked Brisket & Ribs', 
+    descAr: 'بريسكت وأضلاع مدخنة على الحطب لساعات طويلة بنكهة أصلية', 
+    descEn: 'Low & slow wood-smoked premium brisket and tender ribs',
+    icon: '🥩' 
+  },
+  { 
+    id: 'burgers', 
+    titleAr: 'ميني سلايدرز وبرجر مجموعات', 
+    titleEn: 'Mini Sliders & Burgers', 
+    descAr: 'تشكيلة سماش برجر وسلايدرز متنوعة بحجم الحفلات', 
+    descEn: 'Party-size smash sliders and assorted gourmet burgers',
+    icon: '🍔' 
+  },
+  { 
+    id: 'crispy', 
+    titleAr: 'بوكسات كريسبي ودجاج', 
+    titleEn: 'Crispy Strips & Chicken', 
+    descAr: 'ستريبس مقرمش وقطع دجاج ذهبية مع خلطات سرية', 
+    descEn: 'Golden crispy chicken strips and tenders with signature dips',
+    icon: '🍗' 
+  },
+  { 
+    id: 'sides', 
+    titleAr: 'مقبلات، بطاطس وصوصات', 
+    titleEn: 'Sides, Loaded Fries & Dips', 
+    descAr: 'ماك آند تشيز، بطاطس مشكلة، وصوصات البيت الحصرية', 
+    descEn: 'Gourmet loaded fries, mac & cheese, and secret house sauces',
+    icon: '🍟' 
+  },
+];
+
+const SERVICE_OPTIONS = [
+  { 
+    id: 'warmers', 
+    titleAr: 'سخانات بوفيه لحفظ الحرارة', 
+    titleEn: 'Buffet Food Warmers (Chafing Dishes)', 
+    descAr: 'سخانات استيل مع شعلات لحفظ حرارة الأطباق طوال السهرة', 
+    descEn: 'Keep meals sizzling hot throughout the entire event',
+    icon: '♨️' 
+  },
+  { 
+    id: 'tableware', 
+    titleAr: 'أدوات مائدة وسفرة فاخرة ديسبوزابل', 
+    titleEn: 'Luxury Disposable Tableware', 
+    descAr: 'أطباق وشوك ومفارش ومناديل سفرة عالية الجودة وجاهزة للتقديم', 
+    descEn: 'High-grade cutlery, plates, table covers, and wet wipes',
+    icon: '🍽️' 
+  },
+  { 
+    id: 'chef', 
+    titleAr: 'شيف مشرف وفريق تقديم للمناسبة', 
+    titleEn: 'On-site Chef & Service Staff', 
+    descAr: 'شيف مختص للتقطيع المباشر وتنسيق البوفيه وخدمة الضيوف', 
+    descEn: 'Dedicated carving chef and team for setup and on-site hospitality',
+    icon: '👨‍🍳' 
+  },
+];
 
 export default function CateringSection({ websiteData }) {
   const { lang } = useLanguage();
@@ -20,15 +107,22 @@ export default function CateringSection({ websiteData }) {
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
-    guests: '',
+    eventType: 'family',
+    guests: '15 - 25',
+    customGuests: '',
     date: '',
+    timeSlot: 'dinner',
+    customTime: '',
+    locationType: 'delivery',
+    address: '',
+    preferredFood: ['smoked', 'burgers'],
+    additionalServices: ['warmers'],
     notes: ''
   });
 
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [otpInput, setOtpInput] = useState('');
   const [otpError, setOtpError] = useState('');
-  const [generatedOtp, setGeneratedOtp] = useState('');
   const [otpExpiry, setOtpExpiry] = useState(0);
   const [otpCountdown, setOtpCountdown] = useState(0);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
@@ -54,6 +148,26 @@ export default function CateringSection({ websiteData }) {
 
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const toggleFoodPreference = (id) => {
+    setFormData(prev => {
+      const exists = prev.preferredFood.includes(id);
+      const updated = exists 
+        ? prev.preferredFood.filter(item => item !== id)
+        : [...prev.preferredFood, id];
+      return { ...prev, preferredFood: updated };
+    });
+  };
+
+  const toggleService = (id) => {
+    setFormData(prev => {
+      const exists = prev.additionalServices.includes(id);
+      const updated = exists 
+        ? prev.additionalServices.filter(item => item !== id)
+        : [...prev.additionalServices, id];
+      return { ...prev, additionalServices: updated };
+    });
   };
 
   const normalizePhone = (phone) => {
@@ -111,23 +225,67 @@ export default function CateringSection({ websiteData }) {
   const submitToWorker = async () => {
     setIsSubmitting(true);
     try {
-      const WORKER_URL = "https://smoke-catering-bot.abusaudgaming.workers.dev";
-      const response = await fetch(WORKER_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData)
-      });
+      const cleanPhone = normalizePhone(formData.phone);
+      const finalGuests = formData.guests === 'custom' ? (formData.customGuests || 'مخصص') : formData.guests;
+      const finalTime = formData.timeSlot === 'custom' ? (formData.customTime || 'وقت محدد') : formData.timeSlot;
 
-      if (!response.ok) throw new Error("Failed to send message");
+      const payload = {
+        name: formData.name.trim(),
+        phone: cleanPhone,
+        eventType: formData.eventType,
+        guests: finalGuests,
+        date: formData.date,
+        timeSlot: finalTime,
+        locationType: formData.locationType,
+        address: formData.locationType === 'delivery' ? (formData.address || '').trim() : 'Pickup from Restaurant',
+        preferredFood: formData.preferredFood,
+        additionalServices: formData.additionalServices,
+        notes: (formData.notes || '').trim(),
+        createdAt: new Date().toISOString()
+      };
+
+      // 1. Post to Cloudflare Worker
+      const WORKER_URL = "https://smoke-catering-bot.abusaudgaming.workers.dev";
+      try {
+        await fetch(WORKER_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload)
+        });
+      } catch (workerErr) {
+        console.warn('Worker post error (continuing with DB save):', workerErr);
+      }
+
+      // 2. Save backup in Firebase RTDB
+      const reqId = `catering_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      await set(ref(db, `CateringRequests/${reqId}`), {
+        ...payload,
+        status: 'New',
+        timestamp: Date.now()
+      });
       
       setIsSuccess(true);
       setTimeout(() => {
         setShowForm(false);
         setIsSuccess(false);
-        setFormData({ name: '', phone: '', guests: '', date: '', notes: '' });
-      }, 3000);
+        setFormData({
+          name: customerData?.Name || '',
+          phone: userPhone || '',
+          eventType: 'family',
+          guests: '15 - 25',
+          customGuests: '',
+          date: '',
+          timeSlot: 'dinner',
+          customTime: '',
+          locationType: 'delivery',
+          address: '',
+          preferredFood: ['smoked', 'burgers'],
+          additionalServices: ['warmers'],
+          notes: ''
+        });
+      }, 4000);
     } catch (error) {
       console.error(error);
       alert(lang === 'en' ? 'Failed to submit. Please try again.' : 'فشل في إرسال الطلب، يرجى المحاولة لاحقاً');
@@ -189,6 +347,31 @@ export default function CateringSection({ websiteData }) {
       return;
     }
 
+    if (!formData.name.trim()) {
+      alert(lang === 'en' ? "Please enter your name." : "برجاء إدخال الاسم");
+      return;
+    }
+
+    if (!formData.date) {
+      alert(lang === 'en' ? "Please select the event date." : "برجاء اختيار تاريخ المناسبة");
+      return;
+    }
+
+    if (formData.guests === 'custom' && !formData.customGuests) {
+      alert(lang === 'en' ? "Please enter the number of guests." : "برجاء تحديد عدد الأفراد المتوقع");
+      return;
+    }
+
+    if (formData.timeSlot === 'custom' && !formData.customTime) {
+      alert(lang === 'en' ? "Please enter the preferred time." : "برجاء تحديد وقت التقديم المطلوب");
+      return;
+    }
+
+    if (formData.locationType === 'delivery' && !formData.address.trim()) {
+      alert(lang === 'en' ? "Please enter the delivery address / venue." : "برجاء إدخال عنوان وتفاصيل مكان المناسبة");
+      return;
+    }
+
     const isAuthVerified = Boolean(userPhone && normalizePhone(userPhone) === cleanPhone);
 
     if (!isAuthVerified) {
@@ -206,140 +389,503 @@ export default function CateringSection({ websiteData }) {
   const maxDate = `${new Date().getFullYear() + 1}-12-31`;
 
   return (
-    <section id="catering" className="py-24 bg-black-primary relative overflow-hidden">
-      <div className="container mx-auto px-6 relative z-10">
-        <div className="flex flex-col lg:flex-row items-center gap-16">
-          
-          {/* Image Side */}
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.9 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            className="w-full lg:w-1/2 relative"
-          >
-            <div className="relative rounded-3xl overflow-hidden aspect-[4/3] group shadow-2xl shadow-brand-red/10 border border-white/5">
-              <img 
-                src={websiteData?.cateringImageUrl || "https://res.cloudinary.com/vgk0saib/image/upload/v1789401239/cqutdoqk1iptig3mjbkh.webp"}
-                alt="Catering & Events"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                loading="lazy"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black-primary via-black-primary/20 to-transparent opacity-80 pointer-events-none"></div>
-              
-              {/* Floating Badge */}
-              <div className="absolute bottom-6 right-6 lg:right-10 bg-brand-red p-6 rounded-2xl shadow-xl transform rotate-3 hover:rotate-0 hover:scale-110 hover:-translate-y-2 transition-all duration-300 cursor-default">
-                <div className="flex items-center gap-4 text-white">
-                  <div>
-                    <p className="text-sm font-bold opacity-90">{lang === 'en' ? (websiteData?.cateringBadgeLine1En || 'Discounts up to') : (websiteData?.cateringBadgeLine1 || 'خصومات تصل إلى')}</p>
-                    <p className="text-2xl font-black">{lang === 'en' ? (websiteData?.cateringBadgeLine2En || '15% for groups') : (websiteData?.cateringBadgeLine2 || '15% للمجموعات')}</p>
+    <section id="catering" className="py-24 bg-black-primary relative overflow-hidden" dir={lang === 'en' ? 'ltr' : 'rtl'}>
+      <div className="container mx-auto px-4 sm:px-6 relative z-10">
+        
+        <AnimatePresence mode="wait">
+          {!showForm ? (
+            /* HERO PRESENTATION */
+            <motion.div 
+              key="hero"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex flex-col lg:flex-row items-center gap-12 lg:gap-16"
+            >
+              {/* Image Side */}
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                className="w-full lg:w-1/2 relative"
+              >
+                <div className="relative rounded-3xl overflow-hidden aspect-[4/3] group shadow-2xl shadow-brand-red/10 border border-white/5">
+                  <img 
+                    src={websiteData?.cateringImageUrl || "https://res.cloudinary.com/vgk0saib/image/upload/v1789401239/cqutdoqk1iptig3mjbkh.webp"}
+                    alt="Catering & Events"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black-primary via-black-primary/20 to-transparent opacity-80 pointer-events-none"></div>
+                  
+                  {/* Floating Badge */}
+                  <div className={`absolute bottom-6 ${lang === 'en' ? 'left-6 lg:left-10' : 'right-6 lg:right-10'} bg-brand-red p-6 rounded-2xl shadow-xl transform ${lang === 'en' ? '-rotate-3' : 'rotate-3'} hover:rotate-0 hover:scale-110 hover:-translate-y-2 transition-all duration-300 cursor-default`}>
+                    <div className="flex items-center gap-4 text-white">
+                      <div>
+                        <p className="text-sm font-bold opacity-90">{lang === 'en' ? (websiteData?.cateringBadgeLine1En || 'Discounts up to') : (websiteData?.cateringBadgeLine1 || 'خصومات تصل إلى')}</p>
+                        <p className="text-2xl font-black">{lang === 'en' ? (websiteData?.cateringBadgeLine2En || '15% for groups') : (websiteData?.cateringBadgeLine2 || '15% للمجموعات')}</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-            
-            <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-brand-red/20 rounded-full blur-3xl -z-10"></div>
-          </motion.div>
+                
+                <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-brand-red/20 rounded-full blur-3xl -z-10"></div>
+              </motion.div>
 
-          {/* Text/Form Side */}
-          <motion.div 
-            initial={{ opacity: 0, x: 50 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            className="w-full lg:w-1/2 text-center lg:text-right"
-          >
-            <div className="inline-flex items-center gap-2 bg-black-surface/5 border border-white/10 rounded-full px-4 py-2 mb-6 text-brand-red">
-              <Users size={18} />
-              <span className="text-sm font-bold tracking-wide">{lang === 'en' ? 'Events & Gatherings' : 'عزومات وحفلات'}</span>
-            </div>
-            
-            <h2 className="text-4xl md:text-5xl font-display font-black text-text-light mb-6 leading-tight" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize((lang === 'en' ? (websiteData?.cateringTitleEn || 'Make Your Gatherings <span class="text-brand-red">More Enjoyable</span>') : (websiteData?.cateringTitle || 'اجعل تجمعاتك <span class="text-brand-red">أكثر متعة</span>')), { ALLOWED_TAGS: ['span', 'br', 'b', 'strong', 'em'], ALLOWED_ATTR: ['class'] }) }} />
-            
-            <AnimatePresence mode="wait">
-              {!showForm ? (
-                <motion.div
-                  key="text"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                >
-                  <p className="text-lg text-gray-300 leading-relaxed mb-8 whitespace-pre-line">
-                    {(lang === 'en' && websiteData?.cateringDescriptionEn ? websiteData?.cateringDescriptionEn : websiteData?.cateringDescription) || (lang === 'en' ? 'Whether it is a family gathering, friends meetup, or a special occasion, we prepared Saver Boxes to suit all group sizes.' : 'سواء كان لمة عائلة، خروجة أصحاب، أو مناسبة خاصة، جهزنا بوكسات التوفير تناسب كل الأحجام.')}
-                  </p>
+              {/* Text Side */}
+              <motion.div 
+                initial={{ opacity: 0, x: lang === 'en' ? 40 : -40 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                className="w-full lg:w-1/2 text-center lg:text-start"
+              >
+                <div className="inline-flex items-center gap-2 bg-black-surface/5 border border-white/10 rounded-full px-4 py-2 mb-6 text-brand-red">
+                  <Users size={18} />
+                  <span className="text-sm font-bold tracking-wide">{lang === 'en' ? 'Events & Gatherings' : 'عزومات وحفلات'}</span>
+                </div>
+                
+                <h2 className="text-4xl md:text-5xl font-display font-black text-text-light mb-6 leading-tight" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize((lang === 'en' ? (websiteData?.cateringTitleEn || 'Make Your Gatherings <span class="text-brand-red">More Enjoyable</span>') : (websiteData?.cateringTitle || 'اجعل تجمعاتك <span class="text-brand-red">أكثر متعة</span>')), { ALLOWED_TAGS: ['span', 'br', 'b', 'strong', 'em'], ALLOWED_ATTR: ['class'] }) }} />
+                
+                <p className="text-lg text-gray-300 leading-relaxed mb-8 whitespace-pre-line">
+                  {(lang === 'en' && websiteData?.cateringDescriptionEn ? websiteData?.cateringDescriptionEn : websiteData?.cateringDescription) || (lang === 'en' ? 'Whether it is a family gathering, friends meetup, or a special occasion, we prepared Saver Boxes to suit all group sizes.' : 'سواء كان لمة عائلة، خروجة أصحاب، أو مناسبة خاصة، جهزنا بوكسات التوفير تناسب كل الأحجام.')}
+                </p>
+
+                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4">
                   <button 
                     onClick={() => setShowForm(true)}
-                    className="bg-brand-red hover:bg-brand-red-dark text-text-light font-bold py-4 px-8 rounded-xl transition-all shadow-lg shadow-brand-red/30 flex items-center justify-center gap-2 w-full sm:w-auto outline-none group mx-auto lg:mx-0"
+                    className="bg-brand-red hover:bg-brand-red-dark text-text-light font-bold py-4 px-8 rounded-xl transition-all shadow-lg shadow-brand-red/30 flex items-center justify-center gap-2 w-full sm:w-auto outline-none group cursor-pointer"
                   >
                     <span>{lang === 'en' ? (websiteData?.cateringButtonTextEn || 'Book Now For Events') : (websiteData?.cateringButtonText || 'احجز الآن للحفلات')}</span>
-                    <ArrowLeft size={20} className="transform group-hover:-translate-x-1 transition-transform" />
+                    {lang === 'en' ? (
+                      <ArrowRight size={20} className="transform group-hover:translate-x-1 transition-transform" />
+                    ) : (
+                      <ArrowLeft size={20} className="transform group-hover:-translate-x-1 transition-transform" />
+                    )}
                   </button>
-                </motion.div>
-              ) : isSuccess ? (
-                <motion.div
-                  key="success"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="bg-green-900/30 border border-green-500/50 rounded-2xl p-8 text-center"
-                >
-                  <CheckCircle size={48} className="text-green-400 mx-auto mb-4" />
-                  <h3 className="text-2xl font-bold text-white mb-2">رائع جداً!</h3>
-                  <p className="text-green-200">
-                    تم استلام طلبك بنجاح. سيقوم فريق الحفلات بالتواصل معك قريباً لتأكيد التفاصيل.
+                </div>
+              </motion.div>
+            </motion.div>
+          ) : (
+            /* ENHANCED CATERING BOOKING FORM */
+            <motion.div
+              key="booking-form"
+              initial={{ opacity: 0, y: 25 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -25 }}
+              className="max-w-4xl mx-auto"
+            >
+              {isSuccess ? (
+                <div className="bg-black-surface/90 border border-green-500/50 rounded-3xl p-8 sm:p-12 text-center shadow-2xl backdrop-blur-xl">
+                  <div className="w-16 h-16 bg-green-500/10 border border-green-500/30 rounded-2xl flex items-center justify-center mx-auto mb-4 text-green-400">
+                    <CheckCircle size={38} />
+                  </div>
+                  <h3 className="text-2xl sm:text-3xl font-display font-black text-white mb-3">
+                    {lang === 'en' ? 'Catering Request Received! 🎉' : 'تم استلام طلب المناسبة بنجاح! 🎉'}
+                  </h3>
+                  <p className="text-sm sm:text-base text-green-200/90 max-w-lg mx-auto leading-relaxed mb-6">
+                    {lang === 'en' 
+                      ? `Thank you! Our catering concierge will reach out to you shortly on (${formData.phone}) to confirm the menu details and apply group discounts.` 
+                      : `شكراً لك! سيقوم شيف ومنسق الحفلات بالتواصل معك هاتفياً أو عبر الواتساب على رقم (${formData.phone}) لتأكيد كافة الترتيبات وتطبيق خصم المجموعات.`}
                   </p>
-                </motion.div>
+                  <button
+                    type="button"
+                    onClick={() => { setShowForm(false); setIsSuccess(false); }}
+                    className="px-8 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl text-sm transition-colors border border-white/15 cursor-pointer"
+                  >
+                    {lang === 'en' ? 'Back to Home' : 'العودة للرئيسية'}
+                  </button>
+                </div>
               ) : (
-                <motion.form
-                  key="form"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  onSubmit={handleSubmit}
-                  className="space-y-4 text-right"
-                >
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-[#121212]/95 border border-white/10 rounded-3xl p-6 sm:p-8 md:p-10 shadow-2xl backdrop-blur-xl relative">
+                  
+                  {/* Top Bar Header */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-white/10 mb-8">
                     <div>
-                      <label className="block text-sm text-gray-400 mb-1">{lang === 'en' ? 'Name' : 'الاسم'}</label>
-                      <input required type="text" name="name" value={formData.name} onChange={handleInputChange} className="w-full bg-black-surface border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-brand-red outline-none transition-colors" />
+                      <div className="inline-flex items-center gap-2 bg-brand-red/10 border border-brand-red/30 rounded-full px-3 py-1 mb-2 text-brand-red text-xs font-bold">
+                        <Sparkles size={14} />
+                        <span>{lang === 'en' ? 'Catering & Gatherings Concierge' : 'خدمة عزومات وبوفيهات The Black Box'}</span>
+                      </div>
+                      <h3 className="text-2xl sm:text-3xl font-display font-black text-text-light">
+                        {lang === 'en' ? 'Customize Your Gathering' : 'تخصيص وحجز طلب العزومة'}
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-400 mt-1">
+                        {lang === 'en' 
+                          ? 'Provide your gathering details and our team will craft a tailored gourmet experience for you.'
+                          : 'حدد تفاصيل مناسبتك وسيقوم فريق الحفلات بالتواصل معك لتأكيد أفضل تشكيلة بوفيه تناسب ضيوفك.'}
+                      </p>
                     </div>
-                    <div>
-                      <label className="block text-sm text-gray-400 mb-1">{lang === 'en' ? 'Phone Number' : 'رقم الهاتف'}</label>
-                      <input required type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className="w-full bg-black-surface border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-brand-red outline-none transition-colors" dir="ltr" />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-gray-400 mb-1">{lang === 'en' ? 'Number of People' : 'عدد الأفراد'}</label>
-                      <input required type="number" name="guests" value={formData.guests} onChange={handleInputChange} className="w-full bg-black-surface border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-brand-red outline-none transition-colors" />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-gray-400 mb-1">{lang === 'en' ? 'Event Date' : 'تاريخ المناسبة'}</label>
-                      <input required type="date" min={today} max={maxDate} name="date" value={formData.date} onChange={handleInputChange} className="w-full bg-black-surface border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-brand-red outline-none transition-colors" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-400 mb-1">{lang === 'en' ? 'Additional Details (Optional)' : 'تفاصيل إضافية (اختياري)'}</label>
-                    <textarea name="notes" value={formData.notes} onChange={handleInputChange} rows="3" className="w-full bg-black-surface border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-brand-red outline-none transition-colors resize-none"></textarea>
-                  </div>
-                  <div className="flex gap-4 pt-2">
-                    <button 
-                      type="submit" 
-                      disabled={isSubmitting}
-                      className="flex-1 bg-brand-red hover:bg-brand-red-dark disabled:opacity-70 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-colors"
-                    >
-                      {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : <><Send size={18} /> <span>{lang === 'en' ? 'Submit Request' : 'إرسال الطلب'}</span></>}
-                    </button>
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={() => setShowForm(false)}
-                      disabled={isSubmitting}
-                      className="px-6 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-lg transition-colors"
+                      className="self-start sm:self-center shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-all text-xs sm:text-sm font-bold border border-white/10 cursor-pointer"
                     >
-                      {lang === 'en' ? 'Cancel' : 'إلغاء'}
+                      {lang === 'en' ? <ArrowLeft size={16} /> : <ArrowRight size={16} />}
+                      <span>{lang === 'en' ? 'Back' : 'العودة للتفاصيل'}</span>
                     </button>
                   </div>
-                </motion.form>
-              )}
-            </AnimatePresence>
-          </motion.div>
 
-        </div>
+                  <form onSubmit={handleSubmit} className="space-y-8">
+                    
+                    {/* 1. EVENT TYPE */}
+                    <div>
+                      <label className="flex items-center gap-2 text-sm font-bold text-gray-200 mb-3">
+                        <span className="w-2 h-2 rounded-full bg-brand-red"></span>
+                        <span>{lang === 'en' ? '1. Event Type' : '1. نوع المناسبة'}</span>
+                      </label>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
+                        {EVENT_TYPES.map((type) => {
+                          const active = formData.eventType === type.id;
+                          return (
+                            <button
+                              key={type.id}
+                              type="button"
+                              onClick={() => setFormData({ ...formData, eventType: type.id })}
+                              className={`flex flex-col items-center justify-center p-3 sm:p-3.5 rounded-2xl border transition-all text-center gap-1.5 cursor-pointer ${
+                                active
+                                  ? 'bg-brand-red/15 border-brand-red text-white shadow-lg shadow-brand-red/20 ring-1 ring-brand-red/50'
+                                  : 'bg-black-primary/60 border-white/10 text-gray-400 hover:text-gray-200 hover:border-white/20'
+                              }`}
+                            >
+                              <span className="text-2xl">{type.icon}</span>
+                              <span className="text-xs font-bold leading-tight">
+                                {lang === 'en' ? type.labelEn : type.labelAr}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* 2. GUESTS COUNT */}
+                    <div>
+                      <label className="flex items-center gap-2 text-sm font-bold text-gray-200 mb-3">
+                        <Users size={16} className="text-brand-red" />
+                        <span>{lang === 'en' ? '2. Estimated Number of Guests' : '2. عدد الضيوف التقديري'}</span>
+                      </label>
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {GUEST_PRESETS.map((preset) => {
+                          const active = formData.guests === preset.value;
+                          return (
+                            <button
+                              key={preset.value}
+                              type="button"
+                              onClick={() => setFormData({ ...formData, guests: preset.value })}
+                              className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition-all cursor-pointer ${
+                                active
+                                  ? 'bg-brand-red text-white border-brand-red shadow-md shadow-brand-red/20'
+                                  : 'bg-black-primary/60 border-white/10 text-gray-300 hover:border-white/20'
+                              }`}
+                            >
+                              {lang === 'en' ? preset.labelEn : preset.labelAr}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {formData.guests === 'custom' && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          className="mt-2"
+                        >
+                          <input
+                            type="number"
+                            name="customGuests"
+                            min="5"
+                            placeholder={lang === 'en' ? 'Enter exact guest count (e.g. 35)' : 'أدخل عدد الأفراد المتوقع (مثال: 35)'}
+                            value={formData.customGuests}
+                            onChange={handleInputChange}
+                            className="w-full bg-black-primary border border-brand-red/40 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:border-brand-red outline-none transition-colors text-sm"
+                          />
+                        </motion.div>
+                      )}
+                    </div>
+
+                    {/* 3. DATE & TIME */}
+                    <div>
+                      <label className="flex items-center gap-2 text-sm font-bold text-gray-200 mb-3">
+                        <Calendar size={16} className="text-brand-red" />
+                        <span>{lang === 'en' ? '3. Date & Serving Time' : '3. موعد المناسبة وتوقيت التقديم'}</span>
+                      </label>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <span className="block text-xs text-gray-400 mb-1.5">{lang === 'en' ? 'Event Date *' : 'تاريخ المناسبة *'}</span>
+                          <input
+                            required
+                            type="date"
+                            min={today}
+                            max={maxDate}
+                            name="date"
+                            value={formData.date}
+                            onChange={handleInputChange}
+                            className="w-full bg-black-primary border border-white/10 rounded-xl px-4 py-3 text-white focus:border-brand-red outline-none transition-colors text-sm"
+                          />
+                        </div>
+                        <div>
+                          <span className="block text-xs text-gray-400 mb-1.5">{lang === 'en' ? 'Serving Time Window' : 'فترة التقديم المفضلة'}</span>
+                          <div className="grid grid-cols-3 gap-2">
+                            {TIME_SLOTS.map((slot) => {
+                              const active = formData.timeSlot === slot.id;
+                              return (
+                                <button
+                                  key={slot.id}
+                                  type="button"
+                                  onClick={() => setFormData({ ...formData, timeSlot: slot.id })}
+                                  className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                                    active
+                                      ? 'bg-brand-red/20 border-brand-red text-white ring-1 ring-brand-red/40'
+                                      : 'bg-black-primary/60 border-white/10 text-gray-400 hover:text-gray-200'
+                                  }`}
+                                >
+                                  <span className="text-base">{slot.icon}</span>
+                                  <span className="text-[11px] font-bold leading-tight">
+                                    {lang === 'en' ? slot.labelEn : slot.labelAr}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {formData.timeSlot === 'custom' && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 5 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="mt-2"
+                            >
+                              <input
+                                type="time"
+                                name="customTime"
+                                value={formData.customTime}
+                                onChange={handleInputChange}
+                                className="w-full bg-black-primary border border-brand-red/40 rounded-xl px-4 py-2.5 text-white focus:border-brand-red outline-none transition-colors text-sm"
+                              />
+                            </motion.div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 4. DELIVERY METHOD & LOCATION */}
+                    <div>
+                      <label className="flex items-center gap-2 text-sm font-bold text-gray-200 mb-3">
+                        <MapPin size={16} className="text-brand-red" />
+                        <span>{lang === 'en' ? '4. Delivery Method & Location' : '4. طريقة الاستلام وموقع المناسبة'}</span>
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, locationType: 'delivery' })}
+                          className={`flex items-center gap-3.5 p-3.5 rounded-2xl border transition-all cursor-pointer text-start ${
+                            formData.locationType === 'delivery'
+                              ? 'bg-brand-red/15 border-brand-red text-white shadow-md shadow-brand-red/10 ring-1 ring-brand-red/40'
+                              : 'bg-black-primary/60 border-white/10 text-gray-400 hover:text-gray-200'
+                          }`}
+                        >
+                          <span className="text-2xl">🛵</span>
+                          <div>
+                            <p className="text-xs sm:text-sm font-bold text-white">{lang === 'en' ? 'Delivery to Venue' : 'توصيل لمكان المناسبة'}</p>
+                            <p className="text-[11px] text-gray-400">{lang === 'en' ? 'Delivered hot to your door or event venue' : 'توصيل ساخن ومجهز لموقعك أو فيلتك'}</p>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, locationType: 'pickup' })}
+                          className={`flex items-center gap-3.5 p-3.5 rounded-2xl border transition-all cursor-pointer text-start ${
+                            formData.locationType === 'pickup'
+                              ? 'bg-brand-red/15 border-brand-red text-white shadow-md shadow-brand-red/10 ring-1 ring-brand-red/40'
+                              : 'bg-black-primary/60 border-white/10 text-gray-400 hover:text-gray-200'
+                          }`}
+                        >
+                          <span className="text-2xl">🛍️</span>
+                          <div>
+                            <p className="text-xs sm:text-sm font-bold text-white">{lang === 'en' ? 'Pickup from Restaurant' : 'استلام مجهز من المطعم'}</p>
+                            <p className="text-[11px] text-gray-400">{lang === 'en' ? 'Packed ready for transport at scheduled time' : 'مجهز في بوكسات حرارية للتسليم الفوري'}</p>
+                          </div>
+                        </button>
+                      </div>
+                      {formData.locationType === 'delivery' && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                        >
+                          <textarea
+                            required
+                            rows="2"
+                            name="address"
+                            placeholder={lang === 'en' ? 'Detailed address / venue location (City, Street, Villa/Apartment, Landmarks)' : 'العنوان التفصيلي ومكان المناسبة (المنطقة، الشارع، الفيلا/الشقة، علامة مميزة)'}
+                            value={formData.address}
+                            onChange={handleInputChange}
+                            className="w-full bg-black-primary border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:border-brand-red outline-none transition-colors text-sm resize-none"
+                          />
+                        </motion.div>
+                      )}
+                    </div>
+
+                    {/* 5. FOOD PREFERENCES */}
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <label className="flex items-center gap-2 text-sm font-bold text-gray-200">
+                          <Flame size={16} className="text-brand-red" />
+                          <span>{lang === 'en' ? '5. Preferred Food Categories' : '5. تشكيلة الأطباق المفضلة'}</span>
+                        </label>
+                        <span className="text-[11px] text-brand-red font-bold">
+                          {lang === 'en' ? '(Select all that apply)' : '(يمكن اختيار أكثر من صنف)'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {FOOD_OPTIONS.map((item) => {
+                          const active = formData.preferredFood.includes(item.id);
+                          return (
+                            <div
+                              key={item.id}
+                              onClick={() => toggleFoodPreference(item.id)}
+                              className={`flex items-start gap-3.5 p-3.5 rounded-2xl border transition-all cursor-pointer relative text-start ${
+                                active
+                                  ? 'bg-brand-red/10 border-brand-red/80 shadow-md shadow-brand-red/5 ring-1 ring-brand-red/40'
+                                  : 'bg-black-primary/60 border-white/10 hover:border-white/20'
+                              }`}
+                            >
+                              <span className="text-2xl shrink-0 mt-0.5">{item.icon}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs sm:text-sm font-bold text-white mb-0.5">
+                                  {lang === 'en' ? item.titleEn : item.titleAr}
+                                </p>
+                                <p className="text-[11px] text-gray-400 leading-snug">
+                                  {lang === 'en' ? item.descEn : item.descAr}
+                                </p>
+                              </div>
+                              <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border transition-all ${
+                                active ? 'bg-brand-red border-brand-red text-white' : 'border-gray-600 bg-black/40'
+                              }`}>
+                                {active && <Check size={14} />}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* 6. ADDITIONAL SERVICES */}
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <label className="flex items-center gap-2 text-sm font-bold text-gray-200">
+                          <Sparkles size={16} className="text-brand-red" />
+                          <span>{lang === 'en' ? '6. Additional Catering Services' : '6. تجهيزات وخدمات بوفيه إضافية'}</span>
+                        </label>
+                        <span className="text-[11px] text-gray-400 font-bold">
+                          {lang === 'en' ? '(Optional)' : '(اختياري)'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {SERVICE_OPTIONS.map((srv) => {
+                          const active = formData.additionalServices.includes(srv.id);
+                          return (
+                            <div
+                              key={srv.id}
+                              onClick={() => toggleService(srv.id)}
+                              className={`flex items-start gap-3 p-3.5 rounded-2xl border transition-all cursor-pointer relative text-start ${
+                                active
+                                  ? 'bg-brand-red/10 border-brand-red/80 shadow-md shadow-brand-red/5 ring-1 ring-brand-red/40'
+                                  : 'bg-black-primary/60 border-white/10 hover:border-white/20'
+                              }`}
+                            >
+                              <span className="text-2xl shrink-0">{srv.icon}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-bold text-white mb-0.5">
+                                  {lang === 'en' ? srv.titleEn : srv.titleAr}
+                                </p>
+                                <p className="text-[10px] text-gray-400 leading-tight">
+                                  {lang === 'en' ? srv.descEn : srv.descAr}
+                                </p>
+                              </div>
+                              <div className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 border transition-all ${
+                                active ? 'bg-brand-red border-brand-red text-white' : 'border-gray-600 bg-black/40'
+                              }`}>
+                                {active && <Check size={12} />}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* 7. CONTACT DETAILS & NOTES */}
+                    <div>
+                      <label className="flex items-center gap-2 text-sm font-bold text-gray-200 mb-3">
+                        <User size={16} className="text-brand-red" />
+                        <span>{lang === 'en' ? '7. Contact Details & Notes' : '7. بيانات التواصل وملاحظاتك'}</span>
+                      </label>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                        <div>
+                          <span className="block text-xs text-gray-400 mb-1.5">{lang === 'en' ? 'Full Name *' : 'الاسم بالكامل *'}</span>
+                          <input
+                            required
+                            type="text"
+                            name="name"
+                            placeholder={lang === 'en' ? 'e.g. Ahmed Ali' : 'مثال: أحمد علي'}
+                            value={formData.name}
+                            onChange={handleInputChange}
+                            className="w-full bg-black-primary border border-white/10 rounded-xl px-4 py-3 text-white focus:border-brand-red outline-none transition-colors text-sm"
+                          />
+                        </div>
+                        <div>
+                          <span className="block text-xs text-gray-400 mb-1.5">{lang === 'en' ? 'Phone Number (WhatsApp) *' : 'رقم الهاتف (واتساب) *'}</span>
+                          <input
+                            required
+                            type="tel"
+                            name="phone"
+                            dir="ltr"
+                            placeholder="010XXXXXXXX"
+                            value={formData.phone}
+                            onChange={handleInputChange}
+                            className="w-full bg-black-primary border border-white/10 rounded-xl px-4 py-3 text-white focus:border-brand-red outline-none transition-colors text-sm"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <span className="block text-xs text-gray-400 mb-1.5">{lang === 'en' ? 'Special Notes or Dietary Requests (Optional)' : 'ملاحظات خاصة أو طلبات إضافية (اختياري)'}</span>
+                        <textarea
+                          rows="2"
+                          name="notes"
+                          placeholder={lang === 'en' ? 'Any specific cuts, sauces, timing, or allergies...' : 'أي تفاصيل عن درجات التسوية، الصوصات المفضلة، أو تجهيزات خاصة...'}
+                          value={formData.notes}
+                          onChange={handleInputChange}
+                          className="w-full bg-black-primary border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:border-brand-red outline-none transition-colors text-sm resize-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* SUBMIT BUTTONS */}
+                    <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-white/10">
+                      <button
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="flex-1 bg-brand-red hover:bg-brand-red-dark disabled:opacity-70 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-brand-red/25 cursor-pointer text-sm sm:text-base"
+                      >
+                        {isSubmitting ? (
+                          <Loader2 size={20} className="animate-spin" />
+                        ) : (
+                          <>
+                            <Send size={18} />
+                            <span>{lang === 'en' ? 'Submit Catering Request' : 'إرسال طلب حجز المناسبة'}</span>
+                          </>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowForm(false)}
+                        disabled={isSubmitting}
+                        className="px-6 py-4 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white font-bold rounded-xl transition-colors cursor-pointer text-sm sm:text-base border border-white/10"
+                      >
+                        {lang === 'en' ? 'Cancel' : 'إلغاء'}
+                      </button>
+                    </div>
+
+                  </form>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
       </div>
 
       {/* OTP Verification Modal */}
@@ -361,7 +907,7 @@ export default function CateringSection({ websiteData }) {
               <div className="absolute top-0 right-0 p-4">
                 <button
                   onClick={() => setIsOtpModalOpen(false)}
-                  className="text-gray-400 hover:text-white transition-colors"
+                  className="text-gray-400 hover:text-white transition-colors cursor-pointer"
                 >
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -431,7 +977,7 @@ export default function CateringSection({ websiteData }) {
                   <button
                     type="button"
                     onClick={() => { setIsOtpModalOpen(false); setOtpError(''); }}
-                    className="text-xs text-gray-400 hover:text-white"
+                    className="text-xs text-gray-400 hover:text-white cursor-pointer"
                   >
                     {lang === 'en' ? 'Change Phone' : 'تغيير الرقم'}
                   </button>
@@ -440,7 +986,7 @@ export default function CateringSection({ websiteData }) {
                 <button
                   type="submit"
                   disabled={otpInput.length !== 6 || isSubmitting}
-                  className="w-full py-4 bg-brand-red hover:bg-brand-red-dark disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 mt-4"
+                  className="w-full py-4 bg-brand-red hover:bg-brand-red-dark disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 mt-4 cursor-pointer"
                 >
                   {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : (lang === 'en' ? 'Confirm and Proceed' : 'تأكيد وإرسال الطلب')}
                 </button>
