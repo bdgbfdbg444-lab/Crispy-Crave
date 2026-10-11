@@ -13,6 +13,7 @@ import { db, auth } from '../firebase';
 import { ref, set, get } from 'firebase/database';
 import { signInAnonymously } from 'firebase/auth';
 import { getDeviceId, getClientIp, checkLocalDailyOtpLimit, recordLocalOtpAttempt } from '../utils/deviceTracker';
+import AddressMapPicker, { formatAddressDetails } from './AddressMapPicker';
 
 const EVENT_TYPES = [
   { id: 'family', labelAr: 'لمة عائلة / منزلية', labelEn: 'Family / Home Gathering', icon: Home },
@@ -116,6 +117,7 @@ export default function CateringSection({ websiteData }) {
     customTime: '',
     locationType: 'delivery',
     address: '',
+    mapsUrl: '',
     preferredFood: ['smoked', 'burgers'],
     additionalServices: ['warmers'],
     notes: ''
@@ -140,7 +142,20 @@ export default function CateringSection({ websiteData }) {
 
   const [addressMode, setAddressMode] = useState('saved'); // 'saved' | 'new'
   const [selectedAddressId, setSelectedAddressId] = useState('');
-  const [customAddress, setCustomAddress] = useState('');
+  
+  // Custom Address Draft with Map & Detailed Fields
+  const [customAddressDraft, setCustomAddressDraft] = useState({
+    zone: '',
+    street: '',
+    building: '',
+    floor: '',
+    apartment: '',
+    landmark: '',
+    lat: null,
+    lng: null,
+    fullAddress: '',
+    mapsUrl: ''
+  });
 
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [otpInput, setOtpInput] = useState('');
@@ -149,7 +164,7 @@ export default function CateringSection({ websiteData }) {
   const [otpCountdown, setOtpCountdown] = useState(0);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
 
-  // Auto-fill if logged in
+  // Auto-fill customer contact if logged in
   useEffect(() => {
     if (customerData?.Name || userPhone) {
       setFormData(prev => ({
@@ -167,16 +182,11 @@ export default function CateringSection({ websiteData }) {
       if (defaultAddr && (!formData.address || addressMode === 'saved')) {
         setSelectedAddressId(defaultAddr.id);
         setAddressMode('saved');
-        const formatted = [
-          defaultAddr.fullAddress,
-          defaultAddr.building ? (lang === 'en' ? `Bldg: ${defaultAddr.building}` : `عمارة: ${defaultAddr.building}`) : null,
-          defaultAddr.floor ? (lang === 'en' ? `Floor: ${defaultAddr.floor}` : `دور: ${defaultAddr.floor}`) : null,
-          defaultAddr.apartment ? (lang === 'en' ? `Apt: ${defaultAddr.apartment}` : `شقة: ${defaultAddr.apartment}`) : null,
-          defaultAddr.landmark ? (lang === 'en' ? `Landmark: ${defaultAddr.landmark}` : `علامة: ${defaultAddr.landmark}`) : null,
-        ].filter(Boolean).join(' | ');
+        const formatted = defaultAddr.fullAddress || formatAddressDetails(defaultAddr);
         setFormData(prev => ({
           ...prev,
-          address: formatted || defaultAddr.fullAddress
+          address: formatted,
+          mapsUrl: defaultAddr.mapsUrl || (defaultAddr.lat && defaultAddr.lng ? `https://maps.google.com/?q=${defaultAddr.lat},${defaultAddr.lng}` : '')
         }));
       }
     } else {
@@ -199,26 +209,33 @@ export default function CateringSection({ websiteData }) {
   const handleSelectSavedAddress = (addr) => {
     setSelectedAddressId(addr.id);
     setAddressMode('saved');
-    const details = [
-      addr.fullAddress,
-      addr.building ? (lang === 'en' ? `Bldg: ${addr.building}` : `عمارة: ${addr.building}`) : null,
-      addr.floor ? (lang === 'en' ? `Floor: ${addr.floor}` : `دور: ${addr.floor}`) : null,
-      addr.apartment ? (lang === 'en' ? `Apt: ${addr.apartment}` : `شقة: ${addr.apartment}`) : null,
-      addr.landmark ? (lang === 'en' ? `Landmark: ${addr.landmark}` : `علامة: ${addr.landmark}`) : null,
-    ].filter(Boolean).join(' | ');
-    setFormData(prev => ({ ...prev, address: details || addr.fullAddress }));
+    const formatted = addr.fullAddress || formatAddressDetails(addr);
+    setFormData(prev => ({ 
+      ...prev, 
+      address: formatted,
+      mapsUrl: addr.mapsUrl || (addr.lat && addr.lng ? `https://maps.google.com/?q=${addr.lat},${addr.lng}` : '')
+    }));
   };
 
   const handleSelectCustomAddress = () => {
     setAddressMode('new');
     setSelectedAddressId('new');
-    setFormData(prev => ({ ...prev, address: customAddress }));
+    const formatted = formatAddressDetails(customAddressDraft) || customAddressDraft.fullAddress || '';
+    setFormData(prev => ({ 
+      ...prev, 
+      address: formatted,
+      mapsUrl: customAddressDraft.mapsUrl || ''
+    }));
   };
 
-  const handleCustomAddressChange = (e) => {
-    const val = e.target.value;
-    setCustomAddress(val);
-    setFormData(prev => ({ ...prev, address: val }));
+  const handleCustomAddressDraftChange = (newDraft) => {
+    setCustomAddressDraft(newDraft);
+    const formatted = formatAddressDetails(newDraft) || newDraft.fullAddress || '';
+    setFormData(prev => ({
+      ...prev,
+      address: formatted,
+      mapsUrl: newDraft.mapsUrl || (newDraft.lat && newDraft.lng ? `https://maps.google.com/?q=${newDraft.lat},${newDraft.lng}` : '')
+    }));
   };
 
   const toggleFoodPreference = (id) => {
@@ -303,7 +320,7 @@ export default function CateringSection({ websiteData }) {
       
       const eventTypeLabelsAr = {
         family: 'لمة عائلة / منزلية',
-        birthday: 'عيد ميلاد / احتفال',
+        birthday: 'عيد ميلاد واحتفال',
         corporate: 'شركات ومناسبات عمل',
         friends: 'تجمع أصدقاء',
         other: 'مناسبة خاصة'
@@ -325,26 +342,68 @@ export default function CateringSection({ websiteData }) {
       const serviceLabelsAr = {
         warmers: 'سخانات بوفيه لحفظ الحرارة',
         tableware: 'أدوات مائدة وسفرة فاخرة ديسبوزابل',
-        chef: 'شيف مشرف وفريق تقديم للمناسبة'
+        chef: 'شيف مشرف وفريق تقديم'
       };
 
       const selectedEvent = eventTypeLabelsAr[formData.eventType] || formData.eventType;
       const selectedTime = timeSlotLabelsAr[formData.timeSlot] || formData.timeSlot;
-      const selectedFoods = formData.preferredFood.map(id => foodLabelsAr[id] || id).join('، ');
-      const selectedServices = formData.additionalServices.map(id => serviceLabelsAr[id] || id).join('، ');
-      const deliveryDetails = formData.locationType === 'delivery'
-        ? `توصيل للمكان: ${(formData.address || '').trim()}`
-        : 'استلام مجهز من المطعم';
+      
+      // Map food selections to array of names
+      const foodNames = formData.preferredFood
+        .map(id => foodLabelsAr[id])
+        .filter(Boolean);
 
-      // Comprehensive structured note block so ANY worker sending 'notes' to Telegram includes all details!
-      const structuredTelegramNotes = [
-        `• نوع المناسبة: ${selectedEvent}`,
-        `• توقيت التقديم: ${selectedTime}`,
-        `• طريقة الاستلام: ${deliveryDetails}`,
-        `• تشكيلة الأطباق: ${selectedFoods || 'غير محدد'}`,
-        selectedServices ? `• خدمات إضافية: ${selectedServices}` : null,
-        formData.notes?.trim() ? `• ملاحظات إضافية: ${formData.notes.trim()}` : null
-      ].filter(Boolean).join('\n');
+      // Map services to array of names
+      const serviceNames = formData.additionalServices
+        .map(id => serviceLabelsAr[id])
+        .filter(Boolean);
+
+      // Clean address string
+      const finalAddress = (formData.address || '').trim();
+      const mapsUrl = formData.mapsUrl || customAddressDraft.mapsUrl || '';
+
+      // Build an impeccably organized, highly legible Telegram summary
+      const lines = [];
+      lines.push('──────────────────────');
+      lines.push(`🎪 نوع المناسبة: ${selectedEvent}`);
+      lines.push(`⏰ موعد التقديم: ${selectedTime}`);
+      
+      if (formData.locationType === 'delivery') {
+        lines.push(`🛵 طريقة الاستلام: توصيل للمكان`);
+        if (finalAddress) {
+          lines.push(`📍 العنوان: ${finalAddress}`);
+        }
+        if (mapsUrl) {
+          lines.push(`🗺️ خريطة الموقع: ${mapsUrl}`);
+        }
+      } else {
+        lines.push(`🛍️ طريقة الاستلام: استلام مجهز من المطعم`);
+      }
+
+      lines.push('');
+      lines.push('🍽️ تشكيلة الأطباق المطلوبة:');
+      if (foodNames.length > 0) {
+        foodNames.forEach(item => lines.push(`  ▫️ ${item}`));
+      } else {
+        lines.push('  ▫️ لم يتم تحديد أصناف معينة');
+      }
+
+      if (serviceNames.length > 0) {
+        lines.push('');
+        lines.push('♨️ خدمات وتجهيزات البوفيه:');
+        serviceNames.forEach(srv => lines.push(`  ▫️ ${srv}`));
+      }
+
+      if (formData.notes && formData.notes.trim()) {
+        lines.push('');
+        lines.push('💬 ملاحظات وطلبات خاصة:');
+        lines.push(`${formData.notes.trim()}`);
+      }
+
+      lines.push('──────────────────────');
+
+      // Starts with newline so it wraps right below "ملاحظات:" in Telegram
+      const structuredTelegramNotes = '\n' + lines.join('\n');
 
       const fullSummaryText = `📋 طلب حجز مناسبة وعزومة جديدة:
 👤 الاسم: ${formData.name.trim()}
@@ -366,9 +425,10 @@ ${structuredTelegramNotes}`;
         eventTypeId: formData.eventType,
         timeSlot: selectedTime,
         locationType: formData.locationType === 'delivery' ? 'توصيل' : 'استلام',
-        address: formData.locationType === 'delivery' ? (formData.address || '').trim() : 'استلام من المطعم',
-        preferredFood: selectedFoods,
-        additionalServices: selectedServices || 'لا يوجد',
+        address: finalAddress || (formData.locationType === 'delivery' ? 'لم يحدد عنوان' : 'استلام من المطعم'),
+        mapsUrl: mapsUrl,
+        preferredFood: foodNames.join('، '),
+        additionalServices: serviceNames.join('، ') || 'لا يوجد',
         clientNotes: (formData.notes || '').trim(),
         
         // Full formatted messages:
@@ -393,7 +453,7 @@ ${structuredTelegramNotes}`;
         console.warn('Worker post error (continuing with DB save):', workerErr);
       }
 
-      // 2. Save backup in Firebase RTDB
+      // 2. Save backup in Firebase RTDB safely
       try {
         const reqId = `catering_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
         await set(ref(db, `CateringRequests/${reqId}`), {
@@ -420,6 +480,7 @@ ${structuredTelegramNotes}`;
           customTime: '',
           locationType: 'delivery',
           address: '',
+          mapsUrl: '',
           preferredFood: ['smoked', 'burgers'],
           additionalServices: ['warmers'],
           notes: ''
@@ -506,9 +567,13 @@ ${structuredTelegramNotes}`;
       return;
     }
 
-    if (formData.locationType === 'delivery' && !(formData.address || '').trim()) {
-      alert(lang === 'en' ? "Please enter the delivery address / venue." : "برجاء إدخال عنوان وتفاصيل مكان المناسبة");
-      return;
+    if (formData.locationType === 'delivery') {
+      const currentAddress = (formData.address || '').trim();
+      const draftAddress = formatAddressDetails(customAddressDraft) || customAddressDraft.fullAddress || '';
+      if (!currentAddress && !draftAddress) {
+        alert(lang === 'en' ? "Please provide the delivery address / venue." : "برجاء إدخال عنوان وتفاصيل مكان المناسبة أو اختياره من الخريطة");
+        return;
+      }
     }
 
     const isAuthVerified = Boolean(userPhone && normalizePhone(userPhone) === cleanPhone);
@@ -637,7 +702,7 @@ ${structuredTelegramNotes}`;
               ) : (
                 <div className="bg-[#121212]/95 border border-white/10 rounded-3xl p-6 sm:p-8 md:p-10 shadow-2xl backdrop-blur-xl relative">
                   
-                  {/* Clean Formal Header - No Informal Badges */}
+                  {/* Clean Formal Header */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-white/10 mb-8">
                     <div>
                       <h3 className="text-2xl sm:text-3xl font-sans font-bold text-text-light tracking-tight">
@@ -848,11 +913,11 @@ ${structuredTelegramNotes}`;
                       </div>
 
                       {formData.locationType === 'delivery' && (
-                        <div className="space-y-3 mt-3">
-                          {savedAddresses.length > 0 ? (
-                            <>
-                              <span className="block text-xs text-gray-400 mb-1">
-                                {lang === 'en' ? 'Select from your saved addresses or enter a new venue:' : 'اختر من عناوينك المسجلة أو حدد موقعاً جديداً للمناسبة:'}
+                        <div className="space-y-4 mt-4">
+                          {savedAddresses.length > 0 && (
+                            <div className="space-y-2.5">
+                              <span className="block text-xs font-semibold text-gray-400 mb-1">
+                                {lang === 'en' ? 'Select from your saved addresses:' : 'اختر من عناوينك المسجلة أو حدد موقعاً جديداً:'}
                               </span>
 
                               <div className="grid grid-cols-1 gap-2.5">
@@ -923,48 +988,44 @@ ${structuredTelegramNotes}`;
                                   </div>
                                   <div>
                                     <p className="text-xs sm:text-sm font-semibold text-white">
-                                      {lang === 'en' ? 'Enter a Different Venue / Custom Address' : 'إدخال عنوان آخر / مكان جديد للمناسبة'}
+                                      {lang === 'en' ? 'Enter a Different Venue / Custom Address' : 'إدخال عنوان آخر / موقع جديد للمناسبة'}
                                     </p>
                                     <p className="text-[11px] text-gray-400">
-                                      {lang === 'en' ? 'Specify the hall, villa, office, or event location' : 'حدد القاعة، الفيلا، المقر، أو عنوان المكان'}
+                                      {lang === 'en' ? 'Pin location on map, specify street, building, and apartment details' : 'تحديد الموقع على الخريطة وإدخال تفاصيل الشارع والعمارة والشقة'}
                                     </p>
                                   </div>
                                 </div>
                               </div>
+                            </div>
+                          )}
 
-                              {/* Textarea for Custom Venue */}
-                              {addressMode === 'new' && (
-                                <motion.div
-                                  initial={{ opacity: 0, height: 0 }}
-                                  animate={{ opacity: 1, height: 'auto' }}
-                                  className="pt-1"
-                                >
-                                  <textarea
-                                    required
-                                    rows="2"
-                                    name="address"
-                                    placeholder={lang === 'en' ? 'Detailed venue address (City, District, Street, Villa/Hall, Landmarks)' : 'العنوان التفصيلي ومكان المناسبة (المنطقة، الشارع، الفيلا/المقر، علامة مميزة)'}
-                                    value={customAddress}
-                                    onChange={handleCustomAddressChange}
-                                    className="w-full bg-black-primary border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:border-brand-red outline-none transition-colors text-sm resize-none"
-                                  />
-                                </motion.div>
-                              )}
-                            </>
-                          ) : (
+                          {/* Detailed AddressMapPicker Component when addressMode === 'new' or when no saved addresses exist */}
+                          {(addressMode === 'new' || savedAddresses.length === 0) && (
                             <motion.div
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: 'auto' }}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="pt-2"
                             >
-                              <textarea
-                                required
-                                rows="2"
-                                name="address"
-                                placeholder={lang === 'en' ? 'Detailed address / venue location (City, District, Street, Landmark)' : 'العنوان التفصيلي ومكان المناسبة (المنطقة، الشارع، الفيلا/المقر، علامة مميزة)'}
-                                value={formData.address}
-                                onChange={handleInputChange}
-                                className="w-full bg-black-primary border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:border-brand-red outline-none transition-colors text-sm resize-none"
-                              />
+                              <div className="bg-black-primary/80 border border-white/10 rounded-2xl p-4 sm:p-5 shadow-inner">
+                                <div className="flex items-center justify-between mb-3 pb-2 border-b border-white/10">
+                                  <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                                    <MapPin size={15} className="text-brand-red" />
+                                    <span>{lang === 'en' ? 'Custom Venue & Detailed Address' : 'تفاصيل عنوان وموقع المناسبة'}</span>
+                                  </span>
+                                  {customAddressDraft.zone && (
+                                    <span className="text-xs bg-emerald-500/15 text-emerald-400 px-2.5 py-0.5 rounded-full font-bold">
+                                      📍 {customAddressDraft.zone}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <AddressMapPicker 
+                                  value={customAddressDraft}
+                                  onChange={handleCustomAddressDraftChange}
+                                  zonesList={websiteData?.deliveryZones || []}
+                                  lang={lang}
+                                />
+                              </div>
                             </motion.div>
                           )}
                         </div>
