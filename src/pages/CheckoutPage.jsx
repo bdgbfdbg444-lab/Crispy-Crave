@@ -17,6 +17,7 @@ import imageCompression from 'browser-image-compression';
 import { sanitizeText } from '../utils/sanitizer';
 import { EGYPT_PHONE_REGEX, sanitizeOrderNotes } from '../utils/validation';
 import { visitorTracker } from '../services/visitorTracker';
+import { getDeviceId, getClientIp, checkLocalDailyOtpLimit, recordLocalOtpAttempt } from '../utils/deviceTracker';
 
 export default function CheckoutPage({ menuData }) {
   const { lang } = useLanguage();
@@ -307,6 +308,13 @@ export default function CheckoutPage({ menuData }) {
 
   const sendWhatsAppOtp = async (targetPhone) => {
     const cleanPhone = normalizePhone(targetPhone);
+    const localCheck = checkLocalDailyOtpLimit();
+    if (!localCheck.allowed) {
+      setOtpError(localCheck.message);
+      setIsSendingOtp(false);
+      return;
+    }
+
     if (!auth.currentUser) {
       await signInAnonymously(auth);
     }
@@ -315,12 +323,18 @@ export default function CheckoutPage({ menuData }) {
     setCurrentOtpReqId(reqId);
     setOtpCountdown(120);
 
+    const deviceId = getDeviceId();
+    const clientIp = await getClientIp();
+
     // Write to pending without the OTP (Gateway will generate it)
     await set(ref(db, `PendingOtpRequests/${reqId}`), {
       phone: cleanPhone,
       uid: auth.currentUser.uid,
+      deviceId,
+      clientIp,
       createdAt: Date.now()
     });
+    recordLocalOtpAttempt();
 
     // Listen for results from the Gateway
     const resultRef = ref(db, `OtpResults/${reqId}`);

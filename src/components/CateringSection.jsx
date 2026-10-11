@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { db, auth } from '../firebase';
 import { ref, set, get } from 'firebase/database';
 import { signInAnonymously } from 'firebase/auth';
+import { getDeviceId, getClientIp, checkLocalDailyOtpLimit, recordLocalOtpAttempt } from '../utils/deviceTracker';
 
 export default function CateringSection({ websiteData }) {
   const { lang } = useLanguage();
@@ -68,6 +69,11 @@ export default function CateringSection({ websiteData }) {
     const cleanPhone = normalizePhone(targetPhone);
     const expiry = Date.now() + 5 * 60 * 1000;
 
+    const localCheck = checkLocalDailyOtpLimit();
+    if (!localCheck.allowed) {
+      throw new Error(localCheck.message);
+    }
+
     if (!auth.currentUser) {
       await signInAnonymously(auth);
     }
@@ -76,11 +82,17 @@ export default function CateringSection({ websiteData }) {
     setOtpCountdown(120);
 
     const reqId = `otp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const deviceId = getDeviceId();
+    const clientIp = await getClientIp();
+
     await set(ref(db, `PendingOtpRequests/${reqId}`), {
       phone: cleanPhone,
       uid: auth.currentUser.uid,
+      deviceId,
+      clientIp,
       createdAt: Date.now()
     });
+    recordLocalOtpAttempt();
   };
 
   const handleTriggerOtp = async () => {

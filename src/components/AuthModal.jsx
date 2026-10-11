@@ -7,6 +7,7 @@ import { ref, set, get, onValue, off } from 'firebase/database';
 import { signInAnonymously, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { useLanguage } from '../context/LanguageContext';
 import AddressMapPicker from './AddressMapPicker';
+import { getDeviceId, getClientIp, checkLocalDailyOtpLimit, recordLocalOtpAttempt } from '../utils/deviceTracker';
 
 const EGYPTIAN_PHONE_REGEX = /^01[0125][0-9]{8}$/;
 
@@ -103,14 +104,25 @@ export default function AuthModal({ isOpen, onClose, onSuccess, zonesList = [] }
           return setError(lang === 'en' ? 'Account not found. Please register.' : 'الحساب غير موجود، يرجى إنشاء حساب جديد.');
         }
 
+        const localCheck = checkLocalDailyOtpLimit();
+        if (!localCheck.allowed) {
+          setLoading(false);
+          return setError(localCheck.message);
+        }
+
         if (!auth.currentUser) await signInAnonymously(auth);
 
         const reqId = `otp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        const deviceId = getDeviceId();
+        const clientIp = await getClientIp();
         await set(ref(db, `PendingOtpRequests/${reqId}`), {
           phone: cleanPhone,
           uid: auth.currentUser.uid,
+          deviceId,
+          clientIp,
           createdAt: Date.now()
         });
+        recordLocalOtpAttempt();
         
         setOtpReqId(reqId);
         setOtpCountdown(45);
@@ -183,14 +195,25 @@ export default function AuthModal({ isOpen, onClose, onSuccess, zonesList = [] }
         return setError(lang === 'en' ? 'Phone already registered.' : 'رقم الهاتف مسجل بالفعل. يرجى تسجيل الدخول.');
       }
 
+      const localCheck = checkLocalDailyOtpLimit();
+      if (!localCheck.allowed) {
+        setLoading(false);
+        return setError(localCheck.message);
+      }
+
       if (!auth.currentUser) await signInAnonymously(auth);
 
       const reqId = `otp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const deviceId = getDeviceId();
+      const clientIp = await getClientIp();
       await set(ref(db, `PendingOtpRequests/${reqId}`), {
         phone: cleanPhone,
         uid: auth.currentUser.uid,
+        deviceId,
+        clientIp,
         createdAt: Date.now()
       });
+      recordLocalOtpAttempt();
       
       setOtpReqId(reqId);
       setOtpCountdown(45);
