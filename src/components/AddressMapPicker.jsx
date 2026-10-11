@@ -230,13 +230,16 @@ export const checkZoneMismatch = (addressText, selectedZone, zonesList) => {
 };
 
 export const formatAddressDetails = (data) => {
+  if (!data) return '';
   const parts = [];
   if (data.street) parts.push(`شارع ${data.street.trim()}`);
   if (data.building) parts.push(`عمارة ${data.building.trim()}`);
   if (data.floor) parts.push(`الدور ${data.floor.trim()}`);
   if (data.apartment) parts.push(`شقة ${data.apartment.trim()}`);
   if (data.landmark) parts.push(`(علامة مميزة: ${data.landmark.trim()})`);
-  return parts.join(' - ');
+  const formatted = parts.join(' - ');
+  if (formatted) return formatted;
+  return data.fullAddress || data.street || '';
 };
 
 export const DESCRIPTOR_WORDS = new Set([
