@@ -1,5 +1,5 @@
 import { useLanguage } from '../context/LanguageContext';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, ArrowLeft, ArrowRight, Send, CheckCircle, Loader2, AlertCircle, 
@@ -121,6 +121,27 @@ export default function CateringSection({ websiteData }) {
     notes: ''
   });
 
+  // Saved Addresses Handling
+  const savedAddresses = useMemo(() => {
+    if (customerData?.addresses && Array.isArray(customerData.addresses) && customerData.addresses.length > 0) {
+      return customerData.addresses;
+    }
+    const legacy = customerData?.Address || customerData?.address;
+    if (legacy && typeof legacy === 'string' && legacy.trim()) {
+      return [{
+        id: 'legacy-default',
+        label: lang === 'en' ? 'Saved Address' : 'العنوان المسجل',
+        fullAddress: legacy.trim(),
+        isDefault: true
+      }];
+    }
+    return [];
+  }, [customerData, lang]);
+
+  const [addressMode, setAddressMode] = useState('saved'); // 'saved' | 'new'
+  const [selectedAddressId, setSelectedAddressId] = useState('');
+  const [customAddress, setCustomAddress] = useState('');
+
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [otpInput, setOtpInput] = useState('');
   const [otpError, setOtpError] = useState('');
@@ -139,6 +160,30 @@ export default function CateringSection({ websiteData }) {
     }
   }, [customerData, userPhone]);
 
+  // Sync saved addresses on customer data load
+  useEffect(() => {
+    if (savedAddresses.length > 0) {
+      const defaultAddr = savedAddresses.find(a => a.isDefault) || savedAddresses[0];
+      if (defaultAddr && (!formData.address || addressMode === 'saved')) {
+        setSelectedAddressId(defaultAddr.id);
+        setAddressMode('saved');
+        const formatted = [
+          defaultAddr.fullAddress,
+          defaultAddr.building ? (lang === 'en' ? `Bldg: ${defaultAddr.building}` : `عمارة: ${defaultAddr.building}`) : null,
+          defaultAddr.floor ? (lang === 'en' ? `Floor: ${defaultAddr.floor}` : `دور: ${defaultAddr.floor}`) : null,
+          defaultAddr.apartment ? (lang === 'en' ? `Apt: ${defaultAddr.apartment}` : `شقة: ${defaultAddr.apartment}`) : null,
+          defaultAddr.landmark ? (lang === 'en' ? `Landmark: ${defaultAddr.landmark}` : `علامة: ${defaultAddr.landmark}`) : null,
+        ].filter(Boolean).join(' | ');
+        setFormData(prev => ({
+          ...prev,
+          address: formatted || defaultAddr.fullAddress
+        }));
+      }
+    } else {
+      setAddressMode('new');
+    }
+  }, [savedAddresses]);
+
   useEffect(() => {
     let timer;
     if (otpCountdown > 0) {
@@ -149,6 +194,31 @@ export default function CateringSection({ websiteData }) {
 
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSelectSavedAddress = (addr) => {
+    setSelectedAddressId(addr.id);
+    setAddressMode('saved');
+    const details = [
+      addr.fullAddress,
+      addr.building ? (lang === 'en' ? `Bldg: ${addr.building}` : `عمارة: ${addr.building}`) : null,
+      addr.floor ? (lang === 'en' ? `Floor: ${addr.floor}` : `دور: ${addr.floor}`) : null,
+      addr.apartment ? (lang === 'en' ? `Apt: ${addr.apartment}` : `شقة: ${addr.apartment}`) : null,
+      addr.landmark ? (lang === 'en' ? `Landmark: ${addr.landmark}` : `علامة: ${addr.landmark}`) : null,
+    ].filter(Boolean).join(' | ');
+    setFormData(prev => ({ ...prev, address: details || addr.fullAddress }));
+  };
+
+  const handleSelectCustomAddress = () => {
+    setAddressMode('new');
+    setSelectedAddressId('new');
+    setFormData(prev => ({ ...prev, address: customAddress }));
+  };
+
+  const handleCustomAddressChange = (e) => {
+    const val = e.target.value;
+    setCustomAddress(val);
+    setFormData(prev => ({ ...prev, address: val }));
   };
 
   const toggleFoodPreference = (id) => {
@@ -263,7 +333,7 @@ export default function CateringSection({ websiteData }) {
       const selectedFoods = formData.preferredFood.map(id => foodLabelsAr[id] || id).join('، ');
       const selectedServices = formData.additionalServices.map(id => serviceLabelsAr[id] || id).join('، ');
       const deliveryDetails = formData.locationType === 'delivery'
-        ? `توصيل للمكان: ${formData.address.trim()}`
+        ? `توصيل للمكان: ${(formData.address || '').trim()}`
         : 'استلام مجهز من المطعم';
 
       // Comprehensive structured note block so ANY worker sending 'notes' to Telegram includes all details!
@@ -296,7 +366,7 @@ ${structuredTelegramNotes}`;
         eventTypeId: formData.eventType,
         timeSlot: selectedTime,
         locationType: formData.locationType === 'delivery' ? 'توصيل' : 'استلام',
-        address: formData.locationType === 'delivery' ? formData.address.trim() : 'استلام من المطعم',
+        address: formData.locationType === 'delivery' ? (formData.address || '').trim() : 'استلام من المطعم',
         preferredFood: selectedFoods,
         additionalServices: selectedServices || 'لا يوجد',
         clientNotes: (formData.notes || '').trim(),
@@ -324,12 +394,16 @@ ${structuredTelegramNotes}`;
       }
 
       // 2. Save backup in Firebase RTDB
-      const reqId = `catering_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      await set(ref(db, `CateringRequests/${reqId}`), {
-        ...payload,
-        status: 'New',
-        timestamp: Date.now()
-      });
+      try {
+        const reqId = `catering_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        await set(ref(db, `CateringRequests/${reqId}`), {
+          ...payload,
+          status: 'New',
+          timestamp: Date.now()
+        });
+      } catch (dbErr) {
+        console.warn('Firebase catering backup error:', dbErr);
+      }
       
       setIsSuccess(true);
       setTimeout(() => {
@@ -432,7 +506,7 @@ ${structuredTelegramNotes}`;
       return;
     }
 
-    if (formData.locationType === 'delivery' && !formData.address.trim()) {
+    if (formData.locationType === 'delivery' && !(formData.address || '').trim()) {
       alert(lang === 'en' ? "Please enter the delivery address / venue." : "برجاء إدخال عنوان وتفاصيل مكان المناسبة");
       return;
     }
@@ -772,21 +846,128 @@ ${structuredTelegramNotes}`;
                           </div>
                         </button>
                       </div>
+
                       {formData.locationType === 'delivery' && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                        >
-                          <textarea
-                            required
-                            rows="2"
-                            name="address"
-                            placeholder={lang === 'en' ? 'Detailed address / venue location (City, District, Street, Landmark)' : 'العنوان التفصيلي ومكان المناسبة (المنطقة، الشارع، الفيلا/المقر، علامة مميزة)'}
-                            value={formData.address}
-                            onChange={handleInputChange}
-                            className="w-full bg-black-primary border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:border-brand-red outline-none transition-colors text-sm resize-none"
-                          />
-                        </motion.div>
+                        <div className="space-y-3 mt-3">
+                          {savedAddresses.length > 0 ? (
+                            <>
+                              <span className="block text-xs text-gray-400 mb-1">
+                                {lang === 'en' ? 'Select from your saved addresses or enter a new venue:' : 'اختر من عناوينك المسجلة أو حدد موقعاً جديداً للمناسبة:'}
+                              </span>
+
+                              <div className="grid grid-cols-1 gap-2.5">
+                                {savedAddresses.map((addr) => {
+                                  const isSelected = addressMode === 'saved' && selectedAddressId === addr.id;
+                                  return (
+                                    <div
+                                      key={addr.id}
+                                      onClick={() => handleSelectSavedAddress(addr)}
+                                      className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 text-start ${
+                                        isSelected
+                                          ? 'bg-brand-red/10 border-brand-red text-white ring-1 ring-brand-red/40 shadow-sm'
+                                          : 'bg-black-primary/60 border-white/10 text-gray-300 hover:border-white/20'
+                                      }`}
+                                    >
+                                      <div className={`w-4 h-4 rounded-full mt-0.5 flex items-center justify-center shrink-0 border transition-all ${
+                                        isSelected ? 'border-brand-red bg-brand-red text-white' : 'border-gray-600 bg-transparent'
+                                      }`}>
+                                        {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-0.5">
+                                          <span className="text-xs font-bold text-white">
+                                            {lang === 'en' ? (addr.label === 'المنزل' ? 'Home' : addr.label === 'العمل' ? 'Work' : (addr.label || 'Saved Address')) : (addr.label || 'العنوان المسجل')}
+                                          </span>
+                                          {addr.isDefault && (
+                                            <span className="text-[10px] bg-brand-red/20 text-brand-red px-1.5 py-0.5 rounded font-bold">
+                                              {lang === 'en' ? 'Default' : 'الرئيسي'}
+                                            </span>
+                                          )}
+                                          {addr.zone && (
+                                            <span className="text-[10px] bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded font-semibold">
+                                              📍 {addr.zone}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <p className="text-xs sm:text-sm text-gray-200 font-medium">
+                                          {addr.fullAddress}
+                                        </p>
+                                        {(addr.building || addr.floor || addr.apartment || addr.landmark) && (
+                                          <p className="text-[11px] text-gray-400 mt-0.5">
+                                            {[
+                                              addr.building && (lang === 'en' ? `Bldg ${addr.building}` : `عمارة ${addr.building}`),
+                                              addr.floor && (lang === 'en' ? `Floor ${addr.floor}` : `دور ${addr.floor}`),
+                                              addr.apartment && (lang === 'en' ? `Apt ${addr.apartment}` : `شقة ${addr.apartment}`),
+                                              addr.landmark && (lang === 'en' ? `Near: ${addr.landmark}` : `علامة: ${addr.landmark}`),
+                                            ].filter(Boolean).join(' • ')}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+
+                                {/* Custom Address Radio Card */}
+                                <div
+                                  onClick={handleSelectCustomAddress}
+                                  className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-start gap-3 text-start ${
+                                    addressMode === 'new'
+                                      ? 'bg-brand-red/10 border-brand-red text-white ring-1 ring-brand-red/40 shadow-sm'
+                                      : 'bg-black-primary/60 border-white/10 text-gray-300 hover:border-white/20'
+                                  }`}
+                                >
+                                  <div className={`w-4 h-4 rounded-full mt-0.5 flex items-center justify-center shrink-0 border transition-all ${
+                                    addressMode === 'new' ? 'border-brand-red bg-brand-red text-white' : 'border-gray-600 bg-transparent'
+                                  }`}>
+                                    {addressMode === 'new' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                  </div>
+                                  <div>
+                                    <p className="text-xs sm:text-sm font-semibold text-white">
+                                      {lang === 'en' ? 'Enter a Different Venue / Custom Address' : 'إدخال عنوان آخر / مكان جديد للمناسبة'}
+                                    </p>
+                                    <p className="text-[11px] text-gray-400">
+                                      {lang === 'en' ? 'Specify the hall, villa, office, or event location' : 'حدد القاعة، الفيلا، المقر، أو عنوان المكان'}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Textarea for Custom Venue */}
+                              {addressMode === 'new' && (
+                                <motion.div
+                                  initial={{ opacity: 0, height: 0 }}
+                                  animate={{ opacity: 1, height: 'auto' }}
+                                  className="pt-1"
+                                >
+                                  <textarea
+                                    required
+                                    rows="2"
+                                    name="address"
+                                    placeholder={lang === 'en' ? 'Detailed venue address (City, District, Street, Villa/Hall, Landmarks)' : 'العنوان التفصيلي ومكان المناسبة (المنطقة، الشارع، الفيلا/المقر، علامة مميزة)'}
+                                    value={customAddress}
+                                    onChange={handleCustomAddressChange}
+                                    className="w-full bg-black-primary border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:border-brand-red outline-none transition-colors text-sm resize-none"
+                                  />
+                                </motion.div>
+                              )}
+                            </>
+                          ) : (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                            >
+                              <textarea
+                                required
+                                rows="2"
+                                name="address"
+                                placeholder={lang === 'en' ? 'Detailed address / venue location (City, District, Street, Landmark)' : 'العنوان التفصيلي ومكان المناسبة (المنطقة، الشارع، الفيلا/المقر، علامة مميزة)'}
+                                value={formData.address}
+                                onChange={handleInputChange}
+                                className="w-full bg-black-primary border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:border-brand-red outline-none transition-colors text-sm resize-none"
+                              />
+                            </motion.div>
+                          )}
+                        </div>
                       )}
                     </div>
 

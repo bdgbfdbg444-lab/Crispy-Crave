@@ -616,6 +616,12 @@
         }
       }
     },
+    "CateringRequests": {
+      "$reqId": {
+        ".read": "auth != null",
+        ".write": "!data.exists()"
+      }
+    },
     "UserCarts": {
       "$phone": {
         ".read": "auth != null",
