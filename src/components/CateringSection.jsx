@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, ArrowLeft, ArrowRight, Send, CheckCircle, Loader2, AlertCircle, 
   RefreshCw, Calendar, Clock, MapPin, Sparkles, Check, Phone, User, 
-  Utensils, Flame 
+  Flame, Home, PartyPopper, Briefcase, Sun, Moon, Truck, ShoppingBag, 
+  Layers, Utensils, UtensilsCrossed, UserCheck
 } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { useAuth } from '../context/AuthContext';
@@ -14,11 +15,11 @@ import { signInAnonymously } from 'firebase/auth';
 import { getDeviceId, getClientIp, checkLocalDailyOtpLimit, recordLocalOtpAttempt } from '../utils/deviceTracker';
 
 const EVENT_TYPES = [
-  { id: 'family', labelAr: 'لمة عائلة / بيت', labelEn: 'Family / Home Gathering', icon: '🏠' },
-  { id: 'birthday', labelAr: 'عيد ميلاد / احتفال', labelEn: 'Birthday / Celebration', icon: '🎂' },
-  { id: 'corporate', labelAr: 'عمل / شركات', labelEn: 'Corporate / Office', icon: '💼' },
-  { id: 'friends', labelAr: 'سهرة أصحاب', labelEn: 'Friends Hangout', icon: '👥' },
-  { id: 'other', labelAr: 'مناسبة خاصة', labelEn: 'Special Occasion', icon: '✨' },
+  { id: 'family', labelAr: 'لمة عائلة / منزلية', labelEn: 'Family / Home Gathering', icon: Home },
+  { id: 'corporate', labelAr: 'شركات وعمل', labelEn: 'Corporate / Business', icon: Briefcase },
+  { id: 'birthday', labelAr: 'عيد ميلاد واحتفال', labelEn: 'Birthday / Celebration', icon: PartyPopper },
+  { id: 'friends', labelAr: 'تجمع أصدقاء', labelEn: 'Friends Gathering', icon: Users },
+  { id: 'other', labelAr: 'مناسبة خاصة', labelEn: 'Special Occasion', icon: Sparkles },
 ];
 
 const GUEST_PRESETS = [
@@ -30,9 +31,9 @@ const GUEST_PRESETS = [
 ];
 
 const TIME_SLOTS = [
-  { id: 'lunch', labelAr: 'غداء (1:00 م - 5:00 م)', labelEn: 'Lunch (1:00 PM - 5:00 PM)', icon: '☀️' },
-  { id: 'dinner', labelAr: 'عشاء (6:00 م - 11:00 م)', labelEn: 'Dinner (6:00 PM - 11:00 PM)', icon: '🌙' },
-  { id: 'custom', labelAr: 'ساعة محددة', labelEn: 'Specific Time', icon: '⏰' },
+  { id: 'lunch', labelAr: 'غداء (1:00 م - 5:00 م)', labelEn: 'Lunch (1:00 PM - 5:00 PM)', icon: Sun },
+  { id: 'dinner', labelAr: 'عشاء (6:00 م - 11:00 م)', labelEn: 'Dinner (6:00 PM - 11:00 PM)', icon: Moon },
+  { id: 'custom', labelAr: 'ساعة محددة', labelEn: 'Specific Time', icon: Clock },
 ];
 
 const FOOD_OPTIONS = [
@@ -40,33 +41,33 @@ const FOOD_OPTIONS = [
     id: 'smoked', 
     titleAr: 'لحوم وبريسكت مدخن', 
     titleEn: 'Smoked Brisket & Ribs', 
-    descAr: 'بريسكت وأضلاع مدخنة على الحطب لساعات طويلة بنكهة أصلية', 
-    descEn: 'Low & slow wood-smoked premium brisket and tender ribs',
-    icon: '🥩' 
+    descAr: 'بريسكت وأضلاع مدخنة على الحطب لساعات طويلة', 
+    descEn: 'Low & slow wood-smoked brisket and tender ribs',
+    icon: Flame 
   },
   { 
     id: 'burgers', 
-    titleAr: 'ميني سلايدرز وبرجر مجموعات', 
+    titleAr: 'ميني سلايدرز وبرجر', 
     titleEn: 'Mini Sliders & Burgers', 
-    descAr: 'تشكيلة سماش برجر وسلايدرز متنوعة بحجم الحفلات', 
-    descEn: 'Party-size smash sliders and assorted gourmet burgers',
-    icon: '🍔' 
+    descAr: 'تشكيلة سماش برجر وسلايدرز بحجم الحفلات', 
+    descEn: 'Party-size smash sliders and assorted burgers',
+    icon: Layers 
   },
   { 
     id: 'crispy', 
     titleAr: 'بوكسات كريسبي ودجاج', 
-    titleEn: 'Crispy Strips & Chicken', 
-    descAr: 'ستريبس مقرمش وقطع دجاج ذهبية مع خلطات سرية', 
-    descEn: 'Golden crispy chicken strips and tenders with signature dips',
-    icon: '🍗' 
+    titleEn: 'Crispy Chicken & Strips', 
+    descAr: 'ستريبس مقرمش ودجاج ذهبي مع خلطات سرية', 
+    descEn: 'Crispy chicken strips, tenders and dipping sauces',
+    icon: Utensils 
   },
   { 
     id: 'sides', 
     titleAr: 'مقبلات، بطاطس وصوصات', 
-    titleEn: 'Sides, Loaded Fries & Dips', 
-    descAr: 'ماك آند تشيز، بطاطس مشكلة، وصوصات البيت الحصرية', 
-    descEn: 'Gourmet loaded fries, mac & cheese, and secret house sauces',
-    icon: '🍟' 
+    titleEn: 'Sides, Fries & Sauces', 
+    descAr: 'ماك آند تشيز، بطاطس بأنواعها، وصوصات البيت', 
+    descEn: 'Loaded fries, mac & cheese, and signature dips',
+    icon: Sparkles 
   },
 ];
 
@@ -75,25 +76,25 @@ const SERVICE_OPTIONS = [
     id: 'warmers', 
     titleAr: 'سخانات بوفيه لحفظ الحرارة', 
     titleEn: 'Buffet Food Warmers (Chafing Dishes)', 
-    descAr: 'سخانات استيل مع شعلات لحفظ حرارة الأطباق طوال السهرة', 
-    descEn: 'Keep meals sizzling hot throughout the entire event',
-    icon: '♨️' 
+    descAr: 'سخانات استيل لحفظ جودة وحرارة الأطباق طوال المناسبة', 
+    descEn: 'Keeps meals hot throughout the entire event',
+    icon: Flame 
   },
   { 
     id: 'tableware', 
     titleAr: 'أدوات مائدة وسفرة فاخرة ديسبوزابل', 
-    titleEn: 'Luxury Disposable Tableware', 
-    descAr: 'أطباق وشوك ومفارش ومناديل سفرة عالية الجودة وجاهزة للتقديم', 
-    descEn: 'High-grade cutlery, plates, table covers, and wet wipes',
-    icon: '🍽️' 
+    titleEn: 'Premium Disposable Tableware', 
+    descAr: 'أطباق وشوك ومفارش ومناديل عالية الجودة جاهزة للتقديم', 
+    descEn: 'High-grade cutlery, plates, table covers, and napkins',
+    icon: UtensilsCrossed 
   },
   { 
     id: 'chef', 
-    titleAr: 'شيف مشرف وفريق تقديم للمناسبة', 
+    titleAr: 'شيف مشرف وفريق تقديم', 
     titleEn: 'On-site Chef & Service Staff', 
-    descAr: 'شيف مختص للتقطيع المباشر وتنسيق البوفيه وخدمة الضيوف', 
-    descEn: 'Dedicated carving chef and team for setup and on-site hospitality',
-    icon: '👨‍🍳' 
+    descAr: 'شيف للتقطيع المباشر وتنسيق البوفيه والإشراف', 
+    descEn: 'Dedicated staff for setup, carving, and hospitality',
+    icon: UserCheck 
   },
 ];
 
@@ -226,25 +227,89 @@ export default function CateringSection({ websiteData }) {
     setIsSubmitting(true);
     try {
       const cleanPhone = normalizePhone(formData.phone);
-      const finalGuests = formData.guests === 'custom' ? (formData.customGuests || 'مخصص') : formData.guests;
-      const finalTime = formData.timeSlot === 'custom' ? (formData.customTime || 'وقت محدد') : formData.timeSlot;
+      const finalGuests = formData.guests === 'custom' 
+        ? (formData.customGuests ? `${formData.customGuests} فرد` : 'مخصص') 
+        : formData.guests;
+      
+      const eventTypeLabelsAr = {
+        family: 'لمة عائلة / منزلية',
+        birthday: 'عيد ميلاد / احتفال',
+        corporate: 'شركات ومناسبات عمل',
+        friends: 'تجمع أصدقاء',
+        other: 'مناسبة خاصة'
+      };
+
+      const timeSlotLabelsAr = {
+        lunch: 'غداء (1:00 م - 5:00 م)',
+        dinner: 'عشاء (6:00 م - 11:00 م)',
+        custom: formData.customTime ? `ساعة محددة (${formData.customTime})` : 'ساعة محددة'
+      };
+
+      const foodLabelsAr = {
+        smoked: 'لحوم وبريسكت مدخن',
+        burgers: 'ميني سلايدرز وبرجر',
+        crispy: 'بوكسات كريسبي ودجاج',
+        sides: 'مقبلات، بطاطس وصوصات'
+      };
+
+      const serviceLabelsAr = {
+        warmers: 'سخانات بوفيه لحفظ الحرارة',
+        tableware: 'أدوات مائدة وسفرة فاخرة ديسبوزابل',
+        chef: 'شيف مشرف وفريق تقديم للمناسبة'
+      };
+
+      const selectedEvent = eventTypeLabelsAr[formData.eventType] || formData.eventType;
+      const selectedTime = timeSlotLabelsAr[formData.timeSlot] || formData.timeSlot;
+      const selectedFoods = formData.preferredFood.map(id => foodLabelsAr[id] || id).join('، ');
+      const selectedServices = formData.additionalServices.map(id => serviceLabelsAr[id] || id).join('، ');
+      const deliveryDetails = formData.locationType === 'delivery'
+        ? `توصيل للمكان: ${formData.address.trim()}`
+        : 'استلام مجهز من المطعم';
+
+      // Comprehensive structured note block so ANY worker sending 'notes' to Telegram includes all details!
+      const structuredTelegramNotes = [
+        `• نوع المناسبة: ${selectedEvent}`,
+        `• توقيت التقديم: ${selectedTime}`,
+        `• طريقة الاستلام: ${deliveryDetails}`,
+        `• تشكيلة الأطباق: ${selectedFoods || 'غير محدد'}`,
+        selectedServices ? `• خدمات إضافية: ${selectedServices}` : null,
+        formData.notes?.trim() ? `• ملاحظات إضافية: ${formData.notes.trim()}` : null
+      ].filter(Boolean).join('\n');
+
+      const fullSummaryText = `📋 طلب حجز مناسبة وعزومة جديدة:
+👤 الاسم: ${formData.name.trim()}
+📞 الهاتف: ${cleanPhone}
+👥 عدد الضيوف: ${finalGuests}
+📅 التاريخ: ${formData.date}
+${structuredTelegramNotes}`;
 
       const payload = {
         name: formData.name.trim(),
         phone: cleanPhone,
-        eventType: formData.eventType,
         guests: finalGuests,
         date: formData.date,
-        timeSlot: finalTime,
-        locationType: formData.locationType,
-        address: formData.locationType === 'delivery' ? (formData.address || '').trim() : 'Pickup from Restaurant',
-        preferredFood: formData.preferredFood,
-        additionalServices: formData.additionalServices,
-        notes: (formData.notes || '').trim(),
+        // The worker prints data.notes to Telegram:
+        notes: structuredTelegramNotes,
+        
+        // Structured fields:
+        eventType: selectedEvent,
+        eventTypeId: formData.eventType,
+        timeSlot: selectedTime,
+        locationType: formData.locationType === 'delivery' ? 'توصيل' : 'استلام',
+        address: formData.locationType === 'delivery' ? formData.address.trim() : 'استلام من المطعم',
+        preferredFood: selectedFoods,
+        additionalServices: selectedServices || 'لا يوجد',
+        clientNotes: (formData.notes || '').trim(),
+        
+        // Full formatted messages:
+        message: fullSummaryText,
+        text: fullSummaryText,
+        summary: fullSummaryText,
+        
         createdAt: new Date().toISOString()
       };
 
-      // 1. Post to Cloudflare Worker
+      // 1. Post to Cloudflare Worker (triggers Telegram bot)
       const WORKER_URL = "https://smoke-catering-bot.abusaudgaming.workers.dev";
       try {
         await fetch(WORKER_URL, {
@@ -441,13 +506,13 @@ export default function CateringSection({ websiteData }) {
               >
                 <div className="inline-flex items-center gap-2 bg-black-surface/5 border border-white/10 rounded-full px-4 py-2 mb-6 text-brand-red">
                   <Users size={18} />
-                  <span className="text-sm font-bold tracking-wide">{lang === 'en' ? 'Events & Gatherings' : 'عزومات وحفلات'}</span>
+                  <span className="text-sm font-bold tracking-wide">{lang === 'en' ? 'Private Events & Gatherings' : 'عزومات وحفلات'}</span>
                 </div>
                 
                 <h2 className="text-4xl md:text-5xl font-display font-black text-text-light mb-6 leading-tight" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize((lang === 'en' ? (websiteData?.cateringTitleEn || 'Make Your Gatherings <span class="text-brand-red">More Enjoyable</span>') : (websiteData?.cateringTitle || 'اجعل تجمعاتك <span class="text-brand-red">أكثر متعة</span>')), { ALLOWED_TAGS: ['span', 'br', 'b', 'strong', 'em'], ALLOWED_ATTR: ['class'] }) }} />
                 
                 <p className="text-lg text-gray-300 leading-relaxed mb-8 whitespace-pre-line">
-                  {(lang === 'en' && websiteData?.cateringDescriptionEn ? websiteData?.cateringDescriptionEn : websiteData?.cateringDescription) || (lang === 'en' ? 'Whether it is a family gathering, friends meetup, or a special occasion, we prepared Saver Boxes to suit all group sizes.' : 'سواء كان لمة عائلة، خروجة أصحاب، أو مناسبة خاصة، جهزنا بوكسات التوفير تناسب كل الأحجام.')}
+                  {(lang === 'en' && websiteData?.cateringDescriptionEn ? websiteData?.cateringDescriptionEn : websiteData?.cateringDescription) || (lang === 'en' ? 'Whether it is a family gathering, corporate event, or a special occasion, we prepare customized gourmet packages to suit your guests.' : 'سواء كانت لمة عائلة، مناسبة عمل، أو احتفال خاص، جهزنا تشكيلات حصرية ومتكاملة تناسب جميع الضيوف والمناسبات.')}
                 </p>
 
                 <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4">
@@ -455,7 +520,7 @@ export default function CateringSection({ websiteData }) {
                     onClick={() => setShowForm(true)}
                     className="bg-brand-red hover:bg-brand-red-dark text-text-light font-bold py-4 px-8 rounded-xl transition-all shadow-lg shadow-brand-red/30 flex items-center justify-center gap-2 w-full sm:w-auto outline-none group cursor-pointer"
                   >
-                    <span>{lang === 'en' ? (websiteData?.cateringButtonTextEn || 'Book Now For Events') : (websiteData?.cateringButtonText || 'احجز الآن للحفلات')}</span>
+                    <span>{lang === 'en' ? (websiteData?.cateringButtonTextEn || 'Request Event Booking') : (websiteData?.cateringButtonText || 'طلب حجز مناسبة')}</span>
                     {lang === 'en' ? (
                       <ArrowRight size={20} className="transform group-hover:translate-x-1 transition-transform" />
                     ) : (
@@ -466,61 +531,57 @@ export default function CateringSection({ websiteData }) {
               </motion.div>
             </motion.div>
           ) : (
-            /* ENHANCED CATERING BOOKING FORM */
+            /* FORMAL CATERING BOOKING FORM */
             <motion.div
               key="booking-form"
-              initial={{ opacity: 0, y: 25 }}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -25 }}
+              exit={{ opacity: 0, y: -20 }}
               className="max-w-4xl mx-auto"
             >
               {isSuccess ? (
                 <div className="bg-black-surface/90 border border-green-500/50 rounded-3xl p-8 sm:p-12 text-center shadow-2xl backdrop-blur-xl">
                   <div className="w-16 h-16 bg-green-500/10 border border-green-500/30 rounded-2xl flex items-center justify-center mx-auto mb-4 text-green-400">
-                    <CheckCircle size={38} />
+                    <CheckCircle size={36} />
                   </div>
-                  <h3 className="text-2xl sm:text-3xl font-display font-black text-white mb-3">
-                    {lang === 'en' ? 'Catering Request Received! 🎉' : 'تم استلام طلب المناسبة بنجاح! 🎉'}
+                  <h3 className="text-2xl sm:text-3xl font-sans font-bold text-white mb-3">
+                    {lang === 'en' ? 'Request Submitted Successfully' : 'تم استلام طلب الحجز بنجاح'}
                   </h3>
-                  <p className="text-sm sm:text-base text-green-200/90 max-w-lg mx-auto leading-relaxed mb-6">
+                  <p className="text-sm sm:text-base text-gray-300 max-w-lg mx-auto leading-relaxed mb-6">
                     {lang === 'en' 
-                      ? `Thank you! Our catering concierge will reach out to you shortly on (${formData.phone}) to confirm the menu details and apply group discounts.` 
-                      : `شكراً لك! سيقوم شيف ومنسق الحفلات بالتواصل معك هاتفياً أو عبر الواتساب على رقم (${formData.phone}) لتأكيد كافة الترتيبات وتطبيق خصم المجموعات.`}
+                      ? `Thank you. Our events team will contact you shortly on (${formData.phone}) to confirm the event specifications and finalize the menu.` 
+                      : `شكراً لتواصلكم. سيقوم فريق تنظيم الحفلات بالتواصل معكم قريباً على رقم (${formData.phone}) لتأكيد كافة الترتيبات وتفاصيل التقديم.`}
                   </p>
                   <button
                     type="button"
                     onClick={() => { setShowForm(false); setIsSuccess(false); }}
                     className="px-8 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl text-sm transition-colors border border-white/15 cursor-pointer"
                   >
-                    {lang === 'en' ? 'Back to Home' : 'العودة للرئيسية'}
+                    {lang === 'en' ? 'Close' : 'إغلاق'}
                   </button>
                 </div>
               ) : (
                 <div className="bg-[#121212]/95 border border-white/10 rounded-3xl p-6 sm:p-8 md:p-10 shadow-2xl backdrop-blur-xl relative">
                   
-                  {/* Top Bar Header */}
+                  {/* Clean Formal Header - No Informal Badges */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-white/10 mb-8">
                     <div>
-                      <div className="inline-flex items-center gap-2 bg-brand-red/10 border border-brand-red/30 rounded-full px-3 py-1 mb-2 text-brand-red text-xs font-bold">
-                        <Sparkles size={14} />
-                        <span>{lang === 'en' ? 'Catering & Gatherings Concierge' : 'خدمة عزومات وبوفيهات The Black Box'}</span>
-                      </div>
-                      <h3 className="text-2xl sm:text-3xl font-display font-black text-text-light">
-                        {lang === 'en' ? 'Customize Your Gathering' : 'تخصيص وحجز طلب العزومة'}
+                      <h3 className="text-2xl sm:text-3xl font-sans font-bold text-text-light tracking-tight">
+                        {lang === 'en' ? 'Private Events & Catering Request' : 'طلب حجز المناسبات والبوفيه الخاص'}
                       </h3>
-                      <p className="text-xs sm:text-sm text-gray-400 mt-1">
+                      <p className="text-xs sm:text-sm text-gray-400 mt-1.5">
                         {lang === 'en' 
-                          ? 'Provide your gathering details and our team will craft a tailored gourmet experience for you.'
-                          : 'حدد تفاصيل مناسبتك وسيقوم فريق الحفلات بالتواصل معك لتأكيد أفضل تشكيلة بوفيه تناسب ضيوفك.'}
+                          ? 'Please provide your event specifications for a tailored executive catering proposal.'
+                          : 'يرجى تحديد تفاصيل المناسبة لإعداد عرض تقديم وبوفيه مخصص بالكامل.'}
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => setShowForm(false)}
-                      className="self-start sm:self-center shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-all text-xs sm:text-sm font-bold border border-white/10 cursor-pointer"
+                      className="self-start sm:self-center shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-all text-xs sm:text-sm font-semibold border border-white/10 cursor-pointer"
                     >
                       {lang === 'en' ? <ArrowLeft size={16} /> : <ArrowRight size={16} />}
-                      <span>{lang === 'en' ? 'Back' : 'العودة للتفاصيل'}</span>
+                      <span>{lang === 'en' ? 'Back' : 'العودة'}</span>
                     </button>
                   </div>
 
@@ -528,26 +589,27 @@ export default function CateringSection({ websiteData }) {
                     
                     {/* 1. EVENT TYPE */}
                     <div>
-                      <label className="flex items-center gap-2 text-sm font-bold text-gray-200 mb-3">
-                        <span className="w-2 h-2 rounded-full bg-brand-red"></span>
-                        <span>{lang === 'en' ? '1. Event Type' : '1. نوع المناسبة'}</span>
-                      </label>
+                      <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-brand-red"></span>
+                        <span>{lang === 'en' ? 'Event Type' : 'نوع المناسبة'}</span>
+                      </div>
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
                         {EVENT_TYPES.map((type) => {
                           const active = formData.eventType === type.id;
+                          const Icon = type.icon;
                           return (
                             <button
                               key={type.id}
                               type="button"
                               onClick={() => setFormData({ ...formData, eventType: type.id })}
-                              className={`flex flex-col items-center justify-center p-3 sm:p-3.5 rounded-2xl border transition-all text-center gap-1.5 cursor-pointer ${
+                              className={`flex flex-col items-center justify-center p-3.5 rounded-2xl border transition-all text-center gap-2 cursor-pointer ${
                                 active
-                                  ? 'bg-brand-red/15 border-brand-red text-white shadow-lg shadow-brand-red/20 ring-1 ring-brand-red/50'
+                                  ? 'bg-brand-red/10 border-brand-red text-white shadow-sm ring-1 ring-brand-red/40'
                                   : 'bg-black-primary/60 border-white/10 text-gray-400 hover:text-gray-200 hover:border-white/20'
                               }`}
                             >
-                              <span className="text-2xl">{type.icon}</span>
-                              <span className="text-xs font-bold leading-tight">
+                              <Icon size={19} className={active ? 'text-brand-red' : 'text-gray-400'} />
+                              <span className="text-xs font-semibold leading-tight">
                                 {lang === 'en' ? type.labelEn : type.labelAr}
                               </span>
                             </button>
@@ -558,10 +620,10 @@ export default function CateringSection({ websiteData }) {
 
                     {/* 2. GUESTS COUNT */}
                     <div>
-                      <label className="flex items-center gap-2 text-sm font-bold text-gray-200 mb-3">
-                        <Users size={16} className="text-brand-red" />
-                        <span>{lang === 'en' ? '2. Estimated Number of Guests' : '2. عدد الضيوف التقديري'}</span>
-                      </label>
+                      <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-2">
+                        <Users size={14} className="text-brand-red" />
+                        <span>{lang === 'en' ? 'Estimated Guests' : 'عدد الضيوف المتوقع'}</span>
+                      </div>
                       <div className="flex flex-wrap gap-2 mb-3">
                         {GUEST_PRESETS.map((preset) => {
                           const active = formData.guests === preset.value;
@@ -570,9 +632,9 @@ export default function CateringSection({ websiteData }) {
                               key={preset.value}
                               type="button"
                               onClick={() => setFormData({ ...formData, guests: preset.value })}
-                              className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition-all cursor-pointer ${
+                              className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border transition-all cursor-pointer ${
                                 active
-                                  ? 'bg-brand-red text-white border-brand-red shadow-md shadow-brand-red/20'
+                                  ? 'bg-brand-red text-white border-brand-red shadow-sm'
                                   : 'bg-black-primary/60 border-white/10 text-gray-300 hover:border-white/20'
                               }`}
                             >
@@ -602,10 +664,10 @@ export default function CateringSection({ websiteData }) {
 
                     {/* 3. DATE & TIME */}
                     <div>
-                      <label className="flex items-center gap-2 text-sm font-bold text-gray-200 mb-3">
-                        <Calendar size={16} className="text-brand-red" />
-                        <span>{lang === 'en' ? '3. Date & Serving Time' : '3. موعد المناسبة وتوقيت التقديم'}</span>
-                      </label>
+                      <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-2">
+                        <Calendar size={14} className="text-brand-red" />
+                        <span>{lang === 'en' ? 'Date & Serving Window' : 'الموعد وفترة التقديم'}</span>
+                      </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <span className="block text-xs text-gray-400 mb-1.5">{lang === 'en' ? 'Event Date *' : 'تاريخ المناسبة *'}</span>
@@ -621,23 +683,24 @@ export default function CateringSection({ websiteData }) {
                           />
                         </div>
                         <div>
-                          <span className="block text-xs text-gray-400 mb-1.5">{lang === 'en' ? 'Serving Time Window' : 'فترة التقديم المفضلة'}</span>
+                          <span className="block text-xs text-gray-400 mb-1.5">{lang === 'en' ? 'Preferred Serving Window' : 'فترة التقديم المطلوبة'}</span>
                           <div className="grid grid-cols-3 gap-2">
                             {TIME_SLOTS.map((slot) => {
                               const active = formData.timeSlot === slot.id;
+                              const SlotIcon = slot.icon;
                               return (
                                 <button
                                   key={slot.id}
                                   type="button"
                                   onClick={() => setFormData({ ...formData, timeSlot: slot.id })}
-                                  className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                                  className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 ${
                                     active
-                                      ? 'bg-brand-red/20 border-brand-red text-white ring-1 ring-brand-red/40'
+                                      ? 'bg-brand-red/10 border-brand-red text-white ring-1 ring-brand-red/30'
                                       : 'bg-black-primary/60 border-white/10 text-gray-400 hover:text-gray-200'
                                   }`}
                                 >
-                                  <span className="text-base">{slot.icon}</span>
-                                  <span className="text-[11px] font-bold leading-tight">
+                                  <SlotIcon size={16} className={active ? 'text-brand-red' : 'text-gray-400'} />
+                                  <span className="text-[11px] font-semibold leading-tight">
                                     {lang === 'en' ? slot.labelEn : slot.labelAr}
                                   </span>
                                 </button>
@@ -665,24 +728,28 @@ export default function CateringSection({ websiteData }) {
 
                     {/* 4. DELIVERY METHOD & LOCATION */}
                     <div>
-                      <label className="flex items-center gap-2 text-sm font-bold text-gray-200 mb-3">
-                        <MapPin size={16} className="text-brand-red" />
-                        <span>{lang === 'en' ? '4. Delivery Method & Location' : '4. طريقة الاستلام وموقع المناسبة'}</span>
-                      </label>
+                      <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-2">
+                        <MapPin size={14} className="text-brand-red" />
+                        <span>{lang === 'en' ? 'Delivery Method & Venue Location' : 'طريقة الاستلام وموقع المناسبة'}</span>
+                      </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                         <button
                           type="button"
                           onClick={() => setFormData({ ...formData, locationType: 'delivery' })}
                           className={`flex items-center gap-3.5 p-3.5 rounded-2xl border transition-all cursor-pointer text-start ${
                             formData.locationType === 'delivery'
-                              ? 'bg-brand-red/15 border-brand-red text-white shadow-md shadow-brand-red/10 ring-1 ring-brand-red/40'
+                              ? 'bg-brand-red/10 border-brand-red text-white ring-1 ring-brand-red/30 shadow-sm'
                               : 'bg-black-primary/60 border-white/10 text-gray-400 hover:text-gray-200'
                           }`}
                         >
-                          <span className="text-2xl">🛵</span>
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
+                            formData.locationType === 'delivery' ? 'bg-brand-red/20 border-brand-red/40 text-brand-red' : 'bg-white/5 border-white/10 text-gray-400'
+                          }`}>
+                            <Truck size={18} />
+                          </div>
                           <div>
-                            <p className="text-xs sm:text-sm font-bold text-white">{lang === 'en' ? 'Delivery to Venue' : 'توصيل لمكان المناسبة'}</p>
-                            <p className="text-[11px] text-gray-400">{lang === 'en' ? 'Delivered hot to your door or event venue' : 'توصيل ساخن ومجهز لموقعك أو فيلتك'}</p>
+                            <p className="text-xs sm:text-sm font-semibold text-white">{lang === 'en' ? 'Direct Venue Delivery' : 'توصيل لموقع المناسبة'}</p>
+                            <p className="text-[11px] text-gray-400">{lang === 'en' ? 'Delivered fresh and insulated to your location' : 'توصيل حراري مجهز للمقر أو الفيلا'}</p>
                           </div>
                         </button>
                         <button
@@ -690,14 +757,18 @@ export default function CateringSection({ websiteData }) {
                           onClick={() => setFormData({ ...formData, locationType: 'pickup' })}
                           className={`flex items-center gap-3.5 p-3.5 rounded-2xl border transition-all cursor-pointer text-start ${
                             formData.locationType === 'pickup'
-                              ? 'bg-brand-red/15 border-brand-red text-white shadow-md shadow-brand-red/10 ring-1 ring-brand-red/40'
+                              ? 'bg-brand-red/10 border-brand-red text-white ring-1 ring-brand-red/30 shadow-sm'
                               : 'bg-black-primary/60 border-white/10 text-gray-400 hover:text-gray-200'
                           }`}
                         >
-                          <span className="text-2xl">🛍️</span>
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
+                            formData.locationType === 'pickup' ? 'bg-brand-red/20 border-brand-red/40 text-brand-red' : 'bg-white/5 border-white/10 text-gray-400'
+                          }`}>
+                            <ShoppingBag size={18} />
+                          </div>
                           <div>
-                            <p className="text-xs sm:text-sm font-bold text-white">{lang === 'en' ? 'Pickup from Restaurant' : 'استلام مجهز من المطعم'}</p>
-                            <p className="text-[11px] text-gray-400">{lang === 'en' ? 'Packed ready for transport at scheduled time' : 'مجهز في بوكسات حرارية للتسليم الفوري'}</p>
+                            <p className="text-xs sm:text-sm font-semibold text-white">{lang === 'en' ? 'Restaurant Pickup' : 'استلام من المطعم'}</p>
+                            <p className="text-[11px] text-gray-400">{lang === 'en' ? 'Packaged ready for transport at scheduled time' : 'مجهز في بوكسات حرارية للتسليم الفوري'}</p>
                           </div>
                         </button>
                       </div>
@@ -710,7 +781,7 @@ export default function CateringSection({ websiteData }) {
                             required
                             rows="2"
                             name="address"
-                            placeholder={lang === 'en' ? 'Detailed address / venue location (City, Street, Villa/Apartment, Landmarks)' : 'العنوان التفصيلي ومكان المناسبة (المنطقة، الشارع، الفيلا/الشقة، علامة مميزة)'}
+                            placeholder={lang === 'en' ? 'Detailed address / venue location (City, District, Street, Landmark)' : 'العنوان التفصيلي ومكان المناسبة (المنطقة، الشارع، الفيلا/المقر، علامة مميزة)'}
                             value={formData.address}
                             onChange={handleInputChange}
                             className="w-full bg-black-primary border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:border-brand-red outline-none transition-colors text-sm resize-none"
@@ -722,81 +793,42 @@ export default function CateringSection({ websiteData }) {
                     {/* 5. FOOD PREFERENCES */}
                     <div>
                       <div className="flex items-center justify-between mb-3">
-                        <label className="flex items-center gap-2 text-sm font-bold text-gray-200">
-                          <Flame size={16} className="text-brand-red" />
-                          <span>{lang === 'en' ? '5. Preferred Food Categories' : '5. تشكيلة الأطباق المفضلة'}</span>
-                        </label>
-                        <span className="text-[11px] text-brand-red font-bold">
-                          {lang === 'en' ? '(Select all that apply)' : '(يمكن اختيار أكثر من صنف)'}
+                        <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-2">
+                          <Flame size={14} className="text-brand-red" />
+                          <span>{lang === 'en' ? 'Menu Preferences' : 'تشكيلة الأطباق المفضلة'}</span>
+                        </div>
+                        <span className="text-[11px] text-gray-400">
+                          {lang === 'en' ? '(Multiple selection)' : '(اختيار متعدد)'}
                         </span>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {FOOD_OPTIONS.map((item) => {
                           const active = formData.preferredFood.includes(item.id);
+                          const FoodIcon = item.icon;
                           return (
                             <div
                               key={item.id}
                               onClick={() => toggleFoodPreference(item.id)}
                               className={`flex items-start gap-3.5 p-3.5 rounded-2xl border transition-all cursor-pointer relative text-start ${
                                 active
-                                  ? 'bg-brand-red/10 border-brand-red/80 shadow-md shadow-brand-red/5 ring-1 ring-brand-red/40'
+                                  ? 'bg-brand-red/10 border-brand-red/80 ring-1 ring-brand-red/30'
                                   : 'bg-black-primary/60 border-white/10 hover:border-white/20'
                               }`}
                             >
-                              <span className="text-2xl shrink-0 mt-0.5">{item.icon}</span>
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
+                                active ? 'bg-brand-red/20 border-brand-red/40 text-brand-red' : 'bg-white/5 border-white/10 text-gray-400'
+                              }`}>
+                                <FoodIcon size={16} />
+                              </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-xs sm:text-sm font-bold text-white mb-0.5">
+                                <p className="text-xs sm:text-sm font-semibold text-white mb-0.5">
                                   {lang === 'en' ? item.titleEn : item.titleAr}
                                 </p>
                                 <p className="text-[11px] text-gray-400 leading-snug">
                                   {lang === 'en' ? item.descEn : item.descAr}
                                 </p>
                               </div>
-                              <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border transition-all ${
-                                active ? 'bg-brand-red border-brand-red text-white' : 'border-gray-600 bg-black/40'
-                              }`}>
-                                {active && <Check size={14} />}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* 6. ADDITIONAL SERVICES */}
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <label className="flex items-center gap-2 text-sm font-bold text-gray-200">
-                          <Sparkles size={16} className="text-brand-red" />
-                          <span>{lang === 'en' ? '6. Additional Catering Services' : '6. تجهيزات وخدمات بوفيه إضافية'}</span>
-                        </label>
-                        <span className="text-[11px] text-gray-400 font-bold">
-                          {lang === 'en' ? '(Optional)' : '(اختياري)'}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        {SERVICE_OPTIONS.map((srv) => {
-                          const active = formData.additionalServices.includes(srv.id);
-                          return (
-                            <div
-                              key={srv.id}
-                              onClick={() => toggleService(srv.id)}
-                              className={`flex items-start gap-3 p-3.5 rounded-2xl border transition-all cursor-pointer relative text-start ${
-                                active
-                                  ? 'bg-brand-red/10 border-brand-red/80 shadow-md shadow-brand-red/5 ring-1 ring-brand-red/40'
-                                  : 'bg-black-primary/60 border-white/10 hover:border-white/20'
-                              }`}
-                            >
-                              <span className="text-2xl shrink-0">{srv.icon}</span>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-bold text-white mb-0.5">
-                                  {lang === 'en' ? srv.titleEn : srv.titleAr}
-                                </p>
-                                <p className="text-[10px] text-gray-400 leading-tight">
-                                  {lang === 'en' ? srv.descEn : srv.descAr}
-                                </p>
-                              </div>
-                              <div className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 border transition-all ${
+                              <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border transition-all ${
                                 active ? 'bg-brand-red border-brand-red text-white' : 'border-gray-600 bg-black/40'
                               }`}>
                                 {active && <Check size={12} />}
@@ -807,12 +839,61 @@ export default function CateringSection({ websiteData }) {
                       </div>
                     </div>
 
+                    {/* 6. ADDITIONAL SERVICES */}
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center gap-2">
+                          <Sparkles size={14} className="text-brand-red" />
+                          <span>{lang === 'en' ? 'Catering Equipment & Staff' : 'تجهيزات وخدمات البوفيه'}</span>
+                        </div>
+                        <span className="text-[11px] text-gray-500 font-medium">
+                          {lang === 'en' ? '(Optional)' : '(اختياري)'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {SERVICE_OPTIONS.map((srv) => {
+                          const active = formData.additionalServices.includes(srv.id);
+                          const SrvIcon = srv.icon;
+                          return (
+                            <div
+                              key={srv.id}
+                              onClick={() => toggleService(srv.id)}
+                              className={`flex items-start gap-3 p-3.5 rounded-2xl border transition-all cursor-pointer relative text-start ${
+                                active
+                                  ? 'bg-brand-red/10 border-brand-red/80 ring-1 ring-brand-red/30'
+                                  : 'bg-black-primary/60 border-white/10 hover:border-white/20'
+                              }`}
+                            >
+                              <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border ${
+                                active ? 'bg-brand-red/20 border-brand-red/40 text-brand-red' : 'bg-white/5 border-white/10 text-gray-400'
+                              }`}>
+                                <SrvIcon size={14} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold text-white mb-0.5">
+                                  {lang === 'en' ? srv.titleEn : srv.titleAr}
+                                </p>
+                                <p className="text-[10px] text-gray-400 leading-tight">
+                                  {lang === 'en' ? srv.descEn : srv.descAr}
+                                </p>
+                              </div>
+                              <div className={`w-3.5 h-3.5 rounded flex items-center justify-center shrink-0 border transition-all ${
+                                active ? 'bg-brand-red border-brand-red text-white' : 'border-gray-600 bg-black/40'
+                              }`}>
+                                {active && <Check size={10} />}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
                     {/* 7. CONTACT DETAILS & NOTES */}
                     <div>
-                      <label className="flex items-center gap-2 text-sm font-bold text-gray-200 mb-3">
-                        <User size={16} className="text-brand-red" />
-                        <span>{lang === 'en' ? '7. Contact Details & Notes' : '7. بيانات التواصل وملاحظاتك'}</span>
-                      </label>
+                      <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-2">
+                        <User size={14} className="text-brand-red" />
+                        <span>{lang === 'en' ? 'Contact Details & Notes' : 'بيانات التواصل والملاحظات'}</span>
+                      </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
                         <div>
                           <span className="block text-xs text-gray-400 mb-1.5">{lang === 'en' ? 'Full Name *' : 'الاسم بالكامل *'}</span>
@@ -841,11 +922,11 @@ export default function CateringSection({ websiteData }) {
                         </div>
                       </div>
                       <div>
-                        <span className="block text-xs text-gray-400 mb-1.5">{lang === 'en' ? 'Special Notes or Dietary Requests (Optional)' : 'ملاحظات خاصة أو طلبات إضافية (اختياري)'}</span>
+                        <span className="block text-xs text-gray-400 mb-1.5">{lang === 'en' ? 'Special Requests or Dietary Requirements (Optional)' : 'ملاحظات خاصة أو طلبات إضافية (اختياري)'}</span>
                         <textarea
                           rows="2"
                           name="notes"
-                          placeholder={lang === 'en' ? 'Any specific cuts, sauces, timing, or allergies...' : 'أي تفاصيل عن درجات التسوية، الصوصات المفضلة، أو تجهيزات خاصة...'}
+                          placeholder={lang === 'en' ? 'Any specific preferences, timing requirements, or notes...' : 'أي تفاصيل عن التوقيت، تفضيلات معينة، أو تجهيزات خاصة...'}
                           value={formData.notes}
                           onChange={handleInputChange}
                           className="w-full bg-black-primary border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:border-brand-red outline-none transition-colors text-sm resize-none"
@@ -858,14 +939,14 @@ export default function CateringSection({ websiteData }) {
                       <button
                         type="submit"
                         disabled={isSubmitting}
-                        className="flex-1 bg-brand-red hover:bg-brand-red-dark disabled:opacity-70 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-brand-red/25 cursor-pointer text-sm sm:text-base"
+                        className="flex-1 bg-brand-red hover:bg-brand-red-dark disabled:opacity-70 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-brand-red/25 cursor-pointer text-sm sm:text-base"
                       >
                         {isSubmitting ? (
-                          <Loader2 size={20} className="animate-spin" />
+                          <Loader2 size={18} className="animate-spin" />
                         ) : (
                           <>
-                            <Send size={18} />
-                            <span>{lang === 'en' ? 'Submit Catering Request' : 'إرسال طلب حجز المناسبة'}</span>
+                            <Send size={16} />
+                            <span>{lang === 'en' ? 'Submit Catering Request' : 'إرسال طلب الحجز'}</span>
                           </>
                         )}
                       </button>
@@ -873,7 +954,7 @@ export default function CateringSection({ websiteData }) {
                         type="button"
                         onClick={() => setShowForm(false)}
                         disabled={isSubmitting}
-                        className="px-6 py-4 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white font-bold rounded-xl transition-colors cursor-pointer text-sm sm:text-base border border-white/10"
+                        className="px-6 py-4 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white font-semibold rounded-xl transition-colors cursor-pointer text-sm sm:text-base border border-white/10"
                       >
                         {lang === 'en' ? 'Cancel' : 'إلغاء'}
                       </button>
@@ -920,7 +1001,7 @@ export default function CateringSection({ websiteData }) {
                   <AlertCircle className="text-brand-red" size={24} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-text-light">
+                  <h3 className="text-lg font-bold text-text-light">
                     {lang === 'en' ? 'Phone Verification' : 'تأكيد رقم الهاتف'}
                   </h3>
                   <p className="text-xs text-gray-400 mt-1">
@@ -941,7 +1022,7 @@ export default function CateringSection({ websiteData }) {
 
               <form onSubmit={handleConfirmOtp} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 mb-1.5 text-center">
+                  <label className="block text-xs font-semibold text-gray-400 mb-1.5 text-center">
                     {lang === 'en' ? 'Enter 6-Digit Code' : 'أدخل الكود (6 أرقام)'}
                   </label>
                   <input
@@ -956,7 +1037,7 @@ export default function CateringSection({ websiteData }) {
                 </div>
 
                 {otpError && (
-                  <p className="text-xs text-brand-red font-bold flex items-center justify-center gap-1.5 animate-in fade-in">
+                  <p className="text-xs text-brand-red font-semibold flex items-center justify-center gap-1.5 animate-in fade-in">
                     <AlertCircle size={14} />
                     {otpError}
                   </p>
@@ -967,7 +1048,7 @@ export default function CateringSection({ websiteData }) {
                     type="button"
                     onClick={handleTriggerOtp}
                     disabled={otpCountdown > 0 || isSendingOtp}
-                    className="text-xs text-brand-red hover:underline disabled:opacity-50 disabled:no-underline font-bold flex items-center gap-1 cursor-pointer"
+                    className="text-xs text-brand-red hover:underline disabled:opacity-50 disabled:no-underline font-semibold flex items-center gap-1 cursor-pointer"
                   >
                     <RefreshCw size={12} className={isSendingOtp ? 'animate-spin' : ''} />
                     {otpCountdown > 0 
@@ -986,7 +1067,7 @@ export default function CateringSection({ websiteData }) {
                 <button
                   type="submit"
                   disabled={otpInput.length !== 6 || isSubmitting}
-                  className="w-full py-4 bg-brand-red hover:bg-brand-red-dark disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 mt-4 cursor-pointer"
+                  className="w-full py-4 bg-brand-red hover:bg-brand-red-dark disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl text-sm transition-all flex items-center justify-center gap-2 mt-4 cursor-pointer"
                 >
                   {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : (lang === 'en' ? 'Confirm and Proceed' : 'تأكيد وإرسال الطلب')}
                 </button>
