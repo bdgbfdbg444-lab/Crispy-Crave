@@ -1,4 +1,4 @@
-﻿import { useLanguage } from './context/LanguageContext';
+import { useLanguage } from './context/LanguageContext';
 import React, { useState, useEffect, Suspense } from 'react';
 import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
@@ -11,7 +11,7 @@ import LoadingScreen from './components/LoadingScreen';
 import PageTransition from './components/PageTransition';
 import { ShoppingBag, Star } from 'lucide-react';
 import { useCart } from './context/CartContext';
-import { logIncident } from './monitoring/IncidentLogger';
+import PromoPopup from './components/PromoPopup';
 
 // Code Splitting for Pages
 const Home = React.lazy(() => import('./pages/Home'));
@@ -113,9 +113,13 @@ function App() {
           if (section === 'Order CTA') targetId = 'ordercta';
           if (section === 'Newsletter') targetId = 'newsletter';
           
-          const el = document.getElementById(targetId);
-          if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          if (section === 'Announcement Popup' || section === 'Promo Popup' || field === 'promoPopup') {
+            window.dispatchEvent(new CustomEvent('OPEN_PROMO_POPUP_PREVIEW'));
+          } else {
+            const el = document.getElementById(targetId);
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
           }
         }
         setWebsiteData(prev => {
@@ -181,6 +185,8 @@ function App() {
         <Suspense fallback={null}>
           <ReviewModal isOpen={isReviewModalOpen} onClose={() => setIsReviewModalOpen(false)} />
         </Suspense>
+        
+        <PromoPopup websiteData={websiteData} />
         
         <CartSidebar />
         <MobileBottomNav />
