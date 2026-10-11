@@ -105,6 +105,122 @@ export default function CateringSection({ websiteData }) {
   const [showForm, setShowForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+
+  // Dynamic Event Types from websiteData
+  const eventTypes = useMemo(() => [
+    { 
+      id: 'family', 
+      labelAr: websiteData?.cateringEventFamily || 'لمة عائلة / منزلية', 
+      labelEn: websiteData?.cateringEventFamilyEn || 'Family / Home Gathering', 
+      icon: Home 
+    },
+    { 
+      id: 'corporate', 
+      labelAr: websiteData?.cateringEventCorporate || 'شركات وعمل', 
+      labelEn: websiteData?.cateringEventCorporateEn || 'Corporate / Business', 
+      icon: Briefcase 
+    },
+    { 
+      id: 'birthday', 
+      labelAr: websiteData?.cateringEventBirthday || 'عيد ميلاد واحتفال', 
+      labelEn: websiteData?.cateringEventBirthdayEn || 'Birthday / Celebration', 
+      icon: PartyPopper 
+    },
+    { 
+      id: 'friends', 
+      labelAr: websiteData?.cateringEventFriends || 'تجمع أصدقاء', 
+      labelEn: websiteData?.cateringEventFriendsEn || 'Friends Gathering', 
+      icon: Users 
+    },
+    { 
+      id: 'other', 
+      labelAr: websiteData?.cateringEventOther || 'مناسبة خاصة', 
+      labelEn: websiteData?.cateringEventOtherEn || 'Special Occasion', 
+      icon: Sparkles 
+    },
+  ], [websiteData]);
+
+  // Dynamic Food Categories from websiteData
+  const foodOptions = useMemo(() => [
+    { 
+      id: 'smoked', 
+      titleAr: websiteData?.cateringFoodSmokedTitle || 'لحوم وبريسكت مدخن', 
+      titleEn: websiteData?.cateringFoodSmokedTitleEn || 'Smoked Brisket & Ribs', 
+      descAr: websiteData?.cateringFoodSmokedDesc || 'بريسكت وأضلاع مدخنة على الحطب لساعات طويلة', 
+      descEn: websiteData?.cateringFoodSmokedDescEn || 'Low & slow wood-smoked brisket and tender ribs',
+      icon: Flame 
+    },
+    { 
+      id: 'burgers', 
+      titleAr: websiteData?.cateringFoodBurgersTitle || 'ميني سلايدرز وبرجر', 
+      titleEn: websiteData?.cateringFoodBurgersTitleEn || 'Mini Sliders & Burgers', 
+      descAr: websiteData?.cateringFoodBurgersDesc || 'تشكيلة سماش برجر وسلايدرز بحجم الحفلات', 
+      descEn: websiteData?.cateringFoodBurgersDescEn || 'Party-size smash sliders and assorted burgers',
+      icon: Layers 
+    },
+    { 
+      id: 'crispy', 
+      titleAr: websiteData?.cateringFoodCrispyTitle || 'بوكسات كريسبي ودجاج', 
+      titleEn: websiteData?.cateringFoodCrispyTitleEn || 'Crispy Chicken & Strips', 
+      descAr: websiteData?.cateringFoodCrispyDesc || 'ستريبس مقرمش ودجاج ذهبي مع خلطات سرية', 
+      descEn: websiteData?.cateringFoodCrispyDescEn || 'Crispy chicken strips, tenders and dipping sauces',
+      icon: Utensils 
+    },
+    { 
+      id: 'sides', 
+      titleAr: websiteData?.cateringFoodSidesTitle || 'مقبلات، بطاطس وصوصات', 
+      titleEn: websiteData?.cateringFoodSidesTitleEn || 'Sides, Fries & Sauces', 
+      descAr: websiteData?.cateringFoodSidesDesc || 'ماك آند تشيز، بطاطس بأنواعها، وصوصات البيت', 
+      descEn: websiteData?.cateringFoodSidesDescEn || 'Loaded fries, mac & cheese, and signature dips',
+      icon: Sparkles 
+    },
+  ], [websiteData]);
+
+  // Dynamic Additional Services from websiteData
+  const serviceOptions = useMemo(() => [
+    { 
+      id: 'warmers', 
+      titleAr: websiteData?.cateringServiceWarmersTitle || 'سخانات بوفيه لحفظ الحرارة', 
+      titleEn: websiteData?.cateringServiceWarmersTitleEn || 'Buffet Food Warmers (Chafing Dishes)', 
+      descAr: websiteData?.cateringServiceWarmersDesc || 'سخانات استيل لحفظ جودة وحرارة الأطباق طوال المناسبة', 
+      descEn: websiteData?.cateringServiceWarmersDescEn || 'Keeps meals hot throughout the entire event',
+      icon: Flame 
+    },
+    { 
+      id: 'tableware', 
+      titleAr: websiteData?.cateringServiceTablewareTitle || 'أدوات مائدة وسفرة فاخرة ديسبوزابل', 
+      titleEn: websiteData?.cateringServiceTablewareTitleEn || 'Premium Disposable Tableware', 
+      descAr: websiteData?.cateringServiceTablewareDesc || 'أطباق وشوك ومفارش ومناديل عالية الجودة جاهزة للتقديم', 
+      descEn: websiteData?.cateringServiceTablewareDescEn || 'High-grade cutlery, plates, table covers, and napkins',
+      icon: UtensilsCrossed 
+    },
+    { 
+      id: 'chef', 
+      titleAr: websiteData?.cateringServiceChefTitle || 'شيف مشرف وفريق تقديم', 
+      titleEn: websiteData?.cateringServiceChefTitleEn || 'On-site Chef & Service Staff', 
+      descAr: websiteData?.cateringServiceChefDesc || 'شيف للتقطيع المباشر وتنسيق البوفيه والإشراف', 
+      descEn: websiteData?.cateringServiceChefDescEn || 'Dedicated staff for setup, carving, and hospitality',
+      icon: UserCheck 
+    },
+  ], [websiteData]);
+
+  // Live preview control from desktop Website Control app
+  useEffect(() => {
+    const handleEditorMsg = (e) => {
+      if (e.data && e.data.type === 'EDITOR_UPDATE' && e.data.section === 'Catering') {
+        if (e.data.openForm) {
+          setShowForm(true);
+          setIsSuccess(false);
+        }
+        if (e.data.closeForm) {
+          setShowForm(false);
+          setIsSuccess(false);
+        }
+      }
+    };
+    window.addEventListener('message', handleEditorMsg);
+    return () => window.removeEventListener('message', handleEditorMsg);
+  }, []);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -318,13 +434,7 @@ export default function CateringSection({ websiteData }) {
         ? (formData.customGuests ? `${formData.customGuests} فرد` : 'مخصص') 
         : formData.guests;
       
-      const eventTypeLabelsAr = {
-        family: 'لمة عائلة / منزلية',
-        birthday: 'عيد ميلاد واحتفال',
-        corporate: 'شركات ومناسبات عمل',
-        friends: 'تجمع أصدقاء',
-        other: 'مناسبة خاصة'
-      };
+      const eventTypeLabelsAr = Object.fromEntries(eventTypes.map(t => [t.id, t.labelAr]));
 
       const timeSlotLabelsAr = {
         lunch: 'غداء (1:00 م - 5:00 م)',
@@ -332,18 +442,9 @@ export default function CateringSection({ websiteData }) {
         custom: formData.customTime ? `ساعة محددة (${formData.customTime})` : 'ساعة محددة'
       };
 
-      const foodLabelsAr = {
-        smoked: 'لحوم وبريسكت مدخن',
-        burgers: 'ميني سلايدرز وبرجر',
-        crispy: 'بوكسات كريسبي ودجاج',
-        sides: 'مقبلات، بطاطس وصوصات'
-      };
+      const foodLabelsAr = Object.fromEntries(foodOptions.map(f => [f.id, f.titleAr]));
 
-      const serviceLabelsAr = {
-        warmers: 'سخانات بوفيه لحفظ الحرارة',
-        tableware: 'أدوات مائدة وسفرة فاخرة ديسبوزابل',
-        chef: 'شيف مشرف وفريق تقديم'
-      };
+      const serviceLabelsAr = Object.fromEntries(serviceOptions.map(s => [s.id, s.titleAr]));
 
       const selectedEvent = eventTypeLabelsAr[formData.eventType] || formData.eventType;
       const selectedTime = timeSlotLabelsAr[formData.timeSlot] || formData.timeSlot;
@@ -684,12 +785,14 @@ ${structuredTelegramNotes}`;
                     <CheckCircle size={36} />
                   </div>
                   <h3 className="text-2xl sm:text-3xl font-sans font-bold text-white mb-3">
-                    {lang === 'en' ? 'Request Submitted Successfully' : 'تم استلام طلب الحجز بنجاح'}
+                    {lang === 'en' 
+                      ? (websiteData?.cateringSuccessTitleEn || 'Request Submitted Successfully') 
+                      : (websiteData?.cateringSuccessTitle || 'تم استلام طلب الحجز بنجاح')}
                   </h3>
                   <p className="text-sm sm:text-base text-gray-300 max-w-lg mx-auto leading-relaxed mb-6">
                     {lang === 'en' 
-                      ? `Thank you. Our events team will contact you shortly on (${formData.phone}) to confirm the event specifications and finalize the menu.` 
-                      : `شكراً لتواصلكم. سيقوم فريق تنظيم الحفلات بالتواصل معكم قريباً على رقم (${formData.phone}) لتأكيد كافة الترتيبات وتفاصيل التقديم.`}
+                      ? ((websiteData?.cateringSuccessMessageEn || 'Thank you. Our events team will contact you shortly on ({phone}) to confirm the event specifications and finalize the menu.').replace('{phone}', formData.phone))
+                      : ((websiteData?.cateringSuccessMessage || 'شكراً لتواصلكم. سيقوم فريق تنظيم الحفلات بالتواصل معكم قريباً على رقم ({phone}) لتأكيد كافة الترتيبات وتفاصيل التقديم.').replace('{phone}', formData.phone))}
                   </p>
                   <button
                     type="button"
@@ -706,12 +809,14 @@ ${structuredTelegramNotes}`;
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-white/10 mb-8">
                     <div>
                       <h3 className="text-2xl sm:text-3xl font-sans font-bold text-text-light tracking-tight">
-                        {lang === 'en' ? 'Private Events & Catering Request' : 'طلب حجز المناسبات والبوفيه الخاص'}
+                        {lang === 'en' 
+                          ? (websiteData?.cateringBookingTitleEn || 'Private Events & Catering Request') 
+                          : (websiteData?.cateringBookingTitle || 'طلب حجز المناسبات والبوفيه الخاص')}
                       </h3>
                       <p className="text-xs sm:text-sm text-gray-400 mt-1.5">
                         {lang === 'en' 
-                          ? 'Please provide your event specifications for a tailored executive catering proposal.'
-                          : 'يرجى تحديد تفاصيل المناسبة لإعداد عرض تقديم وبوفيه مخصص بالكامل.'}
+                          ? (websiteData?.cateringBookingSubtitleEn || 'Please provide your event specifications for a tailored executive catering proposal.')
+                          : (websiteData?.cateringBookingSubtitle || 'يرجى تحديد تفاصيل المناسبة لإعداد عرض تقديم وبوفيه مخصص بالكامل.')}
                       </p>
                     </div>
                     <button
@@ -733,7 +838,7 @@ ${structuredTelegramNotes}`;
                         <span>{lang === 'en' ? 'Event Type' : 'نوع المناسبة'}</span>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
-                        {EVENT_TYPES.map((type) => {
+                        {eventTypes.map((type) => {
                           const active = formData.eventType === type.id;
                           const Icon = type.icon;
                           return (
@@ -1044,7 +1149,7 @@ ${structuredTelegramNotes}`;
                         </span>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {FOOD_OPTIONS.map((item) => {
+                        {foodOptions.map((item) => {
                           const active = formData.preferredFood.includes(item.id);
                           const FoodIcon = item.icon;
                           return (
@@ -1093,7 +1198,7 @@ ${structuredTelegramNotes}`;
                         </span>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        {SERVICE_OPTIONS.map((srv) => {
+                        {serviceOptions.map((srv) => {
                           const active = formData.additionalServices.includes(srv.id);
                           const SrvIcon = srv.icon;
                           return (
