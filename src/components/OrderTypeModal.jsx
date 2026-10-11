@@ -63,7 +63,7 @@ export default function OrderTypeModal() {
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
         {/* Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -79,7 +79,7 @@ export default function OrderTypeModal() {
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.92, y: 20 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="relative w-full max-w-lg bg-black-surface border border-brand-red-dark/50 rounded-3xl p-6 sm:p-8 shadow-2xl z-10 text-text-light overflow-hidden"
+          className="relative w-full max-w-lg bg-black-surface border border-brand-red-dark/50 rounded-2xl sm:rounded-3xl p-4.5 sm:p-8 shadow-2xl z-10 text-text-light overflow-hidden my-auto"
           style={{ direction: lang === 'ar' ? 'rtl' : 'ltr' }}
         >
           {/* Subtle Top Red Glow */}
@@ -88,20 +88,20 @@ export default function OrderTypeModal() {
           {/* Close button */}
           <button
             onClick={handleClose}
-            className="absolute top-5 left-5 rtl:left-auto rtl:right-5 w-9 h-9 rounded-full bg-black-primary/80 hover:bg-black-primary text-text-muted hover:text-text-light flex items-center justify-center border border-white/10 transition-colors cursor-pointer"
+            className="absolute top-4 left-4 rtl:left-auto rtl:right-4 sm:top-5 sm:left-5 sm:rtl:right-5 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black-primary/80 hover:bg-black-primary text-text-muted hover:text-text-light flex items-center justify-center border border-white/10 transition-colors cursor-pointer"
           >
-            <X size={18} />
+            <X size={16} />
           </button>
 
           {/* Header */}
-          <div className="text-center mb-8 pt-2">
-            <span className="inline-block px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-widest bg-brand-red/15 text-brand-red border border-brand-red/30 mb-3">
+          <div className="text-center mb-5 sm:mb-8 pt-1 sm:pt-2">
+            <span className="inline-block px-3 py-0.5 sm:px-3.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-bold uppercase tracking-widest bg-brand-red/15 text-brand-red border border-brand-red/30 mb-2 sm:mb-3">
               {lang === 'en' ? 'Start Your Order' : 'طريقة استلام الطلب'}
             </span>
-            <h2 className="text-2xl sm:text-3xl font-display font-black text-text-light mb-2">
+            <h2 className="text-xl sm:text-3xl font-display font-black text-text-light mb-1.5 sm:mb-2">
               {lang === 'en' ? 'How would you like your order?' : 'كيف تود استلام طلبك؟'}
             </h2>
-            <p className="text-text-muted text-sm sm:text-base max-w-sm mx-auto">
+            <p className="text-text-muted text-xs sm:text-base max-w-sm mx-auto leading-relaxed">
               {lang === 'en' 
                 ? 'Choose your preferred order method to view menu options and delivery zones'
                 : 'اختر طريقة الاستلام لعرض المنيو وخيارات التوصيل المناسبة'}
@@ -109,7 +109,7 @@ export default function OrderTypeModal() {
           </div>
 
           {/* Options Grid */}
-          <div className="space-y-3.5">
+          <div className="space-y-3 sm:space-y-3.5">
             {options.map((opt) => {
               const Icon = opt.icon;
               const isSelected = orderType === opt.id;
@@ -119,41 +119,41 @@ export default function OrderTypeModal() {
                   key={opt.id}
                   type="button"
                   onClick={() => handleSelect(opt.id)}
-                  className={`w-full group text-start p-4.5 rounded-2xl border transition-all duration-200 flex items-center gap-4 cursor-pointer relative ${
+                  className={`w-full group text-start p-3 sm:p-4.5 rounded-2xl border transition-all duration-200 flex items-center gap-3 sm:gap-4 cursor-pointer relative ${
                     isSelected
                       ? 'border-brand-red bg-brand-red/10 shadow-[0_0_20px_rgba(255,59,48,0.2)]'
                       : `border-white/10 bg-black-primary/60 hover:bg-black-primary ${opt.bgGlow}`
                   }`}
                 >
                   {/* Icon */}
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${
+                  <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${
                     isSelected ? 'bg-brand-red text-white' : 'bg-black-surface border border-white/10 ' + opt.iconColor
                   }`}>
-                    <Icon size={24} strokeWidth={2.2} />
+                    <Icon size={22} strokeWidth={2.2} />
                   </div>
 
                   {/* Text Details */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="font-bold text-base sm:text-lg text-text-light group-hover:text-white truncate">
+                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 sm:gap-2 mb-0.5">
+                      <span className="font-bold text-sm sm:text-lg text-text-light group-hover:text-white leading-tight">
                         {opt.title}
                       </span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-text-muted">
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white/5 border border-white/10 text-text-muted shrink-0">
                         {opt.badge}
                       </span>
                     </div>
-                    <p className="text-xs sm:text-sm text-text-muted line-clamp-1">
+                    <p className="text-[11px] sm:text-sm text-text-muted line-clamp-1 leading-snug">
                       {opt.subtitle}
                     </p>
                   </div>
 
                   {/* Indicator Check */}
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 border transition-all ${
+                  <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center shrink-0 border transition-all ${
                     isSelected
                       ? 'bg-brand-red border-brand-red text-white'
                       : 'border-white/20 group-hover:border-white/40 text-transparent'
                   }`}>
-                    <Check size={14} strokeWidth={3} className={isSelected ? 'block' : 'hidden'} />
+                    <Check size={13} strokeWidth={3} className={isSelected ? 'block' : 'hidden'} />
                   </div>
                 </button>
               );
@@ -161,7 +161,7 @@ export default function OrderTypeModal() {
           </div>
 
           {/* Footer note */}
-          <div className="mt-6 text-center text-xs text-text-muted">
+          <div className="mt-5 sm:mt-6 text-center text-[11px] sm:text-xs text-text-muted">
             {lang === 'en' 
               ? 'You can easily switch this anytime while browsing the menu.'
               : 'يمكنك تغيير طريقة الاستلام في أي وقت بسهولة أثناء تصفح المنيو.'}
