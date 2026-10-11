@@ -363,9 +363,8 @@ export default function AuthModal({ isOpen, onClose, onSuccess, zonesList = [] }
 
               {step === 'form' && mode === 'login' && (
                 <div className="space-y-6">
-                  <div className="mb-8 text-center sm:text-right">
-                    <span className="inline-block px-4 py-1.5 bg-[#e52d3a]/10 border border-[#e52d3a]/30 rounded-full text-[#e52d3a] text-xs font-bold mb-4">{lang === "en" ? "Member Portal • The Flavor Box" : "بوابة الأعضاء • صندوق النكهة"}</span>
-                    <h2 className="text-3xl font-black text-white">{lang === "en" ? "Login & Track Your Order" : "تسجيل الدخول ومتابعة طلبك"}</h2>
+                  <div className="mb-6 text-center sm:text-right">
+                    <h2 className="text-3xl font-black text-white">{lang === "en" ? "Login" : "تسجيل الدخول"}</h2>
                   </div>
 
                   <div className="flex gap-2 p-1 bg-[#1a1a1a] rounded-xl mb-6">
@@ -421,8 +420,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess, zonesList = [] }
               {step === 'form' && mode === 'register' && (
                 <div className="space-y-5">
                   <div className="mb-6">
-                    <span className="inline-block px-4 py-1.5 bg-[#e52d3a]/10 border border-[#e52d3a]/30 rounded-full text-[#e52d3a] text-xs font-bold mb-3">{lang === "en" ? "Exclusive Membership • Join The Flavor Box" : "عضوية حصرية • انضمام لصندوق النكهة"}</span>
-                    <h2 className="text-2xl sm:text-3xl font-black text-white">{lang === "en" ? "Create Account & Discover Smoked Secrets" : "أنشئ حسابك واكتشف أسرار المذاق المدخن"}</h2>
+                    <h2 className="text-2xl sm:text-3xl font-black text-white">{lang === "en" ? "Create Account" : "أنشئ حسابك"}</h2>
                   </div>
 
                   {error && (
