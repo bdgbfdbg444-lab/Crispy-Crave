@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import React, { useState, useEffect } from 'react';
 import AuthModal from '../components/AuthModal';
@@ -291,10 +291,10 @@ const DashboardView = ({ customerData, onLogout, onDeleteAccount, menuData }) =>
                 </div>
               </div>
               
-              <a href="/#menu" className="w-full md:w-auto px-8 py-3.5 rounded-xl bg-brand-red/10 border border-brand-red text-text-light hover:bg-brand-red font-bold flex items-center justify-center gap-2 transition-all shadow-[0_0_15px_rgba(230,57,70,0.15)] hover:shadow-[0_0_25px_rgba(230,57,70,0.4)]">
+              <Link to="/menu" className="w-full md:w-auto px-8 py-3.5 rounded-xl bg-brand-red/10 border border-brand-red text-text-light hover:bg-brand-red font-bold flex items-center justify-center gap-2 transition-all shadow-[0_0_15px_rgba(230,57,70,0.15)] hover:shadow-[0_0_25px_rgba(230,57,70,0.4)]">
                 <PlusCircle size={20} />
                 {lang === 'en' ? 'New Order' : 'طلب جديد'}
-              </a>
+              </Link>
             </div>
 
             {/* Metrics */}
