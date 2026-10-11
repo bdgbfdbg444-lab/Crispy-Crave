@@ -1,4 +1,4 @@
-﻿import { useLanguage } from '../context/LanguageContext';
+import { useLanguage } from '../context/LanguageContext';
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Play, Heart, MessageCircle } from 'lucide-react';
@@ -7,16 +7,6 @@ import { APP_CONFIG } from '../config/appConfig';
 export default function SocialFeed({ websiteData }) {
   const { lang } = useLanguage();
   const instagramLink = websiteData?.instagramLink || "#";
-
-  const getInstagramHandle = (url) => {
-    if (!url || url === "#") return "@SmokeAndSmash";
-    let cleanUrl = url.split('?')[0].replace(/\/$/, '');
-    const parts = cleanUrl.split('/');
-    const handle = parts[parts.length - 1];
-    return handle.startsWith('@') ? handle : `@${handle}`;
-  };
-  
-  const instagramHandle = getInstagramHandle(instagramLink);
 
   let socialData = {
     title: lang === 'en' ? 'Live the Experience With Us' : 'عيش التجربة معنا',
@@ -95,41 +85,24 @@ export default function SocialFeed({ websiteData }) {
     <section id="social" className="py-24 bg-black-primary relative overflow-hidden border-t border-gray-800">
       <div className="container mx-auto px-6 max-w-7xl relative z-10">
         
-        <div className="flex flex-col md:flex-row justify-between items-center mb-12 gap-6">
-          <div className="text-center md:text-right">
-            <motion.h2 
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="text-3xl md:text-5xl font-display font-black text-text-light mb-2"
-            >
-              {socialData.title}
-            </motion.h2>
-            <motion.p 
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
-              className="text-text-muted"
-            >
-              {socialData.subtitle}
-            </motion.p>
-          </div>
-
-          <motion.a 
-            initial={{ opacity: 0, scale: 0.9 }}
-            whileInView={{ opacity: 1, scale: 1 }}
+        <div className="mb-12 text-center md:text-start">
+          <motion.h2 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            href={instagramLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="bg-gradient-to-tr from-yellow-500 via-pink-500 to-purple-600 p-[2px] rounded-full group hover:scale-105 transition-transform"
+            className="text-3xl md:text-5xl font-display font-black text-text-light mb-2"
           >
-            <div className="bg-black-primary px-6 py-3 rounded-full flex items-center gap-2 group-hover:bg-transparent transition-colors">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-text-light"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
-              <span className="font-bold text-text-light">{instagramHandle}</span>
-            </div>
-          </motion.a>
+            {socialData.title}
+          </motion.h2>
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.1 }}
+            className="text-text-muted"
+          >
+            {socialData.subtitle}
+          </motion.p>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
