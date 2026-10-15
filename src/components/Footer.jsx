@@ -1,12 +1,42 @@
 import { useLanguage } from '../context/LanguageContext';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { APP_CONFIG } from '../config/appConfig';
-import { MessageCircle, Star } from 'lucide-react';
+import { MessageCircle, Star, Smartphone } from 'lucide-react';
 import ReviewModal from './ReviewModal';
+import AppDownloadModal from './AppDownloadModal';
 
 export default function Footer({ websiteData }) {
   const { lang } = useLanguage();
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [isAppDownloadModalOpen, setIsAppDownloadModalOpen] = useState(false);
+  const [isAppInstalled, setIsAppInstalled] = useState(true);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // Check if running inside Android APK WebView or Standalone PWA
+    const ua = navigator.userAgent || '';
+    const isNative = /TheBlackBoxApp/i.test(ua) || window.isNativeApp === true || window.TheBlackBoxNative === true;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+    if (isNative || isStandalone) {
+      setIsAppInstalled(true);
+      return;
+    }
+
+    setIsAppInstalled(false);
+
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
   
   // Use data from settings root level
   const facebookLink = websiteData?.facebookLink || "#";
@@ -110,14 +140,29 @@ export default function Footer({ websiteData }) {
               </a>
             </div>
             
-            {/* Review Button */}
-            <button 
-              onClick={() => setIsReviewModalOpen(true)}
-              className="flex items-center gap-2 bg-gray-800 hover:bg-brand-red text-text-light py-2 px-6 rounded-full text-sm font-bold transition-colors border border-gray-700 hover:border-brand-red"
-            >
-              <Star size={16} className="fill-current" />
-              {lang === 'en' ? 'Share Your Opinion' : 'شاركنا رأيك'}
-            </button>
+            {/* Action Buttons: Review & Download App */}
+            <div className="flex flex-wrap items-center justify-center md:justify-end gap-3">
+              {/* Review Button */}
+              <button 
+                onClick={() => setIsReviewModalOpen(true)}
+                className="flex items-center gap-2 bg-gray-800 hover:bg-brand-red text-text-light py-2 px-6 rounded-full text-sm font-bold transition-colors border border-gray-700 hover:border-brand-red"
+              >
+                <Star size={16} className="fill-current" />
+                {lang === 'en' ? 'Share Your Opinion' : 'شاركنا رأيك'}
+              </button>
+
+              {/* Install / Download App (Only shown if NOT in APK and NOT standalone) */}
+              {!isAppInstalled && (
+                <button
+                  onClick={() => setIsAppDownloadModalOpen(true)}
+                  className="flex items-center gap-2 bg-gradient-to-r from-brand-red to-red-700 hover:from-red-600 hover:to-red-800 text-white py-2 px-5 rounded-full text-sm font-bold transition-all shadow-lg shadow-brand-red/20 hover:scale-105 border border-red-500/30"
+                  title={lang === 'en' ? 'Download Mobile App' : 'تحميل تطبيق الهاتف'}
+                >
+                  <Smartphone size={16} />
+                  <span>{lang === 'en' ? 'Get Mobile App' : 'حمّل التطبيق (APK)'}</span>
+                </button>
+              )}
+            </div>
           </div>
           
         </div>
@@ -126,6 +171,13 @@ export default function Footer({ websiteData }) {
       <ReviewModal 
         isOpen={isReviewModalOpen} 
         onClose={() => setIsReviewModalOpen(false)} 
+      />
+
+      <AppDownloadModal
+        isOpen={isAppDownloadModalOpen}
+        onClose={() => setIsAppDownloadModalOpen(false)}
+        deferredPrompt={deferredPrompt}
+        onPwaInstalled={() => setIsAppInstalled(true)}
       />
     </footer>
   );
