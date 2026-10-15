@@ -7,6 +7,7 @@ import { ref, set, get, onValue, off } from 'firebase/database';
 import { signInAnonymously, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { useLanguage } from '../context/LanguageContext';
 import AddressMapPicker from './AddressMapPicker';
+import TurnstileWidget from './TurnstileWidget';
 import { 
   getDeviceId, 
   getClientIp, 
@@ -15,7 +16,11 @@ import {
   getLocalOtpInfo,
   checkPasswordLockout,
   recordFailedPasswordAttempt,
-  clearPasswordAttempts
+  clearPasswordAttempts,
+  checkDeviceOrIpBanned,
+  getDevicePasswordAttempts,
+  recordFailedDevicePasswordAttempt,
+  clearDevicePasswordAttempts
 } from '../utils/deviceTracker';
 
 const EGYPTIAN_PHONE_REGEX = /^01[0125][0-9]{8}$/;
@@ -38,6 +43,21 @@ export default function AuthModal({ isOpen, onClose, onSuccess, zonesList = [] }
   const [loginPhone, setLoginPhone] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
+  
+  // Turnstile CAPTCHA & Device Security
+  const [clientIp, setClientIp] = useState('unknown');
+  const [requiresCaptcha, setRequiresCaptcha] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
+
+  useEffect(() => {
+    getClientIp().then(ip => {
+      setClientIp(ip);
+      const attempts = getDevicePasswordAttempts(ip);
+      if (attempts >= 1) {
+        setRequiresCaptcha(true);
+      }
+    });
+  }, [isOpen]);
   
   // Register Fields
   const [regName, setRegName] = useState('');
@@ -184,11 +204,19 @@ export default function AuthModal({ isOpen, onClose, onSuccess, zonesList = [] }
         return setError(lang === 'en' ? 'Password is required' : 'كلمة المرور مطلوبة');
       }
 
-      // Check Password Lockout (Max 3 failed attempts)
-      const lockoutCheck = checkPasswordLockout(cleanPhone);
-      if (lockoutCheck.locked) {
+      // Check if IP/Device is banned
+      const banCheck = checkDeviceOrIpBanned(clientIp);
+      if (banCheck.banned) {
         setLoading(false);
-        return setError(lockoutCheck.message);
+        return setError(banCheck.message);
+      }
+
+      // Check if Turnstile Captcha is required (after 1st failed attempt)
+      if (requiresCaptcha && !turnstileToken) {
+        setLoading(false);
+        return setError(lang === 'en'
+          ? 'Security check required: Please complete the Cloudflare verification below.'
+          : 'يلزم التحقق الأمني: يرجى تأكيد أنك لست روبوت (Cloudflare) أدناه للمتابعة.');
       }
 
       try {
@@ -199,7 +227,9 @@ export default function AuthModal({ isOpen, onClose, onSuccess, zonesList = [] }
         await signInWithEmailAndPassword(auth, authEmail, loginPassword);
         
         // Success: clear failed attempts
-        clearPasswordAttempts(cleanPhone);
+        clearDevicePasswordAttempts(clientIp);
+        setRequiresCaptcha(false);
+        setTurnstileToken('');
         
         if (onSuccess) onSuccess(cleanPhone);
         if (onClose) onClose();
@@ -208,14 +238,13 @@ export default function AuthModal({ isOpen, onClose, onSuccess, zonesList = [] }
         if (err.message === 'not_found' || err.code === 'auth/user-not-found') {
           setError(lang === 'en' ? 'Account not found. Please register.' : 'الحساب غير موجود، يرجى إنشاء حساب جديد.');
         } else {
-          // Record failed password attempt & enforce 3-strikes limit
-          const failRecord = recordFailedPasswordAttempt(cleanPhone);
-          setError(lang === 'en'
-            ? (failRecord.locked
-                ? `Password entered incorrectly 3 times. Account locked for ${failRecord.remainingMinutes} minutes.`
-                : `Incorrect password. Attempt ${failRecord.attempts} of 3 (${failRecord.remainingAttempts} remaining).`)
-            : failRecord.message
-          );
+          // Record failed password attempt on attacker device & IP
+          const failRecord = recordFailedDevicePasswordAttempt(clientIp);
+          if (failRecord.requiresCaptcha) {
+            setRequiresCaptcha(true);
+            setTurnstileToken(''); // reset token so they must solve it again on next attempt
+          }
+          setError(failRecord.message);
         }
       } finally {
         setLoading(false);
@@ -541,6 +570,14 @@ export default function AuthModal({ isOpen, onClose, onSuccess, zonesList = [] }
                           </button>
                         </div>
                       </div>
+                    )}
+
+                    {loginTab === 'password' && requiresCaptcha && (
+                      <TurnstileWidget
+                        onVerify={(token) => setTurnstileToken(token)}
+                        onExpire={() => setTurnstileToken('')}
+                        onError={() => setTurnstileToken('')}
+                      />
                     )}
 
                     <button type="submit" disabled={loading} className="w-full mt-6 bg-[#e52d3a] hover:bg-[#b91c28] text-white font-bold py-4 rounded-xl transition-all shadow-[0_0_20px_rgba(229,45,58,0.3)] disabled:opacity-50 text-lg flex items-center justify-center gap-2">

@@ -123,84 +123,134 @@ export function recordLocalOtpAttempt(phone) {
   } catch (e) {}
 }
 
-// ----------------- Password Rate Limiting (3 attempts max) -----------------
+// ----------------- Password Rate Limiting & Device/IP Ban (3 attempts max) -----------------
 const MAX_PWD_ATTEMPTS = 3;
-const PWD_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes lockout
+const DEVICE_BAN_MS = 60 * 60 * 1000; // 60 minutes ban for attacker device/IP
 
-export function checkPasswordLockout(phone) {
-  if (!phone) return { locked: false, attempts: 0, remainingAttempts: MAX_PWD_ATTEMPTS };
-  const clean = phone.replace(/\D/g, '');
+export function checkDeviceOrIpBanned(ip) {
+  const deviceId = getDeviceId();
+  const safeIp = (ip || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const now = Date.now();
+
   try {
-    const raw = localStorage.getItem(`bb_pwd_lock_${clean}`);
-    if (raw) {
-      const data = JSON.parse(raw);
-      const now = Date.now();
-      if (data.lockedUntil && now < data.lockedUntil) {
-        const remainingMinutes = Math.ceil((data.lockedUntil - now) / 60000);
+    // 1. Check Device Ban
+    const rawDev = localStorage.getItem('bb_banned_device');
+    if (rawDev) {
+      const devData = JSON.parse(rawDev);
+      if (devData.bannedUntil && now < devData.bannedUntil) {
+        const remainingMinutes = Math.ceil((devData.bannedUntil - now) / 60000);
         return {
-          locked: true,
-          attempts: data.attempts || MAX_PWD_ATTEMPTS,
+          banned: true,
           remainingMinutes,
-          message: `تم إدخال كلمة المرور بشكل خاطئ ${MAX_PWD_ATTEMPTS} مرات. لحماية حسابك تم قفل تسجيل الدخول بكلمة المرور مؤقتاً لمدة ${remainingMinutes} دقيقة. يمكنك تسجيل الدخول فوراً برمز الواتساب.`
+          message: `تم حظر هذا الجهاز لمدة ${remainingMinutes} دقيقة بسبب تكرار محاولات إدخال كلمة مرور خاطئة.`
         };
+      } else if (devData.bannedUntil && now >= devData.bannedUntil) {
+        localStorage.removeItem('bb_banned_device');
       }
-      if (data.lockedUntil && now >= data.lockedUntil) {
-        localStorage.removeItem(`bb_pwd_lock_${clean}`);
-        return { locked: false, attempts: 0, remainingAttempts: MAX_PWD_ATTEMPTS };
+    }
+
+    // 2. Check IP Ban
+    const rawIp = localStorage.getItem(`bb_banned_ip_${safeIp}`);
+    if (rawIp) {
+      const ipData = JSON.parse(rawIp);
+      if (ipData.bannedUntil && now < ipData.bannedUntil) {
+        const remainingMinutes = Math.ceil((ipData.bannedUntil - now) / 60000);
+        return {
+          banned: true,
+          remainingMinutes,
+          message: `تم حظر شبكة الإنترنت الخاصة بك (${ip}) لمدة ${remainingMinutes} دقيقة بسبب تكرار محاولات الدخول الخاطئة.`
+        };
+      } else if (ipData.bannedUntil && now >= ipData.bannedUntil) {
+        localStorage.removeItem(`bb_banned_ip_${safeIp}`);
       }
-      const attempts = data.attempts || 0;
-      return {
-        locked: false,
-        attempts,
-        remainingAttempts: Math.max(0, MAX_PWD_ATTEMPTS - attempts)
-      };
     }
   } catch (e) {}
-  return { locked: false, attempts: 0, remainingAttempts: MAX_PWD_ATTEMPTS };
+
+  return { banned: false };
 }
 
-export function recordFailedPasswordAttempt(phone) {
-  if (!phone) return { locked: false, attempts: 1, remainingAttempts: 2 };
-  const clean = phone.replace(/\D/g, '');
+export function getDevicePasswordAttempts(ip) {
+  const deviceId = getDeviceId();
+  const safeIp = (ip || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const key = `bb_pwd_attempts_${deviceId}_${safeIp}`;
   try {
-    const raw = localStorage.getItem(`bb_pwd_lock_${clean}`);
-    let data = { attempts: 0, lastAttempt: 0 };
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      const data = JSON.parse(raw);
+      return data.attempts || 0;
+    }
+  } catch (e) {}
+  return 0;
+}
+
+export function recordFailedDevicePasswordAttempt(ip) {
+  const deviceId = getDeviceId();
+  const safeIp = (ip || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const key = `bb_pwd_attempts_${deviceId}_${safeIp}`;
+  const now = Date.now();
+
+  try {
+    let data = { attempts: 0, lastAttempt: now };
+    const raw = localStorage.getItem(key);
     if (raw) {
       data = JSON.parse(raw);
     }
     data.attempts = (data.attempts || 0) + 1;
-    data.lastAttempt = Date.now();
-    
+    data.lastAttempt = now;
+
     if (data.attempts >= MAX_PWD_ATTEMPTS) {
-      data.lockedUntil = Date.now() + PWD_LOCKOUT_MS;
-      localStorage.setItem(`bb_pwd_lock_${clean}`, JSON.stringify(data));
+      // Ban Device and Ban IP!
+      const banInfo = { bannedUntil: now + DEVICE_BAN_MS, bannedAt: now, ip, deviceId };
+      localStorage.setItem('bb_banned_device', JSON.stringify(banInfo));
+      localStorage.setItem(`bb_banned_ip_${safeIp}`, JSON.stringify(banInfo));
+      localStorage.removeItem(key);
+
       return {
-        locked: true,
+        banned: true,
         attempts: data.attempts,
-        remainingMinutes: 15,
-        message: `تم إدخال كلمة المرور بشكل خاطئ ${MAX_PWD_ATTEMPTS} مرات. تم قفل تسجيل الدخول بكلمة المرور مؤقتاً لمدة 15 دقيقة لحماية حسابك (يمكنك استخدام الدخول برمز الواتساب).`
+        remainingMinutes: 60,
+        requiresCaptcha: true,
+        message: `تم حظر هذا الجهاز وشبكة الإنترنت (${ip}) لمدة 60 دقيقة لحماية النظام بعد 3 محاولات خاطئة متتالية.`
       };
     }
-    
-    localStorage.setItem(`bb_pwd_lock_${clean}`, JSON.stringify(data));
+
+    localStorage.setItem(key, JSON.stringify(data));
     const remaining = MAX_PWD_ATTEMPTS - data.attempts;
     return {
-      locked: false,
+      banned: false,
       attempts: data.attempts,
       remainingAttempts: remaining,
-      message: `كلمة المرور غير صحيحة. المحاولة ${data.attempts} من ${MAX_PWD_ATTEMPTS} (متبقي ${remaining} ${remaining === 1 ? 'محاولة واحدة' : 'محاولات'} قبل قفل الحساب).`
+      requiresCaptcha: true, // After first failed attempt, Turnstile is REQUIRED!
+      message: `كلمة المرور غير صحيحة. المحاولة ${data.attempts} من ${MAX_PWD_ATTEMPTS} (متبقي ${remaining} ${remaining === 1 ? 'محاولة واحدة' : 'محاولات'} قبل حظر جهازك). يرجى إكمال التحقق الأمني أدناه للمتابعة.`
     };
   } catch (e) {
-    return { locked: false, attempts: 1, remainingAttempts: 2 };
+    return { banned: false, attempts: 1, remainingAttempts: 2, requiresCaptcha: true };
   }
 }
 
-export function clearPasswordAttempts(phone) {
-  if (!phone) return;
-  const clean = phone.replace(/\D/g, '');
+export function clearDevicePasswordAttempts(ip) {
+  const deviceId = getDeviceId();
+  const safeIp = (ip || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_');
   try {
-    localStorage.removeItem(`bb_pwd_lock_${clean}`);
+    localStorage.removeItem(`bb_pwd_attempts_${deviceId}_${safeIp}`);
   } catch (e) {}
+}
+
+// Backward compatibility proxies
+export function checkPasswordLockout(phone, ip) {
+  const banCheck = checkDeviceOrIpBanned(ip);
+  if (banCheck.banned) {
+    return { locked: true, remainingMinutes: banCheck.remainingMinutes, message: banCheck.message };
+  }
+  return { locked: false, attempts: getDevicePasswordAttempts(ip), remainingAttempts: MAX_PWD_ATTEMPTS };
+}
+
+export function recordFailedPasswordAttempt(phone, ip) {
+  return recordFailedDevicePasswordAttempt(ip);
+}
+
+export function clearPasswordAttempts(phone, ip) {
+  clearDevicePasswordAttempts(ip);
 }
 
 // ----------------- Catering IP Limit (Max 2 requests per day) -----------------
