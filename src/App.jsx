@@ -13,6 +13,7 @@ import { ShoppingBag, Star } from 'lucide-react';
 import { useCart } from './context/CartContext';
 import PromoPopup from './components/PromoPopup';
 import OrderTypeModal from './components/OrderTypeModal';
+import PwaInstallPrompt from './components/PwaInstallPrompt';
 
 // Code Splitting for Pages
 const Home = React.lazy(() => import('./pages/Home'));
@@ -264,6 +265,7 @@ function App() {
         <OrderTypeModal />
         <CartSidebar />
         <MobileBottomNav />
+        <PwaInstallPrompt />
       </div>
     </HashRouter>
   );

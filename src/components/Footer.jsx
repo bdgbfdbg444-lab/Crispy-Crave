@@ -1,14 +1,12 @@
 import { useLanguage } from '../context/LanguageContext';
 import React, { useState, useEffect } from 'react';
 import { APP_CONFIG } from '../config/appConfig';
-import { MessageCircle, Star, Smartphone } from 'lucide-react';
+import { MessageCircle, Star, Smartphone, Download } from 'lucide-react';
 import ReviewModal from './ReviewModal';
-import AppDownloadModal from './AppDownloadModal';
 
 export default function Footer({ websiteData }) {
   const { lang } = useLanguage();
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
-  const [isAppDownloadModalOpen, setIsAppDownloadModalOpen] = useState(false);
   const [isAppInstalled, setIsAppInstalled] = useState(true);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
 
@@ -65,6 +63,32 @@ export default function Footer({ websiteData }) {
   const taglineText = lang === 'en'
     ? (websiteData?.footerTaglineEn || 'CRAFTED BRISKET & SMASH BURGERS')
     : (websiteData?.footerTagline || 'أشهى بريسكت وبرجر مدخن على الحطب');
+
+  const handleInstallPwa = async () => {
+    if (deferredPrompt) {
+      try {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          setIsAppInstalled(true);
+        }
+        setDeferredPrompt(null);
+      } catch (err) {
+        console.error('PWA error:', err);
+      }
+    } else {
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent || '');
+      if (isIOS) {
+        alert(lang === 'en' 
+          ? 'To install: Tap the Share button at the bottom of Safari, then select "Add to Home Screen".'
+          : 'لتثبيت التطبيق على الآيفون: اضغط على زر المشاركة ⎋ في أسفل متصفح Safari ثم اختر (إضافة إلى الصفحة الرئيسية ⊕).');
+      } else {
+        alert(lang === 'en'
+          ? 'You can install this app by opening browser menu (⋮) and selecting "Install app".'
+          : 'يمكنك تثبيت التطبيق بفتح قائمة المتصفح (⋮) واختيار (تثبيت التطبيق).');
+      }
+    }
+  };
 
   return (
     <footer id="footer" className="bg-black-primary text-text-light pt-16 pb-24 md:pb-12 border-t border-gray-800">
@@ -140,27 +164,41 @@ export default function Footer({ websiteData }) {
               </a>
             </div>
             
-            {/* Action Buttons: Review & Download App */}
-            <div className="flex flex-wrap items-center justify-center md:justify-end gap-3">
+            {/* Action Buttons: Review & Direct App Downloads */}
+            <div className="flex flex-wrap items-center justify-center md:justify-end gap-2.5">
               {/* Review Button */}
               <button 
                 onClick={() => setIsReviewModalOpen(true)}
-                className="flex items-center gap-2 bg-gray-800 hover:bg-brand-red text-text-light py-2 px-6 rounded-full text-sm font-bold transition-colors border border-gray-700 hover:border-brand-red"
+                className="flex items-center gap-2 bg-gray-800 hover:bg-brand-red text-text-light py-2 px-5 rounded-full text-xs font-bold transition-colors border border-gray-700 hover:border-brand-red"
               >
-                <Star size={16} className="fill-current" />
-                {lang === 'en' ? 'Share Your Opinion' : 'شاركنا رأيك'}
+                <Star size={15} className="fill-current" />
+                <span>{lang === 'en' ? 'Share Your Opinion' : 'شاركنا رأيك'}</span>
               </button>
 
               {/* Install / Download App (Only shown if NOT in APK and NOT standalone) */}
               {!isAppInstalled && (
-                <button
-                  onClick={() => setIsAppDownloadModalOpen(true)}
-                  className="flex items-center gap-2 bg-gradient-to-r from-brand-red to-red-700 hover:from-red-600 hover:to-red-800 text-white py-2 px-5 rounded-full text-sm font-bold transition-all shadow-lg shadow-brand-red/20 hover:scale-105 border border-red-500/30"
-                  title={lang === 'en' ? 'Download Mobile App' : 'تحميل تطبيق الهاتف'}
-                >
-                  <Smartphone size={16} />
-                  <span>{lang === 'en' ? 'Get Mobile App' : 'حمّل التطبيق (APK)'}</span>
-                </button>
+                <>
+                  {/* Direct APK Download Link */}
+                  <a
+                    href="./TheBlackBox.apk"
+                    download="TheBlackBox.apk"
+                    className="flex items-center gap-2 bg-brand-red hover:bg-red-700 active:scale-95 text-white py-2 px-4 rounded-full text-xs font-bold transition-all shadow-lg shadow-brand-red/20 border border-red-500/30"
+                    title={lang === 'en' ? 'Download Android APK Directly' : 'تحميل تطبيق الأندرويد مباشرة'}
+                  >
+                    <Download size={15} />
+                    <span>{lang === 'en' ? 'Download APK' : 'تحميل التطبيق (APK)'}</span>
+                  </a>
+
+                  {/* Instant PWA Install Button */}
+                  <button
+                    onClick={handleInstallPwa}
+                    className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 active:scale-95 text-text-light py-2 px-4 rounded-full text-xs font-bold transition-all border border-gray-700 hover:border-gray-500"
+                    title={lang === 'en' ? 'Install to Home Screen' : 'تثبيت كتطبيق (PWA)'}
+                  >
+                    <Smartphone size={15} />
+                    <span>{lang === 'en' ? 'Install PWA' : 'تثبيت كتطبيق (PWA)'}</span>
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -172,13 +210,7 @@ export default function Footer({ websiteData }) {
         isOpen={isReviewModalOpen} 
         onClose={() => setIsReviewModalOpen(false)} 
       />
-
-      <AppDownloadModal
-        isOpen={isAppDownloadModalOpen}
-        onClose={() => setIsAppDownloadModalOpen(false)}
-        deferredPrompt={deferredPrompt}
-        onPwaInstalled={() => setIsAppInstalled(true)}
-      />
     </footer>
   );
 }
+
