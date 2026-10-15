@@ -358,7 +358,7 @@ export default function CheckoutPage({ menuData }) {
 
     await set(ref(db, `PendingOtpRequests/${reqId}`), {
       phone: cleanPhone,
-      uid: auth.currentUser ? auth.currentUser.uid : 'anon',
+      uid: 'guest_checkout',
       deviceId,
       clientIp,
       createdAt: Date.now()
@@ -734,18 +734,15 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
 
     setErrorMessage('');
 
-    // THOGHRA 17: Phone Ownership OTP Barrier (Check if phone is verified)
+    // Phone Ownership Guard:
+    // Logged in customers whose account matches the phone number proceed directly without OTP.
+    // Unregistered / Guest users (or customers who change to an unverified phone) MUST verify via WhatsApp OTP.
     const cleanCurrentPhone = normalizePhone(formData.customerPhone);
-    const isRegisteredAccount = Boolean(
-      currentUser && 
-      !currentUser.isAnonymous && 
-      customerData && 
-      (customerData.Email || customerData.email) &&
-      normalizePhone(customerData.Phone || userPhone) === cleanCurrentPhone
-    );
+    const cleanAccountPhone = normalizePhone(customerData?.Phone || userPhone || '');
+    const isCustomerLoggedIn = Boolean(customerData && cleanAccountPhone && cleanAccountPhone === cleanCurrentPhone);
     const isSessionOtpVerified = Boolean(verifiedPhone && normalizePhone(verifiedPhone) === cleanCurrentPhone);
 
-    if (!isRegisteredAccount && !isSessionOtpVerified) {
+    if (!isCustomerLoggedIn && !isSessionOtpVerified) {
       // Trigger WhatsApp OTP verification modal before allowing payment!
       setIsOtpModalOpen(true);
       setOtpError('');
@@ -990,15 +987,10 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
     }
 
     // Pre-Commit Phone Ownership OTP Guard
-    const isRegisteredAccount = Boolean(
-      currentUser && 
-      !currentUser.isAnonymous && 
-      customerData && 
-      (customerData.Email || customerData.email) &&
-      normalizePhone(customerData.Phone || userPhone) === submitPhoneClean
-    );
+    const cleanAccountPhone = normalizePhone(customerData?.Phone || userPhone || '');
+    const isCustomerLoggedIn = Boolean(customerData && cleanAccountPhone && cleanAccountPhone === submitPhoneClean);
     const isSessionOtpVerified = Boolean(verifiedPhone && normalizePhone(verifiedPhone) === submitPhoneClean);
-    if (!isRegisteredAccount && !isSessionOtpVerified) {
+    if (!isCustomerLoggedIn && !isSessionOtpVerified) {
       setIsOtpModalOpen(true);
       setOtpError('');
       setOtpInput('');
