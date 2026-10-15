@@ -12,7 +12,16 @@ import { useAuth } from '../context/AuthContext';
 import { db, auth } from '../firebase';
 import { ref, set, get } from 'firebase/database';
 import { signInAnonymously } from 'firebase/auth';
-import { getDeviceId, getClientIp, checkLocalDailyOtpLimit, recordLocalOtpAttempt } from '../utils/deviceTracker';
+import { 
+  getDeviceId, 
+  getClientIp, 
+  checkLocalDailyOtpLimit, 
+  recordLocalOtpAttempt,
+  checkCateringIpLimit,
+  recordCateringIpAttempt,
+  TEST_WHITELIST_IPS,
+  MAX_CATERING_PER_DAY
+} from '../utils/deviceTracker';
 import AddressMapPicker, { formatAddressDetails } from './AddressMapPicker';
 
 const EVENT_TYPES = [
@@ -565,6 +574,33 @@ ${structuredTelegramNotes}`;
       } catch (dbErr) {
         console.warn('Firebase catering backup error:', dbErr);
       }
+
+      // 3. Record Catering Attempt for IP in LocalStorage and RTDB (Max 2/day limit)
+      try {
+        const clientIp = await getClientIp();
+        const safeIp = (clientIp || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const todayCairo = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo' }).format(new Date());
+        
+        recordCateringIpAttempt(clientIp);
+
+        const limitRef = ref(db, `CateringRateLimits/${safeIp}`);
+        const snap = await get(limitRef);
+        let currentCount = 0;
+        if (snap.exists()) {
+          const val = snap.val();
+          if (val && val.date === todayCairo) {
+            currentCount = Number(val.count) || 0;
+          }
+        }
+        await set(limitRef, {
+          date: todayCairo,
+          count: currentCount + 1,
+          lastAttempt: Date.now(),
+          ip: clientIp
+        });
+      } catch (rateErr) {
+        console.warn('Catering IP rate limit recording error:', rateErr);
+      }
       
       setIsSuccess(true);
       setTimeout(() => {
@@ -674,6 +710,38 @@ ${structuredTelegramNotes}`;
       if (!currentAddress && !draftAddress) {
         alert(lang === 'en' ? "Please provide the delivery address / venue." : "برجاء إدخال عنوان وتفاصيل مكان المناسبة أو اختياره من الخريطة");
         return;
+      }
+    }
+
+    // IP Daily Limit Check (Max 2 requests per day)
+    const clientIp = await getClientIp();
+    const isDevWhitelisted = Boolean(clientIp && TEST_WHITELIST_IPS.includes(clientIp));
+
+    if (!isDevWhitelisted) {
+      // 1. Local Storage Check
+      const localCheck = checkCateringIpLimit(clientIp);
+      if (!localCheck.allowed) {
+        alert(localCheck.message);
+        return;
+      }
+
+      // 2. Firebase RTDB Live Limit Check
+      try {
+        const safeIp = (clientIp || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const todayCairo = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo' }).format(new Date());
+        const snap = await get(ref(db, `CateringRateLimits/${safeIp}`));
+        if (snap.exists()) {
+          const rtdbData = snap.val();
+          if (rtdbData && rtdbData.date === todayCairo && Number(rtdbData.count) >= MAX_CATERING_PER_DAY) {
+            const limitMsg = lang === 'en'
+              ? 'Sorry, you have reached the maximum daily limit for catering requests from your network (2 requests per day max). Please try again tomorrow or contact us by phone.'
+              : 'عفواً، لقد تم الوصول للحد الأقصى لطلبات حجز المناسبات اليوم من هذا الجهاز أو الشبكة (طلبان كحد أقصى في اليوم). يرجى المحاولة غداً أو التواصل هاتفياً مع إدارة المطعم.';
+            alert(limitMsg);
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn("RTDB Catering rate limit check fallback:", e);
       }
     }
 

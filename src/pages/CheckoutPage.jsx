@@ -1,12 +1,12 @@
 import { useLanguage } from '../context/LanguageContext';
 import PaymentSection from '../components/PaymentSection';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShoppingBag, ArrowRight, Wallet, CheckCircle, AlertCircle, MessageSquare, ShieldCheck, RefreshCw, Bike, UtensilsCrossed, Flame, UploadCloud, CheckCircle2, Loader2 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { db, auth } from '../firebase';
-import { ref, onValue, set, push, update, remove, get, serverTimestamp } from 'firebase/database';
+import { ref, onValue, off, set, push, update, remove, get, serverTimestamp } from 'firebase/database';
 import { signInAnonymously } from 'firebase/auth';
 import { validateReceiptFile } from '../services/receiptValidator';
 import AddressMapPicker, { checkZoneMismatch, validateDeliveryAddress, formatAddressDetails } from '../components/AddressMapPicker';
@@ -17,12 +17,13 @@ import imageCompression from 'browser-image-compression';
 import { sanitizeText } from '../utils/sanitizer';
 import { EGYPT_PHONE_REGEX, sanitizeOrderNotes } from '../utils/validation';
 import { visitorTracker } from '../services/visitorTracker';
-import { getDeviceId, getClientIp, checkLocalDailyOtpLimit, recordLocalOtpAttempt } from '../utils/deviceTracker';
+import { getDeviceId, getClientIp, checkLocalDailyOtpLimit, recordLocalOtpAttempt, getLocalOtpInfo } from '../utils/deviceTracker';
+import Logo from '../components/Logo';
 
 export default function CheckoutPage({ menuData }) {
   const { lang } = useLanguage();
   const { cartItems, cartTotal, clearCart, tableNumber, orderType, setOrderType, setIsOrderTypeModalOpen } = useCart();
-  const { customerData, userPhone } = useAuth();
+  const { customerData, userPhone, currentUser } = useAuth();
   const navigate = useNavigate();
   
   const [formData, setFormData] = useState({
@@ -290,20 +291,26 @@ export default function CheckoutPage({ menuData }) {
 
 
   const normalizePhone = (p) => {
-    let clean = (p || '').replace(/\D/g, '');
-    return clean;
+    let cp = (p || '').replace(/\D/g, '');
+    if (cp.startsWith('20') && cp.length === 12) cp = '0' + cp.substring(2);
+    else if (cp.startsWith('0020') && cp.length === 14) cp = '0' + cp.substring(4);
+    else if (cp.startsWith('+20') && cp.length === 13) cp = '0' + cp.substring(3);
+    else if (cp.length === 10 && !cp.startsWith('0')) cp = '0' + cp;
+    return cp;
   };
 
   // OTP Phone Verification Barrier for Unverified / Guest Users
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [otpInput, setOtpInput] = useState('');
-  const [generatedOtp, setGeneratedOtp] = useState('');
-  const [otpExpiry, setOtpExpiry] = useState(0);
   const [currentOtpReqId, setCurrentOtpReqId] = useState(null);
   const [otpCountdown, setOtpCountdown] = useState(0);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isConfirmingOtp, setIsConfirmingOtp] = useState(false);
   const [verifiedPhone, setVerifiedPhone] = useState(null);
   const [otpError, setOtpError] = useState('');
+  const [checkoutOtpInfo, setCheckoutOtpInfo] = useState(() => getLocalOtpInfo(formData.customerPhone));
+  const activeCheckoutOtpListenerRef = useRef(null);
+  const confirmOtpTimeoutRef = useRef(null);
 
   useEffect(() => {
     let timer;
@@ -315,9 +322,23 @@ export default function CheckoutPage({ menuData }) {
     return () => clearInterval(timer);
   }, [otpCountdown]);
 
+  // Clean up listener and timer on unmount
+  useEffect(() => {
+    return () => {
+      if (activeCheckoutOtpListenerRef.current) {
+        off(activeCheckoutOtpListenerRef.current);
+        activeCheckoutOtpListenerRef.current = null;
+      }
+      if (confirmOtpTimeoutRef.current) {
+        clearTimeout(confirmOtpTimeoutRef.current);
+        confirmOtpTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   const sendWhatsAppOtp = async (targetPhone) => {
     const cleanPhone = normalizePhone(targetPhone);
-    const localCheck = checkLocalDailyOtpLimit();
+    const localCheck = checkLocalDailyOtpLimit(cleanPhone);
     if (!localCheck.allowed) {
       setOtpError(localCheck.message);
       setIsSendingOtp(false);
@@ -330,46 +351,80 @@ export default function CheckoutPage({ menuData }) {
 
     const reqId = `otp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     setCurrentOtpReqId(reqId);
-    setOtpCountdown(120);
+    setOtpCountdown(60);
 
     const deviceId = getDeviceId();
     const clientIp = await getClientIp();
 
-    // Write to pending without the OTP (Gateway will generate it)
     await set(ref(db, `PendingOtpRequests/${reqId}`), {
       phone: cleanPhone,
-      uid: auth.currentUser.uid,
+      uid: auth.currentUser ? auth.currentUser.uid : 'anon',
       deviceId,
       clientIp,
       createdAt: Date.now()
     });
-    recordLocalOtpAttempt();
+    
+    recordLocalOtpAttempt(cleanPhone);
+    setCheckoutOtpInfo(getLocalOtpInfo(cleanPhone));
 
     // Listen for results from the Gateway
+    if (activeCheckoutOtpListenerRef.current) {
+      off(activeCheckoutOtpListenerRef.current);
+      activeCheckoutOtpListenerRef.current = null;
+    }
+
     const resultRef = ref(db, `OtpResults/${reqId}`);
+    activeCheckoutOtpListenerRef.current = resultRef;
+
     onValue(resultRef, (snapshot) => {
       const data = snapshot.val();
-      if (data) {
-        if (data.status === 'success') {
-          setVerifiedPhone(cleanPhone);
-          setIsOtpModalOpen(false);
-          setOtpError('');
-          setOtpInput('');
-          setShowPayment(true);
-          // Cleanup
-          set(resultRef, null);
-          setCurrentOtpReqId(null);
-        } else if (data.status === 'failed') {
-          setOtpError(lang === 'en' ? 'Incorrect verification code.' : '\u0643\u0648\u062f \u0627\u0644\u062a\u062d\u0642\u0642 \u063a\u064a\u0631 \u0635\u062d\u064a\u062d.');
-          set(resultRef, null);
-        } else if (data.status === 'daily_limit_exceeded') {
-          setOtpError(lang === 'en' ? 'Daily OTP limit reached (3 codes max per day). Please try again tomorrow.' : 'تم استنفاد الحد الأقصى لمحاولات إرسال الكود اليوم (3 محاولات كحد أقصى). يرجى المحاولة غداً.');
-          set(resultRef, null);
-        } else if (data.status === 'rate_limited') {
-          setOtpError(lang === 'en' ? (data.message || 'Please wait before requesting another code.') : (data.message || 'يرجى الانتظار قبل طلب كود جديد.'));
-          set(resultRef, null);
-        }
+      if (!data) return;
+
+      if (confirmOtpTimeoutRef.current) {
+        clearTimeout(confirmOtpTimeoutRef.current);
+        confirmOtpTimeoutRef.current = null;
       }
+
+      if (data.status === 'success') {
+        setVerifiedPhone(cleanPhone);
+        setIsOtpModalOpen(false);
+        setOtpError('');
+        setOtpInput('');
+        setShowPayment(true);
+        setIsConfirmingOtp(false);
+        if (activeCheckoutOtpListenerRef.current) {
+          off(activeCheckoutOtpListenerRef.current);
+          activeCheckoutOtpListenerRef.current = null;
+        }
+        setCurrentOtpReqId(null);
+      } else if (data.status === 'failed') {
+        setOtpError(lang === 'en' 
+          ? 'Incorrect verification code. Please check WhatsApp and try again.' 
+          : 'كود التحقق غير صحيح، يرجى التأكد من الرمز المستلم على الواتساب وإعادة المحاولة.');
+        setIsConfirmingOtp(false);
+      } else if (data.status === 'daily_limit_exceeded') {
+        setOtpError(lang === 'en' 
+          ? 'Daily OTP limit reached (3 codes max per day). Please try again tomorrow.' 
+          : 'تم استنفاد الحد الأقصى لمحاولات إرسال الكود اليوم لهذا الرقم (3 محاولات كحد أقصى). يرجى المحاولة غداً.');
+        setIsConfirmingOtp(false);
+        if (activeCheckoutOtpListenerRef.current) {
+          off(activeCheckoutOtpListenerRef.current);
+          activeCheckoutOtpListenerRef.current = null;
+        }
+      } else if (data.status === 'rate_limited') {
+        setOtpError(lang === 'en' 
+          ? (data.message || 'Please wait before requesting another code.') 
+          : (data.message || 'يرجى الانتظار قبل طلب كود جديد.'));
+        setIsConfirmingOtp(false);
+      }
+    }, (err) => {
+      console.error("OtpResults listener error:", err);
+      if (confirmOtpTimeoutRef.current) {
+        clearTimeout(confirmOtpTimeoutRef.current);
+        confirmOtpTimeoutRef.current = null;
+      }
+      setIsConfirmingOtp(false);
+      setOtpError(lang === 'en' ? 'Connection error. Please try again.' : 'حدث خطأ في الاتصال. يرجى المحاولة مرة أخرى.');
     });
   };
 
@@ -380,7 +435,7 @@ export default function CheckoutPage({ menuData }) {
     try {
       await sendWhatsAppOtp(formData.customerPhone);
     } catch (err) {
-      setOtpError(lang === 'en' ? 'Failed to send OTP code: ' + err.message : '\u0641\u0634\u0644 \u0625\u0631\u0633\u0627\u0644 \u0627\u0644\u0643\u0648\u062f: ' + err.message);
+      setOtpError(lang === 'en' ? 'Failed to send OTP code: ' + err.message : 'فشل إرسال الكود: ' + err.message);
     } finally {
       setIsSendingOtp(false);
     }
@@ -389,22 +444,47 @@ export default function CheckoutPage({ menuData }) {
   const handleConfirmOtp = async (e) => {
     if (e) e.preventDefault();
     if (!otpInput || otpInput.trim().length !== 6) {
-      setOtpError(lang === 'en' ? 'Please enter the 6-digit verification code.' : '\u064a\u0631\u062c\u0649 \u0625\u062f\u062e\u0627\u0644 \u0627\u0644\u0643\u0648\u062f.');
+      setOtpError(lang === 'en' ? 'Please enter the 6-digit verification code.' : 'يرجى إدخال الكود المكون من 6 أرقام.');
       return;
     }
     if (!currentOtpReqId) {
-      setOtpError(lang === 'en' ? 'Session expired. Request a new code.' : '\u0627\u0646\u062a\u0647\u062a \u0627\u0644\u062c\u0644\u0633\u0629. \u0627\u0637\u0644\u0628 \u0643\u0648\u062f \u062c\u062f\u064a\u062f.');
+      setOtpError(lang === 'en' ? 'Session expired. Request a new code.' : 'انتهت الجلسة. اطلب كود جديد.');
       return;
     }
 
     setOtpError('');
-    
-    // Write guess to Firebase. The Gateway will read it, compare it, and reply in OtpResults
-    await set(ref(db, `OtpValidations/${currentOtpReqId}`), {
-      guess: otpInput.trim(),
-      phone: normalizePhone(formData.customerPhone),
-      uid: auth.currentUser.uid
-    });
+    setIsConfirmingOtp(true);
+
+    // 15-second safety timeout
+    if (confirmOtpTimeoutRef.current) clearTimeout(confirmOtpTimeoutRef.current);
+    confirmOtpTimeoutRef.current = setTimeout(() => {
+      setIsConfirmingOtp(false);
+      setOtpError(lang === 'en' 
+        ? 'Verification took longer than expected. Please check your code and try again.' 
+        : 'استغرق التحقق وقتاً طويلاً دون استجابة من الخادم. يرجى التأكد من صحة الكود والاتصال ثم المحاولة مرة أخرى.');
+    }, 15000);
+
+    const cleanPhone = normalizePhone(formData.customerPhone);
+    try {
+      if (!auth.currentUser) {
+        await signInAnonymously(auth);
+      }
+
+      await set(ref(db, `OtpValidations/${currentOtpReqId}`), {
+        guess: otpInput.trim(),
+        phone: cleanPhone,
+        uid: auth.currentUser ? auth.currentUser.uid : 'anon',
+        timestamp: Date.now()
+      });
+    } catch (err) {
+      console.error("Error submitting guest OTP guess:", err);
+      if (confirmOtpTimeoutRef.current) {
+        clearTimeout(confirmOtpTimeoutRef.current);
+        confirmOtpTimeoutRef.current = null;
+      }
+      setIsConfirmingOtp(false);
+      setOtpError(lang === 'en' ? 'Failed to submit verification code. Please check your connection.' : 'تعذر إرسال كود التحقق. يرجى التحقق من اتصال الإنترنت.');
+    }
   };
 
 const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
@@ -517,7 +597,11 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
   };
 
   const handleChange = (e) => {
-    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    if (name === 'customerPhone') {
+      setVerifiedPhone(null);
+    }
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleContinueToPayment = async (e) => {
@@ -652,10 +736,16 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
 
     // THOGHRA 17: Phone Ownership OTP Barrier (Check if phone is verified)
     const cleanCurrentPhone = normalizePhone(formData.customerPhone);
-    const isAuthVerified = Boolean(userPhone && normalizePhone(userPhone) === cleanCurrentPhone);
-    const isSessionOtpVerified = Boolean(verifiedPhone && verifiedPhone === cleanCurrentPhone);
+    const isRegisteredAccount = Boolean(
+      currentUser && 
+      !currentUser.isAnonymous && 
+      customerData && 
+      (customerData.Email || customerData.email) &&
+      normalizePhone(customerData.Phone || userPhone) === cleanCurrentPhone
+    );
+    const isSessionOtpVerified = Boolean(verifiedPhone && normalizePhone(verifiedPhone) === cleanCurrentPhone);
 
-    if (!isAuthVerified && !isSessionOtpVerified) {
+    if (!isRegisteredAccount && !isSessionOtpVerified) {
       // Trigger WhatsApp OTP verification modal before allowing payment!
       setIsOtpModalOpen(true);
       setOtpError('');
@@ -900,9 +990,15 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
     }
 
     // Pre-Commit Phone Ownership OTP Guard
-    const isAuthVerified = Boolean(userPhone && normalizePhone(userPhone) === submitPhoneClean);
-    const isSessionOtpVerified = Boolean(verifiedPhone && verifiedPhone === submitPhoneClean);
-    if (!isAuthVerified && !isSessionOtpVerified) {
+    const isRegisteredAccount = Boolean(
+      currentUser && 
+      !currentUser.isAnonymous && 
+      customerData && 
+      (customerData.Email || customerData.email) &&
+      normalizePhone(customerData.Phone || userPhone) === submitPhoneClean
+    );
+    const isSessionOtpVerified = Boolean(verifiedPhone && normalizePhone(verifiedPhone) === submitPhoneClean);
+    if (!isRegisteredAccount && !isSessionOtpVerified) {
       setIsOtpModalOpen(true);
       setOtpError('');
       setOtpInput('');
@@ -1843,84 +1939,81 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
         </div>
       </div>
 
-      {/* Real-Time Order Submission Progress Modal */}
+      {/* Real-Time Order Submission Full-Screen Branded Loader */}
       <AnimatePresence>
         {isSubmitting && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md"
+            className="fixed inset-0 z-[100] bg-black-primary flex flex-col items-center justify-center overflow-hidden text-center px-4"
           >
+            {/* Multi-layered Ambient Background Glow */}
+            <motion.div 
+              animate={{ opacity: [0.15, 0.35, 0.15], scale: [1, 1.25, 1] }}
+              transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute w-80 h-80 bg-brand-red/25 rounded-full blur-[120px] pointer-events-none"
+            />
+            <motion.div 
+              animate={{ opacity: [0.08, 0.2, 0.08], scale: [1.2, 1, 1.2] }}
+              transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute w-96 h-96 bg-brand-red/15 rounded-full blur-[160px] pointer-events-none"
+            />
+
+            {/* Glowing Brand Logo */}
             <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-black-surface border border-brand-red/40 rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-[0_0_50px_rgba(230,57,70,0.3)] relative text-center text-text-light overflow-hidden"
+              animate={{ scale: [1, 1.04, 1] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+              className="relative z-10 mb-6"
             >
-              {/* Ambient Glow */}
-              <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-44 h-44 bg-brand-red/20 rounded-full blur-3xl pointer-events-none" />
-
-              {/* Pulsing Icon */}
-              <div className="relative mx-auto w-20 h-20 rounded-full bg-gradient-to-b from-brand-red/20 to-black-primary border-2 border-brand-red/50 flex items-center justify-center shadow-lg mb-5">
-                {submitStep === 'redirecting' ? (
-                  <CheckCircle2 size={40} className="text-emerald-400 animate-bounce" />
-                ) : submitStep === 'uploading' ? (
-                  <UploadCloud size={38} className="text-purple-400 animate-pulse" />
-                ) : submitStep === 'compressing' ? (
-                  <RefreshCw size={36} className="text-amber-400 animate-spin" />
-                ) : (
-                  <Flame size={40} className="text-brand-red animate-pulse" />
-                )}
-                {submitStep !== 'redirecting' && (
-                  <span className="absolute inset-0 rounded-full border-2 border-brand-red border-t-transparent animate-spin" />
-                )}
-              </div>
-
-              {/* Title & Step Info */}
-              <h3 className="text-xl font-black text-text-light mb-1">
-                {submitStep === 'redirecting'
-                  ? (lang === 'en' ? 'Order Confirmed!' : 'تم تأكيد طلبك بنجاح!')
-                  : (lang === 'en' ? 'Securing Your Order...' : 'جاري إتمام طلبك...')}
-              </h3>
-
-              <div className="mt-2 min-h-[50px] flex flex-col items-center justify-center">
-                <span className="text-sm font-bold text-brand-red bg-brand-red/10 border border-brand-red/20 px-3 py-1 rounded-full inline-block">
-                  {submitStep === 'compressing' && (lang === 'en' ? '📸 Optimizing Receipt Image...' : '📸 ضغط وتجهيز صورة الإيصال...')}
-                  {submitStep === 'uploading' && (lang === 'en' ? '☁️ Uploading Transfer Receipt...' : '☁️ رفع إيصال التحويل بأمان...')}
-                  {submitStep === 'saving' && (lang === 'en' ? '🔥 Sending Order to Kitchen...' : '🔥 تسجيل وحجز الطلب بالمطعم...')}
-                  {submitStep === 'redirecting' && (lang === 'en' ? '🚀 Opening Live Tracker...' : '🚀 تم التسجيل! جاري الانتقال للتتبع...')}
-                  {(submitStep === 'preparing' || !submitStep) && (lang === 'en' ? '⏳ Verifying Order Details...' : '⏳ تجهيز ومراجعة بيانات الطلب...')}
-                </span>
-                <p className="text-xs text-text-muted mt-2">
-                  {submitStep === 'redirecting'
-                    ? (lang === 'en' ? 'Redirecting to your live order tracking page...' : 'جاري فتح شاشة المتابعة والتتبع المباشر لطلبك...')
-                    : (lang === 'en' ? 'Please hold on, this will take just a few seconds.' : 'ثوانٍ معدودة وينتهي التسجيل، برجاء عدم إغلاق الصفحة.')}
-                </p>
-              </div>
-
-              {/* Animated Progress Bar */}
-              <div className="w-full bg-black-primary/80 h-2.5 rounded-full overflow-hidden border border-white/5 my-5">
-                <motion.div
-                  className="h-full bg-gradient-to-r from-amber-500 via-brand-red to-emerald-500 rounded-full"
-                  initial={{ width: '15%' }}
-                  animate={{
-                    width:
-                      submitStep === 'compressing' ? '45%' :
-                      submitStep === 'uploading' ? '70%' :
-                      submitStep === 'saving' ? '88%' :
-                      submitStep === 'redirecting' ? '100%' : '25%'
-                  }}
-                  transition={{ duration: 0.4, ease: 'easeInOut' }}
-                />
-              </div>
-
-              {/* Reassurance Footer */}
-              <div className="text-[11px] text-text-muted/70 bg-black-primary/50 rounded-xl py-2 px-3 border border-white/5 flex items-center justify-center gap-1.5">
-                <ShieldCheck size={14} className="text-emerald-400 shrink-0" />
-                <span>{lang === 'en' ? 'Bank-grade encryption & anti-duplicate protection' : 'نظام محمي ومشفر بالكامل لمنع تكرار الطلبات'}</span>
-              </div>
+              <Logo className="text-5xl md:text-7xl drop-shadow-[0_0_25px_rgba(230,57,70,0.65)]" />
             </motion.div>
+
+            {/* Status Heading */}
+            <h2 className="relative z-10 text-xl md:text-2xl font-black text-text-light mb-2 tracking-wide">
+              {submitStep === 'redirecting'
+                ? (lang === 'en' ? 'Order Confirmed Successfully!' : 'تم تأكيد طلبك بنجاح!')
+                : (lang === 'en' ? 'Securing & Placing Your Order...' : 'جاري إتمام وتأكيد طلبك...')}
+            </h2>
+
+            {/* Dynamic Step Pill */}
+            <div className="relative z-10 my-3">
+              <span className="inline-flex items-center gap-2 text-xs md:text-sm font-bold text-brand-red bg-brand-red/10 border border-brand-red/30 px-4 py-1.5 rounded-full shadow-lg backdrop-blur-md">
+                {submitStep === 'compressing' && (lang === 'en' ? '📸 Optimizing Receipt Image...' : '📸 ضغط وتجهيز صورة الإيصال...')}
+                {submitStep === 'uploading' && (lang === 'en' ? '☁️ Uploading Transfer Receipt...' : '☁️ رفع إيصال التحويل بأمان...')}
+                {submitStep === 'saving' && (lang === 'en' ? '🔥 Sending Order to Kitchen...' : '🔥 تسجيل وحجز الطلب بالمطعم...')}
+                {submitStep === 'redirecting' && (lang === 'en' ? '🚀 Order Recorded! Opening Tracker...' : '🚀 تم التسجيل! جاري الانتقال للتتبع...')}
+                {(submitStep === 'preparing' || !submitStep) && (lang === 'en' ? '⏳ Verifying Order Details...' : '⏳ تجهيز ومراجعة بيانات الطلب...')}
+              </span>
+            </div>
+
+            {/* Sleek Neon Progress Bar matching LoadingScreen */}
+            <div className="w-56 md:w-72 h-1.5 bg-black-surface rounded-full overflow-hidden relative z-10 border border-white/5 my-4 shadow-inner">
+              <motion.div
+                className="h-full bg-gradient-to-r from-amber-500 via-brand-red to-emerald-400 rounded-full shadow-[0_0_12px_rgba(230,57,70,0.8)]"
+                initial={{ width: '20%' }}
+                animate={{
+                  width:
+                    submitStep === 'compressing' ? '45%' :
+                    submitStep === 'uploading' ? '70%' :
+                    submitStep === 'saving' ? '88%' :
+                    submitStep === 'redirecting' ? '100%' : '30%'
+                }}
+                transition={{ duration: 0.5, ease: 'easeInOut' }}
+              />
+            </div>
+
+            {/* Micro reassurance notes */}
+            <p className="relative z-10 text-xs text-text-muted mt-2 max-w-xs">
+              {submitStep === 'redirecting'
+                ? (lang === 'en' ? 'Opening live tracking page...' : 'جاري فتح شاشة المتابعة والتتبع المباشر لطلبك...')
+                : (lang === 'en' ? 'Just a few seconds, please keep this window open.' : 'ثوانٍ معدودة وينتهي التأكيد، برجاء عدم إغلاق الصفحة.')}
+            </p>
+
+            <div className="relative z-10 flex items-center justify-center gap-1.5 text-[11px] text-text-muted/60 mt-6 bg-white/5 border border-white/10 rounded-full px-3.5 py-1">
+              <ShieldCheck size={14} className="text-emerald-400 shrink-0" />
+              <span>{lang === 'en' ? 'Encrypted live kitchen sync & anti-duplicate protection' : 'ربط مشفر ومباشر مع مطبخ المطعم لحماية وتأمين طلبك'}</span>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1956,13 +2049,27 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
                 </div>
               </div>
 
-              <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3.5 mb-5 flex items-start gap-2.5">
+              <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3.5 mb-4 flex items-start gap-2.5">
                 <MessageSquare className="text-emerald-400 shrink-0 mt-0.5" size={18} />
                 <p className="text-xs text-text-muted leading-relaxed">
                   {lang === 'en' 
                     ? `We sent a 6-digit verification code to WhatsApp on number (${formData.customerPhone}). Please enter it below:` 
                     : `تم إرسال كود تحقق مكون من 6 أرقام على واتساب الرقم (${formData.customerPhone}). يرجى إدخاله للمتابعة:`}
                 </p>
+              </div>
+
+              {/* Active Daily Attempts Counter */}
+              <div className="flex justify-center mb-4">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs text-text-muted">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span>
+                    {checkoutOtpInfo.isTestWhitelisted
+                      ? (lang === 'en' ? 'Dev Test Mode (Unlimited)' : 'وضع المطور التجريبي (محاولات غير محدودة)')
+                      : (lang === 'en' 
+                          ? `Attempt ${checkoutOtpInfo.count} of 3 today (${checkoutOtpInfo.remaining} left)` 
+                          : `المحاولة ${checkoutOtpInfo.count} من 3 اليوم (متبقي ${checkoutOtpInfo.remaining} ${checkoutOtpInfo.remaining === 1 ? 'محاولة' : 'محاولات'})`)}
+                  </span>
+                </div>
               </div>
 
               <form onSubmit={handleConfirmOtp} className="space-y-4">
@@ -1983,8 +2090,8 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
 
                 {otpError && (
                   <p className="text-xs text-brand-red font-bold flex items-center gap-1.5 animate-in fade-in">
-                    <AlertCircle size={14} />
-                    {otpError}
+                    <AlertCircle size={14} className="shrink-0" />
+                    <span>{otpError}</span>
                   </p>
                 )}
 
@@ -2011,11 +2118,28 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
 
                 <button
                   type="submit"
-                  disabled={otpInput.length !== 6}
-                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-emerald-900/30 cursor-pointer"
+                  disabled={isConfirmingOtp || otpInput.length !== 6}
+                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-emerald-900/30 cursor-pointer flex items-center justify-center gap-2"
                 >
-                  {lang === 'en' ? 'Confirm and Proceed' : 'تأكيد ومتابعة الطلب'}
+                  {isConfirmingOtp ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span>{lang === 'en' ? 'Verifying with server...' : 'جاري التحقق من الرمز مع الخادم...'}</span>
+                    </>
+                  ) : (
+                    <span>{lang === 'en' ? 'Confirm and Proceed' : 'تأكيد ومتابعة الطلب'}</span>
+                  )}
                 </button>
+
+                {isConfirmingOtp && (
+                  <div className="flex items-center justify-center gap-2 text-xs text-emerald-400 animate-pulse pt-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                    <span>{lang === 'en' ? 'Checking security token in real-time...' : 'جاري مطابقة الرمز المشفر لحظياً عبر بوابة الأمان...'}</span>
+                  </div>
+                )}
               </form>
             </motion.div>
           </motion.div>

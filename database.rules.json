@@ -46,6 +46,12 @@
         "createdAt": {
           ".validate": "newData.isNumber() || newData.isString()"
         },
+        "deviceId": {
+          ".validate": "newData.isString()"
+        },
+        "clientIp": {
+          ".validate": "newData.isString()"
+        },
         "$other": {
           ".validate": false
         }
@@ -493,6 +499,13 @@
           ".write": "auth != null && (newData.parent().child('uid').val() === auth.uid || root.child('UidToPhone').child(auth.uid).val() === $phone)",
           ".validate": "true"
         },
+        ".write": "auth != null && (root.child('UidToPhone').child(auth.uid).val() === $phone || (!data.exists() && (newData.child('uid').val() === auth.uid || auth.uid != null)))",
+        "CreatedAt": {
+          ".validate": "newData.isString()"
+        },
+        "RegisteredDate": {
+          ".validate": "newData.isString()"
+        },
         "$other": {
           ".validate": false
         }
@@ -622,6 +635,12 @@
         ".write": "!data.exists()"
       }
     },
+    "CateringRateLimits": {
+      "$safeIp": {
+        ".read": true,
+        ".write": true
+      }
+    },
     "UserCarts": {
       "$phone": {
         ".read": "auth != null",
@@ -631,13 +650,21 @@
     "CustomerLoginEmails": {
       "$phone": {
         ".read": true,
-        ".write": false
+        ".write": "auth != null && (!data.exists() || root.child('UidToPhone').child(auth.uid).val() === $phone)",
+        ".validate": "newData.isString()"
       }
     },
     "OtpValidations": {
+      ".read": false,
       "$reqId": {
-        ".write": "auth != null",
-        ".validate": "newData.hasChildren(['guess', 'phone', 'uid'])"
+        ".read": false,
+        ".write": "!data.exists() && newData.hasChildren(['guess', 'phone'])",
+        "guess": {
+          ".validate": "newData.isString() && newData.val().length >= 4 && newData.val().length <= 8"
+        },
+        "phone": {
+          ".validate": "newData.isString()"
+        }
       }
     },
     "ReceiptVerificationRequests": {
@@ -653,6 +680,17 @@
     "UsedTransactionIds": {
       ".read": "auth != null",
       ".write": "auth != null"
+    },
+    "OtpResults": {
+      ".read": false,
+      "$reqId": {
+        ".read": true,
+        ".write": false
+      }
+    },
+    "ActiveOTPs": {
+      ".read": false,
+      ".write": false
     }
   }
 }

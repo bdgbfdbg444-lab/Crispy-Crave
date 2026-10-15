@@ -24,6 +24,8 @@ const ProtectionPage = React.lazy(() => import('./pages/ProtectionPage'));
 const OurStoryPage = React.lazy(() => import('./pages/OurStoryPage'));
 const DriverPortal = React.lazy(() => import('./pages/DriverPortal'));
 const ReviewModal = React.lazy(() => import('./components/ReviewModal'));
+const GeoRestrictedPage = React.lazy(() => import('./pages/GeoRestrictedPage'));
+import { checkEgyptGeoAccess } from './utils/geoGuard';
 
 function AnimatedRoutes({ websiteData, menuData }) {
   const location = useLocation();
@@ -48,8 +50,19 @@ function App() {
   const [menuData, setMenuData] = useState(null);
   const [systemState, setSystemState] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [geoStatus, setGeoStatus] = useState({ allowed: true, country: 'EG' });
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [toastNotification, setToastNotification] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    checkEgyptGeoAccess().then((res) => {
+      if (mounted && res) {
+        setGeoStatus(res);
+      }
+    });
+    return () => { mounted = false; };
+  }, []);
 
   const { cartItems, setIsCartOpen, isCartOpen, lastAddedItem, tableNumber, setTableNumber } = useCart();
   const cartItemsCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
@@ -161,6 +174,20 @@ function App() {
     return (
       <Suspense fallback={<LoadingScreen />}>
         <ProtectionPage reason={systemState.reason} />
+      </Suspense>
+    );
+  }
+
+  if (!geoStatus.allowed) {
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <GeoRestrictedPage 
+          visitorCountry={geoStatus.country} 
+          onRetry={async () => {
+            const res = await checkEgyptGeoAccess();
+            setGeoStatus(res);
+          }} 
+        />
       </Suspense>
     );
   }
