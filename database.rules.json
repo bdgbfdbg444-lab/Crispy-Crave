@@ -405,32 +405,82 @@
         }
       }
     },
+    "VipCardsTokens": {
+      ".read": true,
+      "$token": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "VipClaimsByHardware": {
+      ".read": true,
+      "$hwId": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "VipPendingWhatsAppMessages": {
+      ".read": true,
+      "$msgId": {
+        ".read": true,
+        ".write": true
+      }
+    },
     "PublicCustomers": {
+      ".read": true,
       "$phone": {
-        ".read": "auth != null && (!data.exists() || data.child('uid').val() === auth.uid || root.child('UidToPhone').child(auth.uid).val() === $phone)",
+        ".read": true,
+        ".write": true,
         ".validate": "newData.hasChildren(['Phone']) && newData.child('Phone').val() === $phone",
         "uid": {
-          ".write": "auth != null && (!data.exists() ? newData.val() === auth.uid : (data.val() === auth.uid || root.child('UidToPhone').child(auth.uid).val() === $phone) && (newData.val() === auth.uid || newData.val() === data.val()))",
           ".validate": "newData.isString()"
         },
         "Phone": {
-          ".write": "auth != null && (newData.parent().child('uid').val() === auth.uid || root.child('UidToPhone').child(auth.uid).val() === $phone) && newData.val() === $phone",
           ".validate": "newData.isString()"
         },
         "Name": {
-          ".write": "auth != null && (newData.parent().child('uid').val() === auth.uid || root.child('UidToPhone').child(auth.uid).val() === $phone)",
           ".validate": "newData.isString()"
         },
         "Address": {
-          ".write": "auth != null && (newData.parent().child('uid').val() === auth.uid || root.child('UidToPhone').child(auth.uid).val() === $phone)",
           ".validate": "newData.isString()"
         },
         "Email": {
-          ".write": "auth != null && (newData.parent().child('uid').val() === auth.uid || root.child('UidToPhone').child(auth.uid).val() === $phone)",
+          ".validate": "newData.isString()"
+        },
+        "isVipFounder": {
+          ".validate": "newData.isBoolean()"
+        },
+        "vipCode": {
+          ".validate": "newData.isString()"
+        },
+        "vipPrize": {
+          ".validate": "newData.isString()"
+        },
+        "vipDiscountCode": {
+          ".validate": "newData.isString()"
+        },
+        "isVipRedeemed": {
+          ".validate": "newData.isBoolean()"
+        },
+        "vipRedeemedAt": {
+          ".validate": "newData.isString()"
+        },
+        "vipRedeemedBy": {
+          ".validate": "newData.isString()"
+        },
+        "vipDeviceId": {
+          ".validate": "newData.isString()"
+        },
+        "vipHardwareId": {
+          ".validate": "newData.isString()"
+        },
+        "vipIp": {
+          ".validate": "newData.isString()"
+        },
+        "vipClaimedAt": {
           ".validate": "newData.isString()"
         },
         "addresses": {
-          ".write": "auth != null && (newData.parent().child('uid').val() === auth.uid || root.child('UidToPhone').child(auth.uid).val() === $phone)",
           "$index": {
             ".validate": "newData.hasChildren([\"id\", \"fullAddress\", \"zone\"])",
             "id": {
@@ -473,20 +523,17 @@
               ".validate": "newData.isBoolean() || !newData.exists()"
             },
             "$other": {
-              ".validate": false
+              ".validate": true
             }
           }
         },
         "Zone": {
-          ".write": "auth != null && (newData.parent().child('uid').val() === auth.uid || root.child('UidToPhone').child(auth.uid).val() === $phone)",
           ".validate": "newData.isString()"
         },
         "zone": {
-          ".write": "auth != null && (newData.parent().child('uid').val() === auth.uid || root.child('UidToPhone').child(auth.uid).val() === $phone)",
           ".validate": "newData.isString()"
         },
         "TotalOrders": {
-          ".write": "auth != null && (newData.parent().child('uid').val() === auth.uid || root.child('UidToPhone').child(auth.uid).val() === $phone) && !data.exists() && newData.val() === 0",
           ".validate": "newData.isNumber()"
         },
         "TotalSpent": {
@@ -496,10 +543,8 @@
           ".validate": "newData.isString()"
         },
         "cart": {
-          ".write": "auth != null && (newData.parent().child('uid').val() === auth.uid || root.child('UidToPhone').child(auth.uid).val() === $phone)",
           ".validate": "true"
         },
-        ".write": "auth != null && (root.child('UidToPhone').child(auth.uid).val() === $phone || (!data.exists() && (newData.child('uid').val() === auth.uid || auth.uid != null)))",
         "CreatedAt": {
           ".validate": "newData.isString()"
         },
@@ -507,7 +552,7 @@
           ".validate": "newData.isString()"
         },
         "$other": {
-          ".validate": false
+          ".validate": true
         }
       }
     },
