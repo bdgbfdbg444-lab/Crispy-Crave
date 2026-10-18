@@ -214,9 +214,8 @@ export default function VipCampaign() {
     buttonText: 'اكسر الختم وافتح دعوتك ✉️',
     buttonColor: '#991B1B',
     prizes: [
-      { name: 'ساندوتش سموك دبل برجر مجاناً 🍔', probability: 5, code: 'FREE-SMK', type: 'free_item' },
-      { name: 'خصم 50% على كامل طلبك 🎟️', probability: 15, code: 'DISC-50', type: 'percent' },
-      { name: 'بطاطس كومبو مميزة مجاناً 🍟', probability: 40, code: 'FREE-FRY', type: 'free_item' },
+      { name: 'ساندوتش سموك دبل برجر مجاناً 🍔', probability: 60, code: 'FREE-SMK', type: 'free_item' },
+      { name: 'خصم 50% على كامل طلبك 🎟️', probability: 10, code: 'DISC-50', type: 'percent' },
       { name: 'خصم 20% ترحيبي على الفاتورة 🏷️', probability: 40, code: 'DISC-20', type: 'percent' }
     ]
   });
@@ -321,12 +320,25 @@ export default function VipCampaign() {
     const settingsRef = ref(db, 'WebsiteData/vipCampaignSettings');
     onValue(settingsRef, (snapshot) => {
       if (snapshot.exists()) {
-        const val = snapshot.val();
-        setCampaignSettings(prev => ({
-          ...prev,
-          ...val,
-          prizes: val.prizes && val.prizes.length > 0 ? val.prizes : prev.prizes
-        }));
+        let val = snapshot.val();
+        if (typeof val === 'string') {
+          try {
+            val = JSON.parse(val);
+          } catch (e) {
+            console.error('Error parsing vipCampaignSettings JSON:', e);
+          }
+        }
+        if (val && typeof val === 'object') {
+          const loadedPrizes = Array.isArray(val.prizes) 
+            ? val.prizes.filter(p => p && p.name && p.name.trim().length > 0) 
+            : [];
+
+          setCampaignSettings(prev => ({
+            ...prev,
+            ...val,
+            prizes: loadedPrizes.length > 0 ? loadedPrizes : prev.prizes
+          }));
+        }
       }
     });
 
@@ -335,12 +347,19 @@ export default function VipCampaign() {
       if (event.data && event.data.type === 'EDITOR_UPDATE') {
         if (event.data.section === 'VIP Cowboy Campaign' || event.data.field === 'vipCampaignSettings') {
           try {
-            const val = typeof event.data.value === 'string' ? JSON.parse(event.data.value) : event.data.value;
-            if (val) {
+            let val = event.data.value;
+            if (typeof val === 'string') {
+              val = JSON.parse(val);
+            }
+            if (val && typeof val === 'object') {
+              const loadedPrizes = Array.isArray(val.prizes) 
+                ? val.prizes.filter(p => p && p.name && p.name.trim().length > 0) 
+                : [];
+
               setCampaignSettings(prev => ({
                 ...prev,
                 ...val,
-                prizes: val.prizes && val.prizes.length > 0 ? val.prizes : prev.prizes
+                prizes: loadedPrizes.length > 0 ? loadedPrizes : prev.prizes
               }));
             }
           } catch (e) {
@@ -516,6 +535,7 @@ export default function VipCampaign() {
     const validPrizes = (campaignSettings.prizes || []).filter(p => p && p.name && p.name.trim().length > 0 && Number(p.probability) > 0);
     const prizes = validPrizes.length > 0 ? validPrizes : [
       { name: "ساندوتش سموك دبل برجر مجاناً 🍔", code: "FREE-SMK", probability: 60 },
+      { name: "خصم 50% على كامل طلبك 🎟️", code: "DISC-50", probability: 10 },
       { name: "خصم 20% ترحيبي على الفاتورة 🏷️", code: "DISC-20", probability: 40 }
     ];
 
