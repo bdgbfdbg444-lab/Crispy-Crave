@@ -512,18 +512,24 @@ export default function VipCampaign() {
     sfx.playWaxCrack();
     if (navigator.vibrate) navigator.vibrate([120, 60, 200]);
 
-    // Calculate Winning Prize
-    const prizes = campaignSettings.prizes || [];
+    // Calculate Winning Prize based on mathematical weighted odds
+    const validPrizes = (campaignSettings.prizes || []).filter(p => p && p.name && p.name.trim().length > 0 && Number(p.probability) > 0);
+    const prizes = validPrizes.length > 0 ? validPrizes : [
+      { name: "ساندوتش سموك دبل برجر مجاناً 🍔", code: "FREE-SMK", probability: 60 },
+      { name: "خصم 20% ترحيبي على الفاتورة 🏷️", code: "DISC-20", probability: 40 }
+    ];
+
     const totalWeight = prizes.reduce((acc, p) => acc + (Number(p.probability) || 1), 0);
     let rand = Math.random() * totalWeight;
     let selectedPrize = prizes[prizes.length - 1];
 
     for (const p of prizes) {
-      if (rand <= (Number(p.probability) || 1)) {
+      const weight = Number(p.probability) || 1;
+      if (rand <= weight) {
         selectedPrize = p;
         break;
       }
-      rand -= (Number(p.probability) || 1);
+      rand -= weight;
     }
 
     const uniqueSerial = 'VIP-' + Math.floor(1000 + Math.random() * 9000);
