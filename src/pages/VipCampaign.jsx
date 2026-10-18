@@ -274,7 +274,12 @@ export default function VipCampaign() {
       .catch(() => {});
 
     const params = new URLSearchParams(location.search);
-    const isEditor = params.get('mode') === 'editor';
+    const shouldReset = params.get('reset') === 'true' || params.get('mode') === 'editor';
+    if (shouldReset) {
+      localStorage.removeItem('bb_vip_claimed_reward');
+      localStorage.removeItem('bb_heist_claimed_reward');
+    }
+    const isEditor = shouldReset;
     const token = params.get('key') || params.get('token') || params.get('card');
     if (token) {
       setUrlToken(token);
@@ -668,10 +673,11 @@ export default function VipCampaign() {
           {soundMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5 text-slate-200" />}
         </button>
 
-        {new URLSearchParams(location.search).get('mode') === 'editor' && (
+        {(new URLSearchParams(location.search).get('mode') === 'editor' || new URLSearchParams(location.search).get('test') === 'true' || isCardExtracted) && (
           <button
             onClick={() => {
               localStorage.removeItem('bb_vip_claimed_reward');
+              localStorage.removeItem('bb_heist_claimed_reward');
               setWonPrize(null);
               setClaimedSerial('');
               setCustomerName('');
@@ -682,9 +688,9 @@ export default function VipCampaign() {
               setIsOpeningProcess(false);
             }}
             className="px-3 py-2 rounded-xl bg-red-950/80 border border-red-700/60 text-xs font-bold text-red-200 hover:bg-red-900 transition-all shadow-lg flex items-center gap-1.5"
-            title="إعادة تجربة الفتح"
+            title="إعادة التجربة برقم جديد"
           >
-            <span>🔄 إعادة التجربة</span>
+            <span>🔄 تجربة فتح جديدة</span>
           </button>
         )}
       </div>
