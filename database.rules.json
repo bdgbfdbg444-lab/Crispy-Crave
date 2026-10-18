@@ -35,7 +35,7 @@
     },
     "PendingOtpRequests": {
       "$reqId": {
-        ".write": "auth != null && !data.exists() && newData.child(\"uid\").val() === auth.uid",
+        ".write": "auth != null && !data.exists() && (newData.child(\"uid\").val() === auth.uid || newData.child(\"uid\").val() === \"guest_checkout\" || newData.child(\"uid\").val() === \"anon\")",
         ".validate": "newData.hasChildren([\"phone\", \"uid\", \"createdAt\"])",
         "phone": {
           ".validate": "newData.isString()"

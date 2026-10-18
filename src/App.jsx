@@ -26,6 +26,7 @@ const OurStoryPage = React.lazy(() => import('./pages/OurStoryPage'));
 const DriverPortal = React.lazy(() => import('./pages/DriverPortal'));
 const ReviewModal = React.lazy(() => import('./components/ReviewModal'));
 const GeoRestrictedPage = React.lazy(() => import('./pages/GeoRestrictedPage'));
+const VipCampaign = React.lazy(() => import('./pages/VipCampaign'));
 import { checkEgyptGeoAccess } from './utils/geoGuard';
 
 function AnimatedRoutes({ websiteData, menuData }) {
@@ -40,8 +41,96 @@ function AnimatedRoutes({ websiteData, menuData }) {
         <Route path="/account" element={<PageTransition><Suspense fallback={<LoadingScreen />}><MyAccountPage menuData={menuData} /></Suspense></PageTransition>} />
         <Route path="/track/:orderId" element={<PageTransition><Suspense fallback={<LoadingScreen />}><TrackOrderPage menuData={menuData} /></Suspense></PageTransition>} />
         <Route path="/driver" element={<PageTransition><Suspense fallback={<LoadingScreen />}><DriverPortal /></Suspense></PageTransition>} />
+        <Route path="/vip" element={<Suspense fallback={<LoadingScreen />}><VipCampaign /></Suspense>} />
+        <Route path="/box" element={<Suspense fallback={<LoadingScreen />}><VipCampaign /></Suspense>} />
+        <Route path="/cowboy" element={<Suspense fallback={<LoadingScreen />}><VipCampaign /></Suspense>} />
       </Routes>
     </AnimatePresence>
+  );
+}
+
+function MainAppShell({ websiteData, menuData, loading, lang, isReviewModalOpen, setIsReviewModalOpen, toastNotification, setToastNotification }) {
+  const location = useLocation();
+  const isVipRoute = location.pathname === '/vip' || location.pathname === '/box' || location.pathname === '/cowboy';
+  const { cartItemsCount, setIsCartOpen, isCartOpen } = useCart();
+
+  if (isVipRoute) {
+    return (
+      <div className="min-h-screen bg-[#0B0B0C] text-white">
+        {!loading && <AnimatedRoutes websiteData={websiteData} menuData={menuData} />}
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-black-surface text-text-light font-sans flex flex-col relative pb-16 md:pb-0 overflow-x-hidden">
+      <ModificationBanner />
+      <Header />
+      
+      {!loading && <AnimatedRoutes websiteData={websiteData} menuData={menuData} />}
+
+      {cartItemsCount > 0 && (
+        <button 
+          onClick={() => setIsCartOpen(true)}
+          className="fixed bottom-24 md:bottom-6 right-6 z-30 bg-brand-red text-text-light p-4 rounded-full shadow-2xl flex items-center gap-2 hover:scale-105 transition-transform"
+        >
+          <div className="relative">
+            <ShoppingBag size={24} />
+            <span className="absolute -top-2 -right-2 bg-black-primary text-text-light text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-brand-red">
+              {cartItemsCount}
+            </span>
+          </div>
+        </button>
+      )}
+
+      <button 
+        onClick={() => setIsReviewModalOpen(true)}
+        className="fixed bottom-24 md:bottom-6 left-6 z-30 bg-black-primary text-text-light px-5 py-3 rounded-full shadow-2xl flex items-center gap-2 hover:scale-105 transition-transform border border-gray-700 hover:border-brand-red hover:text-brand-red"
+      >
+        <Star size={20} className="fill-current" />
+        <span className="font-bold text-sm hidden md:inline">{lang === 'en' ? 'Share Your Opinion' : 'شاركنا رأيك'}</span>
+      </button>
+
+      <Suspense fallback={null}>
+        <ReviewModal isOpen={isReviewModalOpen} onClose={() => setIsReviewModalOpen(false)} />
+      </Suspense>
+      
+      <PromoPopup websiteData={websiteData} />
+
+      {/* Floating Toast notification when adding item to cart without auto-opening drawer */}
+      <AnimatePresence>
+        {toastNotification && !isCartOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            className="fixed bottom-20 md:bottom-8 left-1/2 -translate-x-1/2 z-40 bg-black-surface/95 border border-brand-red/40 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3 text-text-light max-w-[92vw] sm:max-w-md pointer-events-auto"
+          >
+            <div className="w-7 h-7 rounded-full bg-brand-red/20 text-brand-red flex items-center justify-center font-bold text-xs shrink-0">
+              ✓
+            </div>
+            <div className="overflow-hidden">
+              <p className="text-[11px] text-text-muted">{lang === 'en' ? 'Added to cart' : 'تمت الإضافة للسلة'}</p>
+              <p className="text-sm font-bold text-text-light truncate">{toastNotification.name}</p>
+            </div>
+            <button 
+              onClick={() => {
+                setToastNotification(null);
+                setIsCartOpen(true);
+              }}
+              className="ms-auto shrink-0 px-3 py-1.5 bg-brand-red text-text-light text-xs font-bold rounded-xl hover:bg-brand-red-dark transition-colors shadow-md"
+            >
+              {lang === 'en' ? 'View Cart' : 'عرض السلة'}
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      <OrderTypeModal />
+      <CartSidebar />
+      <MobileBottomNav />
+      <PwaInstallPrompt />
+    </div>
   );
 }
 
@@ -179,94 +268,21 @@ function App() {
     );
   }
 
-  if (!geoStatus.allowed) {
-    return (
-      <Suspense fallback={<LoadingScreen />}>
-        <GeoRestrictedPage 
-          visitorCountry={geoStatus.country} 
-          onRetry={async () => {
-            const res = await checkEgyptGeoAccess();
-            setGeoStatus(res);
-          }} 
-        />
-      </Suspense>
-    );
-  }
-
   return (
     <HashRouter>
       <AnimatePresence>
         {loading && <LoadingScreen key="loading" />}
       </AnimatePresence>
-
-      <div className="min-h-screen bg-black-surface text-text-light font-sans flex flex-col relative pb-16 md:pb-0 overflow-x-hidden">
-        <ModificationBanner />
-        <Header />
-        
-        {!loading && <AnimatedRoutes websiteData={websiteData} menuData={menuData} />}
-
-        {cartItemsCount > 0 && (
-          <button 
-            onClick={() => setIsCartOpen(true)}
-            className="fixed bottom-24 md:bottom-6 right-6 z-30 bg-brand-red text-text-light p-4 rounded-full shadow-2xl flex items-center gap-2 hover:scale-105 transition-transform"
-          >
-            <div className="relative">
-              <ShoppingBag size={24} />
-              <span className="absolute -top-2 -right-2 bg-black-primary text-text-light text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-brand-red">
-                {cartItemsCount}
-              </span>
-            </div>
-          </button>
-        )}
-
-        <button 
-          onClick={() => setIsReviewModalOpen(true)}
-          className="fixed bottom-24 md:bottom-6 left-6 z-30 bg-black-primary text-text-light px-5 py-3 rounded-full shadow-2xl flex items-center gap-2 hover:scale-105 transition-transform border border-gray-700 hover:border-brand-red hover:text-brand-red"
-        >
-          <Star size={20} className="fill-current" />
-          <span className="font-bold text-sm hidden md:inline">{lang === 'en' ? 'Share Your Opinion' : 'شاركنا رأيك'}</span>
-        </button>
-
-        <Suspense fallback={null}>
-          <ReviewModal isOpen={isReviewModalOpen} onClose={() => setIsReviewModalOpen(false)} />
-        </Suspense>
-        
-        <PromoPopup websiteData={websiteData} />
-
-        {/* Floating Toast notification when adding item to cart without auto-opening drawer */}
-        <AnimatePresence>
-          {toastNotification && !isCartOpen && (
-            <motion.div
-              initial={{ opacity: 0, y: 30, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.95 }}
-              className="fixed bottom-20 md:bottom-8 left-1/2 -translate-x-1/2 z-40 bg-black-surface/95 border border-brand-red/40 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3 text-text-light max-w-[92vw] sm:max-w-md pointer-events-auto"
-            >
-              <div className="w-7 h-7 rounded-full bg-brand-red/20 text-brand-red flex items-center justify-center font-bold text-xs shrink-0">
-                ✓
-              </div>
-              <div className="overflow-hidden">
-                <p className="text-[11px] text-text-muted">{lang === 'en' ? 'Added to cart' : 'تمت الإضافة للسلة'}</p>
-                <p className="text-sm font-bold text-text-light truncate">{toastNotification.name}</p>
-              </div>
-              <button 
-                onClick={() => {
-                  setToastNotification(null);
-                  setIsCartOpen(true);
-                }}
-                className="ms-auto shrink-0 px-3 py-1.5 bg-brand-red text-text-light text-xs font-bold rounded-xl hover:bg-brand-red-dark transition-colors shadow-md"
-              >
-                {lang === 'en' ? 'View Cart' : 'عرض السلة'}
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        
-        <OrderTypeModal />
-        <CartSidebar />
-        <MobileBottomNav />
-        <PwaInstallPrompt />
-      </div>
+      <MainAppShell
+        websiteData={websiteData}
+        menuData={menuData}
+        loading={loading}
+        lang={lang}
+        isReviewModalOpen={isReviewModalOpen}
+        setIsReviewModalOpen={setIsReviewModalOpen}
+        toastNotification={toastNotification}
+        setToastNotification={setToastNotification}
+      />
     </HashRouter>
   );
 }

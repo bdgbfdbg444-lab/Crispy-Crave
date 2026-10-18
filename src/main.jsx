@@ -10,6 +10,12 @@ import ErrorBoundary from './components/ErrorBoundary'
 import { initGlobalMonitoring } from './monitoring/IncidentLogger'
 import { visitorTracker } from './services/visitorTracker'
 
+// Handle chunk update mismatch gracefully
+window.addEventListener('vite:preloadError', (event) => {
+  event.preventDefault();
+  window.location.reload();
+});
+
 // Initialize real-time visitor tracking
 initGlobalMonitoring();
 visitorTracker.init();

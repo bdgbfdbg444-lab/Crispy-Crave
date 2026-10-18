@@ -435,7 +435,8 @@ export default function TrackOrderPage({ menuData }) {
 
   const isHandoverEnabled = menuData?.storeStatus?.requireDeliveryHandoverCode !== false;
   // Fallback to orderDetails.handoverCode ONLY if orderData.DeliveryPIN isn't present yet, but prioritize Firebase payload!
-  const handoverCode = isHandoverEnabled && isOwner ? (orderData?.DeliveryPIN || orderDetails.handoverCode || '') : '';
+  const rawHandover = isHandoverEnabled && isOwner ? (orderData?.DeliveryPIN || orderDetails.handoverCode || '') : '';
+  const handoverCode = rawHandover ? String(rawHandover).trim() : '';
   const customerDisplayName = isOwner ? (orderDetails.customerName || '') : '';
   const customerDisplayPhone = isOwner ? (orderDetails.customerPhone || '') : '';
   const customerDisplayAddress = isOwner ? (orderDetails.deliveryAddress || '') : '';

@@ -358,7 +358,7 @@ export default function CheckoutPage({ menuData }) {
 
     await set(ref(db, `PendingOtpRequests/${reqId}`), {
       phone: cleanPhone,
-      uid: 'guest_checkout',
+      uid: auth.currentUser ? auth.currentUser.uid : 'guest_checkout',
       deviceId,
       clientIp,
       createdAt: Date.now()
@@ -1972,17 +1972,17 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
             <div className="relative z-10 my-3">
               <span className="inline-flex items-center gap-2 text-xs md:text-sm font-bold text-brand-red bg-brand-red/10 border border-brand-red/30 px-4 py-1.5 rounded-full shadow-lg backdrop-blur-md">
                 {submitStep === 'compressing' && (lang === 'en' ? '📸 Optimizing Receipt Image...' : '📸 ضغط وتجهيز صورة الإيصال...')}
-                {submitStep === 'uploading' && (lang === 'en' ? '☁️ Uploading Transfer Receipt...' : '☁️ رفع إيصال التحويل بأمان...')}
+                {submitStep === 'uploading' && (lang === 'en' ? '🔍 Reviewing Payment Receipt...' : '🔍 جاري مراجعة إيصال الدفع...')}
                 {submitStep === 'saving' && (lang === 'en' ? '🔥 Sending Order to Kitchen...' : '🔥 تسجيل وحجز الطلب بالمطعم...')}
                 {submitStep === 'redirecting' && (lang === 'en' ? '🚀 Order Recorded! Opening Tracker...' : '🚀 تم التسجيل! جاري الانتقال للتتبع...')}
                 {(submitStep === 'preparing' || !submitStep) && (lang === 'en' ? '⏳ Verifying Order Details...' : '⏳ تجهيز ومراجعة بيانات الطلب...')}
               </span>
             </div>
 
-            {/* Sleek Neon Progress Bar matching LoadingScreen */}
-            <div className="w-56 md:w-72 h-1.5 bg-black-surface rounded-full overflow-hidden relative z-10 border border-white/5 my-4 shadow-inner">
+            {/* Sleek Dark Red Progress Bar */}
+            <div className="w-56 md:w-72 h-2 bg-black-surface/90 rounded-full overflow-hidden relative z-10 border border-red-900/40 my-4 shadow-inner">
               <motion.div
-                className="h-full bg-gradient-to-r from-amber-500 via-brand-red to-emerald-400 rounded-full shadow-[0_0_12px_rgba(230,57,70,0.8)]"
+                className="h-full bg-gradient-to-r from-red-950 via-red-800 to-red-600 rounded-full shadow-[0_0_14px_rgba(185,28,28,0.9)]"
                 initial={{ width: '20%' }}
                 animate={{
                   width:
