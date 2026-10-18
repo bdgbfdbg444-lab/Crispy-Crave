@@ -7,7 +7,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 
 export default function OrderTypeModal() {
   const { lang } = useLanguage();
-  const { orderType, setOrderType, isOrderTypeModalOpen, setIsOrderTypeModalOpen } = useCart();
+  const { orderType, setOrderType, isOrderTypeModalOpen, setIsOrderTypeModalOpen, isDineInAvailable, tableNumber } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -50,15 +50,15 @@ export default function OrderTypeModal() {
       iconColor: 'text-amber-500',
       bgGlow: 'hover:border-amber-500 hover:shadow-[0_0_25px_rgba(245,158,11,0.15)]'
     },
-    {
+    ...(isDineInAvailable ? [{
       id: 'DineIn',
-      title: lang === 'en' ? 'Dine-In (Restaurant)' : 'تناول في المطعم',
+      title: lang === 'en' ? `Dine-In ${tableNumber ? `(Table ${tableNumber})` : ''}` : `تناول في المطعم ${tableNumber ? `(طاولة ${tableNumber})` : ''}`,
       subtitle: lang === 'en' ? 'Enjoy your hot meal inside our hall' : 'استمتع بوجبتك ساخنة مباشرة داخل صالة المطعم',
-      badge: lang === 'en' ? 'Dine-in Service' : 'صالة المطعم',
+      badge: lang === 'en' ? 'Dining Hall' : 'صالة المطعم',
       icon: UtensilsCrossed,
       iconColor: 'text-red-400',
       bgGlow: 'hover:border-red-400 hover:shadow-[0_0_25px_rgba(248,113,113,0.15)]'
-    }
+    }] : [])
   ];
 
   return (

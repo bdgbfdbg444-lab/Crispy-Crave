@@ -3,18 +3,39 @@ import MenuSection from '../components/Menu/MenuSection';
 import ProductModal from '../components/Menu/ProductModal';
 import { APP_CONFIG } from '../config/appConfig';
 import { useCart } from '../context/CartContext';
+import { getActiveTableSession, verifyDineInGpsProximity } from '../utils/dineInSecurity';
 
-export default function MenuPage({ menuData }) {
+export default function MenuPage({ menuData, websiteData }) {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const { orderType, setIsOrderTypeModalOpen, tableNumber } = useCart();
+  const { orderType, setIsOrderTypeModalOpen, tableNumber, invalidateTableSession } = useCart();
 
   useEffect(() => {
-    // If visitor enters menu directly without picking order type yet, prompt them
+    // 1. If table session is active, verify it has not expired
+    if (tableNumber) {
+      const activeSession = getActiveTableSession(websiteData?.dineInSessionDurationMinutes || 45);
+      if (!activeSession) {
+        alert('⏰ انتهت صلاحية جلسة الطاولة المؤقتة. تم تحويل الطلب للاستلام أو التوصيل.');
+        invalidateTableSession();
+        return;
+      }
+
+      // 2. If GPS geofence is enabled, check proximity
+      if (websiteData?.dineInRequireGps) {
+        verifyDineInGpsProximity(websiteData).then(res => {
+          if (!res.verified) {
+            alert(res.message || 'أنت خارج نطاق الصالة حالياً.');
+            invalidateTableSession();
+          }
+        });
+      }
+    }
+
+    // 3. If visitor enters menu directly without picking order type yet, prompt them
     if (!orderType && !tableNumber) {
       setIsOrderTypeModalOpen(true);
     }
-  }, [orderType, tableNumber]);
+  }, [orderType, tableNumber, websiteData, invalidateTableSession]);
 
   const handleProductClick = (product, category) => {
     setSelectedProduct(product);

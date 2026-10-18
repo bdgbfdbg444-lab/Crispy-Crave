@@ -35,8 +35,8 @@ function AnimatedRoutes({ websiteData, menuData }) {
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<PageTransition><Suspense fallback={<LoadingScreen />}><Home websiteData={websiteData} menuData={menuData} /></Suspense></PageTransition>} />
-        <Route path="/menu" element={<PageTransition><Suspense fallback={<LoadingScreen />}><MenuPage menuData={menuData} /></Suspense></PageTransition>} />
-        <Route path="/checkout" element={<PageTransition><Suspense fallback={<LoadingScreen />}><CheckoutPage menuData={menuData} /></Suspense></PageTransition>} />
+        <Route path="/menu" element={<PageTransition><Suspense fallback={<LoadingScreen />}><MenuPage menuData={menuData} websiteData={websiteData} /></Suspense></PageTransition>} />
+        <Route path="/checkout" element={<PageTransition><Suspense fallback={<LoadingScreen />}><CheckoutPage menuData={menuData} websiteData={websiteData} /></Suspense></PageTransition>} />
         <Route path="/our-story" element={<PageTransition><Suspense fallback={<LoadingScreen />}><OurStoryPage websiteData={websiteData} /></Suspense></PageTransition>} />
         <Route path="/account" element={<PageTransition><Suspense fallback={<LoadingScreen />}><MyAccountPage menuData={menuData} /></Suspense></PageTransition>} />
         <Route path="/track/:orderId" element={<PageTransition><Suspense fallback={<LoadingScreen />}><TrackOrderPage menuData={menuData} /></Suspense></PageTransition>} />
@@ -154,7 +154,7 @@ function App() {
     return () => { mounted = false; };
   }, []);
 
-  const { cartItems, setIsCartOpen, isCartOpen, lastAddedItem, tableNumber, setTableNumber } = useCart();
+  const { cartItems, setIsCartOpen, isCartOpen, lastAddedItem, tableNumber, setTableNumber, initTableSession } = useCart();
   const cartItemsCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
 
   useEffect(() => {
@@ -168,16 +168,28 @@ function App() {
   }, [lastAddedItem, isCartOpen]);
 
   useEffect(() => {
-    const hash = window.location.hash;
-    if (hash.includes('?')) {
-      const query = hash.split('?')[1];
-      const params = new URLSearchParams(query);
-      const table = params.get('table');
-      if (table) {
-        setTableNumber(table);
-      }
+    const fullUrl = window.location.href;
+    let table = null;
+
+    try {
+      const urlObj = new URL(fullUrl);
+      table = urlObj.searchParams.get('table');
+    } catch (e) {}
+
+    if (!table && window.location.hash.includes('?')) {
+      const hashQuery = window.location.hash.split('?')[1];
+      const params = new URLSearchParams(hashQuery);
+      table = params.get('table');
     }
-  }, [setTableNumber]);
+
+    if (table) {
+      initTableSession(table);
+      try {
+        const cleanHash = window.location.hash.split('?')[0];
+        window.history.replaceState(null, '', window.location.pathname + cleanHash);
+      } catch (e) {}
+    }
+  }, [initTableSession]);
 
   useEffect(() => {
     async function loadData() {

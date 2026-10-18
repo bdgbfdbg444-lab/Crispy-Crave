@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { useAuth } from './AuthContext';
 import { db } from '../firebase';
 import { ref, get, set, onValue, off } from 'firebase/database';
+import { getActiveTableSession, setTableSession, invalidateTableSession as purgeTableSession } from '../utils/dineInSecurity';
 
 const CartContext = createContext();
 
@@ -34,16 +35,22 @@ export const CartProvider = ({ children }) => {
   // Track last added item for toast feedback
   const [lastAddedItem, setLastAddedItem] = useState(null);
 
-  const [tableNumber, setTableNumber] = useState(() => {
-    return localStorage.getItem('crispy_cart_table') || null;
+  const [tableNumber, setTableNumberState] = useState(() => {
+    try {
+      localStorage.removeItem('crispy_cart_table');
+    } catch (e) {}
+    const session = getActiveTableSession();
+    return session ? session.table : null;
   });
 
   // Order Type State (delivery, takeaway, DineIn)
   const [orderType, setOrderTypeState] = useState(() => {
     try {
-      const savedTable = localStorage.getItem('crispy_cart_table');
-      if (savedTable) return 'DineIn';
-      return localStorage.getItem('crispy_order_type') || null;
+      const session = getActiveTableSession();
+      if (session && session.table) return 'DineIn';
+      const savedType = localStorage.getItem('crispy_order_type');
+      if (savedType === 'DineIn') return 'takeaway'; // Dine-In cannot be restored without active table session
+      return savedType || null;
     } catch (e) {
       return null;
     }
@@ -54,7 +61,7 @@ export const CartProvider = ({ children }) => {
   const setOrderType = (type) => {
     setOrderTypeState(type);
     try {
-      if (type) {
+      if (type && type !== 'DineIn') {
         localStorage.setItem('crispy_order_type', type);
       } else {
         localStorage.removeItem('crispy_order_type');
@@ -62,12 +69,35 @@ export const CartProvider = ({ children }) => {
     } catch (e) {}
   };
 
+  const initTableSession = (tbl) => {
+    if (!tbl) return;
+    setTableSession(tbl);
+    setTableNumberState(String(tbl));
+    setOrderTypeState('DineIn');
+  };
+
+  const invalidateTableSession = () => {
+    purgeTableSession();
+    setTableNumberState(null);
+    setOrderTypeState('takeaway');
+    try {
+      localStorage.setItem('crispy_order_type', 'takeaway');
+    } catch (e) {}
+  };
+
+  const setTableNumber = (tbl) => {
+    if (tbl) {
+      initTableSession(tbl);
+    } else {
+      invalidateTableSession();
+    }
+  };
+
   useEffect(() => {
     if (tableNumber) {
       setOrderTypeState('DineIn');
-      try {
-        localStorage.setItem('crispy_order_type', 'DineIn');
-      } catch (e) {}
+    } else if (orderType === 'DineIn') {
+      setOrderTypeState('takeaway');
     }
   }, [tableNumber]);
 
@@ -91,14 +121,6 @@ export const CartProvider = ({ children }) => {
     localStorage.setItem('crispy_cart_items', JSON.stringify(cartItems));
   }, [cartItems]);
 
-  // 3. Persist table number
-  useEffect(() => {
-    if (tableNumber) {
-      localStorage.setItem('crispy_cart_table', tableNumber);
-    } else {
-      localStorage.removeItem('crispy_cart_table');
-    }
-  }, [tableNumber]);
 
   // 4. Cloud Cart Synchronization across browsers / devices
   // When a user logs in with their phone, fetch their cloud cart and sync
@@ -398,6 +420,9 @@ export const CartProvider = ({ children }) => {
       lastAddedItem,
       tableNumber,
       setTableNumber,
+      initTableSession,
+      invalidateTableSession,
+      isDineInAvailable: Boolean(tableNumber),
       orderType,
       setOrderType,
       isOrderTypeModalOpen,

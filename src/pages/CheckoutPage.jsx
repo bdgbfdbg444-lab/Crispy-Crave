@@ -18,11 +18,12 @@ import { sanitizeText } from '../utils/sanitizer';
 import { EGYPT_PHONE_REGEX, sanitizeOrderNotes } from '../utils/validation';
 import { visitorTracker } from '../services/visitorTracker';
 import { getDeviceId, getClientIp, checkLocalDailyOtpLimit, recordLocalOtpAttempt, getLocalOtpInfo } from '../utils/deviceTracker';
+import { getActiveTableSession, verifyDineInGpsProximity } from '../utils/dineInSecurity';
 import Logo from '../components/Logo';
 
-export default function CheckoutPage({ menuData }) {
+export default function CheckoutPage({ menuData, websiteData }) {
   const { lang } = useLanguage();
-  const { cartItems, cartTotal, clearCart, tableNumber, orderType, setOrderType, setIsOrderTypeModalOpen } = useCart();
+  const { cartItems, cartTotal, clearCart, tableNumber, orderType, setOrderType, setIsOrderTypeModalOpen, invalidateTableSession } = useCart();
   const { customerData, userPhone, currentUser } = useAuth();
   const navigate = useNavigate();
   
@@ -156,6 +157,17 @@ export default function CheckoutPage({ menuData }) {
     }
     return null;
   });
+
+  useEffect(() => {
+    if (tableNumber) {
+      const activeSession = getActiveTableSession(websiteData?.dineInSessionDurationMinutes || 45);
+      if (!activeSession) {
+        alert('⏰ انتهت صلاحية جلسة الطاولة المؤقتة. تم تحويل الطلب للاستلام أو التوصيل.');
+        invalidateTableSession();
+        setFormData(prev => ({ ...prev, orderType: 'takeaway', tableNumber: '' }));
+      }
+    }
+  }, [tableNumber, websiteData, invalidateTableSession]);
 
   useEffect(() => {
     const editingId = localStorage.getItem('editingOrderId');
@@ -735,14 +747,14 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
     setErrorMessage('');
 
     // Phone Ownership Guard:
-    // Logged in customers whose account matches the phone number proceed directly without OTP.
-    // Unregistered / Guest users (or customers who change to an unverified phone) MUST verify via WhatsApp OTP.
     const cleanCurrentPhone = normalizePhone(formData.customerPhone);
     const cleanAccountPhone = normalizePhone(customerData?.Phone || userPhone || '');
     const isCustomerLoggedIn = Boolean(customerData && cleanAccountPhone && cleanAccountPhone === cleanCurrentPhone);
     const isSessionOtpVerified = Boolean(verifiedPhone && normalizePhone(verifiedPhone) === cleanCurrentPhone);
+    const isDineIn = formData.orderType === 'DineIn' && Boolean(tableNumber);
 
-    if (!isCustomerLoggedIn && !isSessionOtpVerified) {
+    // In-restaurant Dine-In orders bypass OTP verification completely
+    if (!isDineIn && !isCustomerLoggedIn && !isSessionOtpVerified) {
       // Trigger WhatsApp OTP verification modal before allowing payment!
       setIsOtpModalOpen(true);
       setOtpError('');
@@ -930,7 +942,7 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
       }
     }
 
-    if (!receiptFile) {
+    if (formData.orderType !== 'DineIn' && !receiptFile) {
       const noReceiptMsg = lang === "en" ? "Please upload the payment receipt before confirming." : "يرجى إرفاق صورة إيصال الدفع لتأكيد الطلب.";
       setErrorMessage(noReceiptMsg);
       isSubmittingRef.current = false;
@@ -1154,7 +1166,7 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
         couponCode: appliedCoupon ? appliedCoupon.code : '',
         discountAmount: couponDiscount,
         totalAmount: grandTotal,
-        paymentMethod: paymentReceiptUrl ? 'InstaPay' : 'Cash',
+        paymentMethod: paymentReceiptUrl ? 'InstaPay' : (formData.orderType === 'DineIn' ? 'Cash/Card at Table' : 'Cash'),
         status: 'New',
         items: items,
         displayOrderId: displayOrderId,
@@ -1298,6 +1310,9 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
       }
 
       clearCart();
+      if (formData.orderType === 'DineIn') {
+        invalidateTableSession();
+      }
       localStorage.setItem('last_order_submitted_timestamp', Date.now().toString());
 
       const currentPhone = (formData.customerPhone || '').trim();
@@ -1793,7 +1808,35 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
                       </button>
                     )}
 
-                    <PaymentSection marketing={marketing} onFileSelect={handleFileSelect} isCompressing={isCompressingReceipt} />
+                    {formData.orderType === 'DineIn' ? (
+                      <div className="space-y-4">
+                        <div className="p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 shadow-md">
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className="text-2xl">🍽️</span>
+                            <h4 className="font-black text-emerald-400 text-base">
+                              {lang === 'en' ? 'Pay at Table / Cashier' : 'الدفع في الصالة (كاش أو بالفيزا)'}
+                            </h4>
+                          </div>
+                          <p className="text-xs text-text-light font-semibold leading-relaxed">
+                            {lang === 'en' 
+                              ? `Table #${tableNumber}. Your order will be sent to the kitchen immediately. You can pay cash or card when your meal is served.` 
+                              : `طاولة رقم (${tableNumber}). سيتم إرسال طلبك للمطبخ فوراً، وتتم المحاسبة كاش أو بالفيزا عند تقديم الوجبة على طاولتك دون الحاجة لرفع إيصال.`}
+                          </p>
+                        </div>
+
+                        <details className="bg-black-primary/50 border border-brand-red-dark/30 rounded-xl p-3.5 group">
+                          <summary className="text-xs font-bold text-text-muted cursor-pointer hover:text-text-light list-none flex items-center justify-between">
+                            <span>{lang === 'en' ? 'Prefer to pay electronically now? (Optional)' : 'هل تفضل الدفع إلكترونياً الآن عبر InstaPay / محفظة؟ (اختياري)'}</span>
+                            <span className="text-brand-red text-sm font-mono">+</span>
+                          </summary>
+                          <div className="pt-3">
+                            <PaymentSection marketing={marketing} onFileSelect={handleFileSelect} isCompressing={isCompressingReceipt} />
+                          </div>
+                        </details>
+                      </div>
+                    ) : (
+                      <PaymentSection marketing={marketing} onFileSelect={handleFileSelect} isCompressing={isCompressingReceipt} />
+                    )}
 
                     <button 
                       type="submit" 
