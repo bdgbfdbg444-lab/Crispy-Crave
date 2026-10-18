@@ -3,7 +3,7 @@ import confetti from 'canvas-confetti';
 import { db } from '../firebase';
 import { ref, get, update, onValue } from 'firebase/database';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Volume2, VolumeX, Smartphone, Flame, Award, CheckCircle, AlertTriangle, Share2, Sparkles } from 'lucide-react';
+import { Volume2, VolumeX, Smartphone, Flame, Award, CheckCircle, AlertTriangle, Download, Sparkles } from 'lucide-react';
 
 // ==========================================
 // 1. Web Audio Synthesizer (Realistic SFX)
@@ -246,9 +246,20 @@ export default function VipCampaign() {
   const [wonPrize, setWonPrize] = useState(null);
   const [claimedSerial, setClaimedSerial] = useState('');
   const [hasPreviousClaim, setHasPreviousClaim] = useState(false);
+  const resultRef = useRef(null);
 
   // Countdown State
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+
+  // Auto-scroll to prize result on mobile when card is extracted
+  useEffect(() => {
+    if (envelopeState === 'card_extracted' && resultRef.current) {
+      const timer = setTimeout(() => {
+        resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [envelopeState]);
 
   // 1. Initial Device & Token Extraction
   useEffect(() => {
@@ -559,6 +570,22 @@ export default function VipCampaign() {
             claimedAt: new Date().toISOString()
           });
         }
+
+        // Queue automatic WhatsApp winning confirmation message
+        try {
+          const pendingWaRef = ref(db, `VipPendingWhatsAppMessages/${cleanPhone}`);
+          await update(pendingWaRef, {
+            name: customerName.trim(),
+            phone: cleanPhone,
+            vipCode: uniqueSerial,
+            prizeName: selectedPrize.name,
+            discountCode: selectedPrize.code,
+            timestamp: new Date().toISOString(),
+            status: 'PENDING'
+          });
+        } catch (waErr) {
+          console.warn('Queue WA error:', waErr);
+        }
       } catch (err) {
         console.error('Firebase save error:', err);
       }
@@ -625,7 +652,7 @@ export default function VipCampaign() {
   const isCardExtracted = envelopeState === 'card_extracted';
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#0A0A0C] text-white flex flex-col justify-between overflow-hidden select-none font-sans" dir="rtl">
+    <div className="min-h-screen w-full bg-[#0A0A0C] text-white flex flex-col justify-between overflow-x-hidden overflow-y-auto select-none font-sans relative pb-12 sm:pb-16" dir="rtl">
       
       {/* Top Left Bar: Sound Mute & Editor Mode Reset Button */}
       <div className="absolute top-4 left-4 z-40 flex items-center gap-2">
@@ -663,13 +690,13 @@ export default function VipCampaign() {
       </div>
 
       {/* Atmospheric Background */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-red-950/15 blur-[140px]" />
         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[600px] h-[250px] bg-gradient-to-t from-red-950/20 to-transparent blur-[80px]" />
       </div>
 
       {/* 1. Header: Badge & Titles */}
-      <div className="relative z-20 pt-4 sm:pt-6 px-4 text-center pointer-events-none">
+      <div className={`relative z-20 px-4 text-center pointer-events-none transition-all duration-300 ${isCardExtracted ? 'pt-3 sm:pt-5' : 'pt-4 sm:pt-6'}`}>
         <div 
           className="inline-block px-4 py-1 rounded-full text-xs font-black tracking-widest uppercase border shadow-lg mb-2 backdrop-blur-md"
           style={{ 
@@ -680,7 +707,7 @@ export default function VipCampaign() {
         >
           {campaignSettings.heroBadge}
         </div>
-        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white drop-shadow-lg">
+        <h1 className={`${isCardExtracted ? 'text-xl sm:text-2xl' : 'text-2xl sm:text-3xl'} font-black tracking-tight text-white drop-shadow-lg transition-all`}>
           {campaignSettings.mainTitle}
         </h1>
         <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-sm mx-auto drop-shadow">
@@ -689,9 +716,13 @@ export default function VipCampaign() {
       </div>
 
       {/* 2. Centerpiece: The Royal Black Envelope & Sliding VIP Card System */}
-      <div className="relative z-20 flex-1 flex items-center justify-center px-4 my-auto w-full">
+      <div className={`relative z-20 flex items-center justify-center px-4 w-full transition-all duration-500 ${isCardExtracted ? 'my-1 sm:my-3' : 'my-auto flex-1'}`}>
         <div 
-          className="relative w-full max-w-[340px] sm:max-w-[375px] aspect-[834/778] select-none transition-transform duration-150 ease-out"
+          className={`relative w-full select-none transition-all duration-300 ease-out ${
+            isCardExtracted 
+              ? 'max-w-[270px] sm:max-w-[315px] aspect-[834/778]' 
+              : 'max-w-[325px] sm:max-w-[370px] aspect-[834/778]'
+          }`}
           style={{ 
             transform: shakeProgress > 0 && !isCardExtracted 
               ? `translate3d(${(Math.random() - 0.5) * (shakeProgress * 0.16)}px, ${(Math.random() - 0.5) * (shakeProgress * 0.16)}px, 0) rotate(${(Math.random() - 0.5) * (shakeProgress * 0.04)}deg)` 
@@ -966,41 +997,42 @@ export default function VipCampaign() {
 
         {/* Step 3: Card Revealed Modal / Result */}
         {isCardExtracted && wonPrize && (
-          <div className="bg-[#121316]/98 border border-slate-700/80 rounded-2xl p-5 shadow-2xl backdrop-blur-2xl text-center animate-fade-in">
-            <div className="w-12 h-12 rounded-full bg-red-950/80 border border-red-700/50 flex items-center justify-center mx-auto mb-2 shadow-lg">
-              <Award className="w-6 h-6 text-red-400" />
+          <div ref={resultRef} className="bg-[#121316]/98 border border-slate-700/80 rounded-2xl p-4 sm:p-5 shadow-2xl backdrop-blur-2xl text-center animate-fade-in mt-2 mb-2">
+            <div className="w-11 h-11 rounded-full bg-red-950/80 border border-red-700/50 flex items-center justify-center mx-auto mb-2 shadow-lg">
+              <Award className="w-5 h-5 text-red-400" />
             </div>
 
-            <span className="text-[11px] font-black tracking-widest text-slate-400 uppercase">تهانينا يا VIP! تم تأكيد عضويتك</span>
-            <h2 className="text-xl font-black text-white mt-1 mb-2">{wonPrize.name}</h2>
+            <span className="text-[10px] sm:text-[11px] font-black tracking-widest text-slate-400 uppercase">تهانينا يا VIP! تم تأكيد عضويتك</span>
+            <h2 className="text-lg sm:text-xl font-black text-white mt-1 mb-1.5">{wonPrize.name}</h2>
             
-            <p className="text-xs text-slate-300 leading-relaxed mb-4">
+            <p className="text-xs text-slate-300 leading-relaxed mb-3">
               أهلاً بك <strong className="text-white">{customerName}</strong>! تم تسجيل جائزتك بنجاح برقم هاتفك. احتفظ بهذا الكود لإبرازه عند الدفع في يوم الافتتاح:
             </p>
 
             {/* Serial Code & Barcode Box */}
-            <div className="p-3 bg-black/80 border border-slate-700 rounded-xl mb-4">
+            <div className="p-2.5 sm:p-3 bg-black/80 border border-slate-700 rounded-xl mb-3.5">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[10px] text-slate-400 font-mono">كود الحجز المعتمد:</span>
-                <span className="text-xs text-red-400 font-bold">صالح للاستخدام مرة واحدة</span>
+                <span className="text-[10px] sm:text-xs text-red-400 font-bold">صالح للاستخدام مرة واحدة</span>
               </div>
-              <div className="text-2xl font-black font-mono tracking-widest text-slate-100 py-1">
+              <div className="text-2xl sm:text-3xl font-black font-mono tracking-widest text-slate-100 py-0.5">
                 {claimedSerial}
               </div>
             </div>
 
-            {/* Actions */}
+            {/* Actions: Direct App APK Download & Visit Website */}
             <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={shareOnWhatsApp}
-                className="py-3 px-3 bg-emerald-700 hover:bg-emerald-600 active:scale-95 text-white font-bold text-xs rounded-xl transition-all shadow-lg flex items-center justify-center gap-1.5"
+              <a
+                href="./TheBlackBox.apk"
+                download="TheBlackBox.apk"
+                className="py-3 px-3 bg-gradient-to-r from-red-800 to-rose-700 hover:from-red-700 hover:to-rose-600 active:scale-95 text-white font-bold text-xs rounded-xl transition-all shadow-lg flex items-center justify-center gap-1.5 border border-red-500/30"
               >
-                <Share2 className="w-4 h-4" />
-                <span>مشاركة على واتساب</span>
-              </button>
+                <Download className="w-4 h-4 text-rose-200" />
+                <span>تحميل التطبيق (App)</span>
+              </a>
               <button
                 onClick={() => navigate('/')}
-                className="py-3 px-3 bg-slate-800 hover:bg-slate-700 active:scale-95 text-white font-bold text-xs rounded-xl transition-all shadow-lg flex items-center justify-center gap-1.5"
+                className="py-3 px-3 bg-slate-800 hover:bg-slate-700 active:scale-95 text-white font-bold text-xs rounded-xl transition-all shadow-lg flex items-center justify-center gap-1.5 border border-slate-700/60"
               >
                 <span>زيارة موقع المطعم</span>
               </button>
