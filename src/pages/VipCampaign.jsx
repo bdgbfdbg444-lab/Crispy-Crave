@@ -129,15 +129,72 @@ class SoundFX {
 
 const sfx = new SoundFX();
 
-// Device Fingerprinting
+// Hardware Fingerprinting: Resilient against Cache Wipes, Private/Incognito, and Multiple Browsers
+const generateHardwareFingerprint = () => {
+  try {
+    const components = [];
+    
+    // 1. Screen & Display Hardware Specs
+    components.push(screen.width, screen.height, screen.colorDepth, window.devicePixelRatio || 1);
+    
+    // 2. Hardware CPU & Concurrency
+    components.push(navigator.hardwareConcurrency || 4);
+    if (navigator.deviceMemory) components.push(navigator.deviceMemory);
+    
+    // 3. WebGL GPU Chipset & Vendor (Uniquely identifies the phone hardware model/GPU)
+    try {
+      const canvas = document.createElement('canvas');
+      const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+      if (gl) {
+        const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+        if (debugInfo) {
+          components.push(gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) || '');
+          components.push(gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || '');
+        }
+      }
+    } catch {}
+
+    // 4. Platform & Timezone
+    components.push(navigator.platform || '');
+    components.push(Intl.DateTimeFormat().resolvedOptions().timeZone || '');
+
+    // 5. Canvas 2D Font Subpixel Rendering Signature
+    try {
+      const c = document.createElement('canvas');
+      c.width = 160;
+      c.height = 30;
+      const ctx = c.getContext('2d');
+      ctx.textBaseline = 'top';
+      ctx.font = '14px Arial';
+      ctx.fillStyle = '#f60';
+      ctx.fillRect(100, 1, 50, 15);
+      ctx.fillStyle = '#069';
+      ctx.fillText('CrispyVIP', 2, 10);
+      components.push(c.toDataURL().slice(-40));
+    } catch {}
+
+    // Deterministic 32-bit Hash
+    const raw = components.join('###');
+    let hash = 0;
+    for (let i = 0; i < raw.length; i++) {
+      hash = ((hash << 5) - hash) + raw.charCodeAt(i);
+      hash |= 0;
+    }
+    return `HW-${Math.abs(hash).toString(16).toUpperCase()}`;
+  } catch {
+    return 'HW-GENERIC';
+  }
+};
+
 const getOrCreateDeviceId = () => {
+  const hwId = generateHardwareFingerprint();
   const STORAGE_KEY = 'bb_vip_device_id';
   let devId = localStorage.getItem(STORAGE_KEY);
   if (!devId) {
-    devId = 'DEV-' + Math.random().toString(36).substring(2, 10) + '-' + Date.now().toString(36);
-    localStorage.setItem(STORAGE_KEY, devId);
+    devId = `${hwId}-${Math.random().toString(36).substring(2, 8)}`;
+    try { localStorage.setItem(STORAGE_KEY, devId); } catch {}
   }
-  return devId;
+  return { devId, hwId };
 };
 
 export default function VipCampaign() {
@@ -166,6 +223,8 @@ export default function VipCampaign() {
 
   // State Management
   const [deviceFingerprint, setDeviceFingerprint] = useState('');
+  const [hardwareId, setHardwareId] = useState('');
+  const [publicIp, setPublicIp] = useState('');
   const [urlToken, setUrlToken] = useState('');
   const [tokenStatus, setTokenStatus] = useState('CHECKING');
   const [soundMuted, setSoundMuted] = useState(false);
@@ -193,20 +252,27 @@ export default function VipCampaign() {
 
   // 1. Initial Device & Token Extraction
   useEffect(() => {
-    const devId = getOrCreateDeviceId();
+    const { devId, hwId } = getOrCreateDeviceId();
     setDeviceFingerprint(devId);
+    setHardwareId(hwId);
+
+    // Fetch IP quietly
+    fetch('https://api.ipify.org?format=json')
+      .then(res => res.json())
+      .then(data => { if (data.ip) setPublicIp(data.ip); })
+      .catch(() => {});
 
     const params = new URLSearchParams(location.search);
     const isEditor = params.get('mode') === 'editor';
     const token = params.get('key') || params.get('token') || params.get('card');
     if (token) {
       setUrlToken(token);
-      validateToken(token, devId);
+      validateToken(token, devId, hwId);
     } else {
       setTokenStatus('VALID');
     }
 
-    // Check if device already claimed (unless in editor test preview)
+    // Check if device already claimed (First from localStorage)
     const savedClaim = !isEditor && (localStorage.getItem('bb_vip_claimed_reward') || localStorage.getItem('bb_heist_claimed_reward'));
     if (savedClaim) {
       try {
@@ -220,6 +286,19 @@ export default function VipCampaign() {
       } catch (e) {
         console.error(e);
       }
+    } else if (!isEditor) {
+      // Check Firebase by Hardware Fingerprint (Persists even if cache wiped, or across browsers)
+      get(ref(db, `VipClaimsByHardware/${hwId}`)).then((snap) => {
+        if (snap.exists()) {
+          const hwClaim = snap.val();
+          setWonPrize({ name: hwClaim.vipPrize, code: hwClaim.vipDiscountCode });
+          setClaimedSerial(hwClaim.vipCode);
+          setCustomerName(hwClaim.name || '');
+          setCustomerPhone(hwClaim.phone || '');
+          setHasPreviousClaim(true);
+          setEnvelopeState('card_extracted');
+        }
+      }).catch(() => {});
     }
 
     // Load Firebase Config
@@ -262,15 +341,22 @@ export default function VipCampaign() {
   }, [location]);
 
   // Token Validation with Firebase
-  const validateToken = async (token, devId) => {
+  const validateToken = async (token, devId, hwId) => {
     try {
       const tokenRef = ref(db, `VipCardsTokens/${token}`);
       const snap = await get(tokenRef);
       if (snap.exists()) {
         const data = snap.val();
-        if (data.status === 'BOUND' && data.boundDevice && data.boundDevice !== devId) {
-          setTokenStatus('BLOCKED');
-          return;
+        if (data.status === 'BOUND') {
+          // If already bound to another phone hardware
+          if (data.boundHardware && data.boundHardware !== hwId) {
+            setTokenStatus('BLOCKED');
+            return;
+          }
+          if (!data.boundHardware && data.boundDevice && data.boundDevice !== devId) {
+            setTokenStatus('BLOCKED');
+            return;
+          }
         }
         setTokenStatus('VALID');
       } else {
@@ -442,6 +528,8 @@ export default function VipCampaign() {
           vipDiscountCode: selectedPrize.code,
           isVipRedeemed: false,
           vipDeviceId: deviceFingerprint,
+          vipHardwareId: hardwareId,
+          vipIp: publicIp || '',
           vipClaimedAt: new Date().toISOString()
         });
 
@@ -450,7 +538,24 @@ export default function VipCampaign() {
           await update(tokenRef, {
             status: 'BOUND',
             boundDevice: deviceFingerprint,
+            boundHardware: hardwareId,
+            boundIp: publicIp || '',
             boundPhone: cleanPhone,
+            claimedAt: new Date().toISOString()
+          });
+        }
+
+        // Lock this physical hardware from creating multiple claims across browsers/incognito
+        if (hardwareId) {
+          const hwRef = ref(db, `VipClaimsByHardware/${hardwareId}`);
+          await update(hwRef, {
+            phone: cleanPhone,
+            name: customerName.trim(),
+            vipCode: uniqueSerial,
+            vipPrize: selectedPrize.name,
+            vipDiscountCode: selectedPrize.code,
+            token: urlToken || '',
+            ip: publicIp || '',
             claimedAt: new Date().toISOString()
           });
         }
