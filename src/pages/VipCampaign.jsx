@@ -181,6 +181,7 @@ export default function VipCampaign() {
   const [envelopeState, setEnvelopeState] = useState('closed');
   const [isOpeningProcess, setIsOpeningProcess] = useState(false);
   const [shakeProgress, setShakeProgress] = useState(0);
+  const [shakeHintActive, setShakeHintActive] = useState(false);
 
   // Won Reward
   const [wonPrize, setWonPrize] = useState(null);
@@ -313,35 +314,52 @@ export default function VipCampaign() {
 
   // Shake Detection Engine
   useEffect(() => {
-    if (!formSubmitted || envelopeState !== 'closed' || activeOpeningMethod !== 'shake') return;
-
-    let lastX = 0, lastY = 0, lastZ = 0;
-    let lastTime = 0;
+    let lastX = null, lastY = null, lastZ = null;
+    let lastShakeTime = 0;
 
     const handleDeviceMotion = (e) => {
-      const current = e.accelerationIncludingGravity;
-      if (!current) return;
+      // Use accelerationIncludingGravity with fallback to acceleration
+      const acc = e.accelerationIncludingGravity || e.acceleration;
+      if (!acc || acc.x === null || acc.y === null) return;
 
-      const currentTime = Date.now();
-      if (currentTime - lastTime > 100) {
-        const diffTime = currentTime - lastTime;
-        lastTime = currentTime;
+      if (lastX === null) {
+        lastX = acc.x;
+        lastY = acc.y;
+        lastZ = acc.z;
+        return;
+      }
 
-        const speed = Math.abs(current.x + current.y + current.z - lastX - lastY - lastZ) / diffTime * 10000;
+      const deltaX = Math.abs(acc.x - lastX);
+      const deltaY = Math.abs(acc.y - lastY);
+      const deltaZ = Math.abs((acc.z || 0) - (lastZ || 0));
+      const totalDelta = deltaX + deltaY + deltaZ;
 
-        if (speed > 420) {
-          handleShakeTick();
+      lastX = acc.x;
+      lastY = acc.y;
+      lastZ = acc.z;
+
+      const now = Date.now();
+      // Sensitivity threshold: 14 to 18 m/s² is an intentional physical shake
+      if (totalDelta > 15 && (now - lastShakeTime > 260)) {
+        lastShakeTime = now;
+
+        if (!formSubmitted) {
+          // If customer shakes phone before submitting data, alert them
+          if (navigator.vibrate) try { navigator.vibrate(80); } catch {}
+          setShakeHintActive(true);
+          setTimeout(() => setShakeHintActive(false), 2500);
+          return;
         }
 
-        lastX = current.x;
-        lastY = current.y;
-        lastZ = current.z;
+        if (envelopeState === 'closed' && activeOpeningMethod === 'shake') {
+          handleShakeTick();
+        }
       }
     };
 
     window.addEventListener('devicemotion', handleDeviceMotion, true);
     return () => window.removeEventListener('devicemotion', handleDeviceMotion, true);
-  }, [formSubmitted, envelopeState, activeOpeningMethod, shakeProgress]);
+  }, [formSubmitted, envelopeState, activeOpeningMethod]);
 
   const handleShakeTick = () => {
     if (envelopeState !== 'closed' || isOpeningProcess) return;
@@ -349,7 +367,9 @@ export default function VipCampaign() {
     setShakeProgress((prev) => {
       const next = prev + 25;
       sfx.playWaxCrack();
-      if (navigator.vibrate) navigator.vibrate(60);
+      if (navigator.vibrate) {
+        try { navigator.vibrate([60, 40, 80]); } catch {}
+      }
       if (next >= 100) {
         executeEnvelopeUnlock();
         return 100;
@@ -359,9 +379,19 @@ export default function VipCampaign() {
   };
 
   // Form Submit Handler
-  const handleStartBreak = (e) => {
+  const handleStartBreak = async (e) => {
     e.preventDefault();
     if (!customerName.trim() || !customerPhone.trim()) return;
+
+    // Request iOS Safari motion permission if required
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+      try {
+        await DeviceMotionEvent.requestPermission();
+      } catch (err) {
+        console.log('Motion permission:', err);
+      }
+    }
+
     setFormSubmitted(true);
     sfx.init();
 
@@ -747,8 +777,17 @@ export default function VipCampaign() {
 
         {/* Step 1: Input Name & Phone (While envelope is closed) */}
         {!formSubmitted && !isCardExtracted && (
-          <form onSubmit={handleStartBreak} className="bg-[#121316]/95 border border-slate-800 rounded-2xl p-4 sm:p-5 backdrop-blur-xl shadow-2xl">
+          <form onSubmit={handleStartBreak} className="bg-[#121316]/95 border border-slate-800 rounded-2xl p-4 sm:p-5 backdrop-blur-xl shadow-2xl relative">
+            {shakeHintActive && (
+              <div className="mb-3 p-3 bg-red-950/90 border border-red-500/60 rounded-xl text-red-200 text-xs font-bold text-center animate-bounce shadow-lg flex items-center justify-center gap-2">
+                <span>⚠️ اكتب اسمك ورقم هاتفك أولاً واضغط على الزر، ثم هز الموبايل لفتح الظرف! 📱</span>
+              </div>
+            )}
             <div className="space-y-3">
+              <div className="flex items-center justify-between text-[11px] text-slate-400 font-bold px-1">
+                <span>الخطوة 1 من 2</span>
+                <span className="text-red-400">سجل بياناتك لتفعيل كارت الـ VIP</span>
+              </div>
               <input
                 type="text"
                 required
@@ -768,9 +807,10 @@ export default function VipCampaign() {
               <button
                 type="submit"
                 style={{ backgroundColor: campaignSettings.buttonColor || '#991B1B' }}
-                className="w-full py-3.5 hover:brightness-110 active:scale-[0.99] text-white font-black text-sm rounded-xl transition-all shadow-[0_8px_25px_rgba(153,27,27,0.4)] flex items-center justify-center gap-2"
+                className="w-full py-3.5 hover:brightness-110 active:scale-[0.99] text-white font-black text-sm rounded-xl transition-all shadow-[0_8px_25px_rgba(153,27,27,0.4)] flex flex-col items-center justify-center gap-0.5"
               >
                 <span>{campaignSettings.buttonText || 'اكسر الختم وافتح دعوتك ✉️'}</span>
+                <span className="text-[10px] text-red-200 font-normal">اضغط هنا أولاً ثم هز الموبايل لفتح الكارت 📱</span>
               </button>
             </div>
           </form>
