@@ -13,6 +13,7 @@ export default function Hero({ websiteData }) {
   const { orderType, setIsOrderTypeModalOpen } = useCart();
   const navigate = useNavigate();
   const ref = useRef(null);
+  const videoRef = useRef(null);
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [isMobile, setIsMobile] = useState(() => {
     return typeof window !== 'undefined' ? window.innerWidth < 768 : false;
@@ -25,14 +26,20 @@ export default function Hero({ websiteData }) {
   }, []);
 
   useEffect(() => {
-    // Only load heavy background video on desktop/tablet to preserve mobile data & boost performance
-    if (!isMobile) {
-      const timer = setTimeout(() => {
-        setIsVideoReady(true);
-      }, 1200);
-      return () => clearTimeout(timer);
+    // Mount video after initial paint so FCP & LCP are instant, then start playback on all devices
+    const timer = setTimeout(() => {
+      setIsVideoReady(true);
+    }, 600);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (isVideoReady && videoRef.current) {
+      videoRef.current.defaultMuted = true;
+      videoRef.current.muted = true;
+      videoRef.current.play().catch(() => {});
     }
-  }, [isMobile]);
+  }, [isVideoReady]);
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ['start start', 'end start']
@@ -52,22 +59,26 @@ export default function Hero({ websiteData }) {
       {/* Background Media with Parallax */}
       <motion.div style={{ y, x: '-50%', left: '50%', minWidth: '100%', height: '120%', top: '-10%' }} className="absolute z-0">
         {bgMedia && isVideo ? (
-          (!isMobile && isVideoReady) ? (
+          isVideoReady ? (
             <video 
+              ref={videoRef}
               key={bgMedia}
               autoPlay 
               loop 
               muted 
               playsInline 
-              preload="none"
-              poster={optimizeCloudinaryUrl(bgMedia.replace(/\.mp4$/i, '.jpg'), { width: 800, quality: 'auto' })}
+              webkit-playsinline="true"
+              poster={optimizeCloudinaryUrl(bgMedia.replace(/\.mp4$/i, '.jpg'), { width: isMobile ? 480 : 800, quality: 'auto' })}
               className="w-full h-full object-cover opacity-40 mix-blend-overlay"
             >
-              <source src={optimizeCloudinaryUrl(bgMedia, { width: 720, quality: 'auto' })} type="video/mp4" />
+              <source 
+                src={optimizeCloudinaryUrl(bgMedia, { width: isMobile ? 480 : 720, quality: isMobile ? 'auto:eco' : 'auto' })} 
+                type="video/mp4" 
+              />
             </video>
           ) : (
             <img 
-              src={optimizeCloudinaryUrl(bgMedia.replace(/\.mp4$/i, '.jpg'), { width: 800, quality: 'auto' })}
+              src={optimizeCloudinaryUrl(bgMedia.replace(/\.mp4$/i, '.jpg'), { width: isMobile ? 480 : 800, quality: 'auto' })}
               alt="Hero Preview" 
               className="w-full h-full object-cover opacity-40 mix-blend-overlay"
               fetchPriority="high"
