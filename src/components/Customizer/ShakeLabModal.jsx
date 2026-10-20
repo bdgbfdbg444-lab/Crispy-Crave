@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, Sparkles, RefreshCw, Layers, Droplet, Cookie, Crown, Plus } from 'lucide-react';
+import { X, Check, Sparkles, RefreshCw, Plus, CheckCircle2, ShoppingBag } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useCart } from '../../context/CartContext';
 
@@ -19,8 +19,6 @@ export const DEFAULT_SHAKE_BASES = [
     nameEn: 'Classic Vanilla Ice Cream', 
     desc: 'الوصفة الأصلية: آيس كريم فانيليا فاخر مع حليب طازج نقي', 
     color: '#FBF6E9', 
-    waveColor: '#F3E8CD',
-    shadowColor: '#E2D4B5',
     price: 0,
     iconPath: `${import.meta.env.BASE_URL}images/customizer/base_vanilla.webp`
   },
@@ -30,8 +28,6 @@ export const DEFAULT_SHAKE_BASES = [
     nameEn: 'Belgian Chocolate Ice Cream', 
     desc: 'كاكاو بلجيكي مركز مع آيس كريم غني وحليب طازج', 
     color: '#3A1E11', 
-    waveColor: '#251209', 
-    shadowColor: '#150804',
     price: 15,
     iconPath: `${import.meta.env.BASE_URL}images/customizer/base_chocolate.webp`
   },
@@ -41,8 +37,6 @@ export const DEFAULT_SHAKE_BASES = [
     nameEn: 'Lotus Biscoff Ice Cream', 
     desc: 'كريمة لوتس أصلية بالكراميل المكرمل مع حليب طازج', 
     color: '#D68A36', 
-    waveColor: '#A85E14', 
-    shadowColor: '#753C0C',
     price: 20,
     iconPath: `${import.meta.env.BASE_URL}images/customizer/base_lotus.webp`
   },
@@ -52,8 +46,6 @@ export const DEFAULT_SHAKE_BASES = [
     nameEn: 'Sicilian Pistachio Ice Cream', 
     desc: 'بيوريه فستق إيطالي محمص غني بنكهة أصلية فاخرة', 
     color: '#8FB87A', 
-    waveColor: '#6B9456', 
-    shadowColor: '#476B34',
     price: 25,
     iconPath: `${import.meta.env.BASE_URL}images/customizer/base_pistachio.webp`
   },
@@ -63,8 +55,6 @@ export const DEFAULT_SHAKE_BASES = [
     nameEn: 'Fresh Strawberry Ice Cream', 
     desc: 'بيوريه فراولة مزارع طبيعي ممزوج مع الآيس كريم المنعش', 
     color: '#EB6B8B', 
-    waveColor: '#D44D71', 
-    shadowColor: '#AA2B4D',
     price: 15,
     iconPath: `${import.meta.env.BASE_URL}images/customizer/base_strawberry.webp`
   },
@@ -200,65 +190,55 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
       return ids.includes(pId);
     });
 
-    if (!posAddOns || posAddOns.length === 0) {
-      return {
-        shakeBases: DEFAULT_SHAKE_BASES,
-        shakeSauces: DEFAULT_SHAKE_SAUCES,
-        shakeCrunches: DEFAULT_SHAKE_CRUNCH,
-        shakeToppings: DEFAULT_SHAKE_TOPPINGS
-      };
-    }
-
     const sauces = [];
     const crunches = [];
     const toppings = [];
     const bases = [];
 
-    posAddOns.forEach(a => {
-      const name = a.name.toLowerCase();
-      const role = (a.customizerRole || '').toLowerCase();
-      const item = {
-        id: `pos_${a.id}`,
-        name: a.name,
-        nameEn: a.nameEn || a.name,
-        price: Number(a.price) || 0,
-        color: a.visualColor || '#E63946',
-        iconPath: a.iconPath || null
-      };
+    if (posAddOns && posAddOns.length > 0) {
+      posAddOns.forEach(a => {
+        const name = a.name.toLowerCase();
+        const role = (a.customizerRole || '').toLowerCase();
+        const item = {
+          id: `pos_${a.id}`,
+          name: a.name,
+          nameEn: a.nameEn || a.name,
+          price: Number(a.price) || 0,
+          color: a.visualColor || '#E63946',
+          iconPath: a.iconPath || null
+        };
 
-      // Explicit Role Check from POS
-      if (role === 'base') {
-        item.waveColor = a.visualColor || '#F3E8CD';
-        bases.push(item);
-      } else if (role === 'sauce') {
-        sauces.push(item);
-      } else if (role === 'crunch') {
-        crunches.push(item);
-      } else if (role === 'topping') {
-        toppings.push(item);
-      } else {
-        // Fallback by name keywords if not explicitly categorized
-        if (name.includes('صوص') || name.includes('شلال') || name.includes('sauce') || name.includes('كراميل') || name.includes('فادج') || name.includes('زبدة')) {
-          sauces.push(item);
-        } else if (name.includes('أوريو') || name.includes('كرانش') || name.includes('كرز') || name.includes('موز') || name.includes('فراولة') || name.includes('قهوة') || name.includes('إسبريسو')) {
-          crunches.push(item);
-        } else if (name.includes('كريمة') || name.includes('توبينج') || name.includes('قمة') || name.includes('تتويج')) {
-          toppings.push(item);
-        } else if (name.includes('قاعدة') || name.includes('آيس') || name.includes('فانيليا') || name.includes('شوكولاتة') || name.includes('لوتس') || name.includes('بستاشيو')) {
+        if (role === 'base') {
           bases.push(item);
-        } else {
+        } else if (role === 'sauce') {
+          sauces.push(item);
+        } else if (role === 'crunch') {
           crunches.push(item);
+        } else if (role === 'topping') {
+          toppings.push(item);
+        } else {
+          if (name.includes('صوص') || name.includes('sauce') || name.includes('كراميل') || name.includes('فادج') || name.includes('زبدة')) {
+            sauces.push(item);
+          } else if (name.includes('أوريو') || name.includes('كرانش') || name.includes('كرز') || name.includes('موز') || name.includes('فراولة') || name.includes('قهوة') || name.includes('إسبريسو')) {
+            crunches.push(item);
+          } else if (name.includes('كريمة') || name.includes('توبينج') || name.includes('قمة') || name.includes('تتويج')) {
+            toppings.push(item);
+          } else if (name.includes('قاعدة') || name.includes('آيس كريم')) {
+            bases.push(item);
+          } else {
+            crunches.push(item);
+          }
         }
-      }
-    });
+      });
+    }
 
-    // Start with the full gourmet recipe list (19 items from restaurant kitchen sheets)
+    // Start with the full 19 gourmet items from restaurant recipe sheets
     const finalBases = [...DEFAULT_SHAKE_BASES];
     const finalSauces = [...DEFAULT_SHAKE_SAUCES];
     const finalCrunches = [...DEFAULT_SHAKE_CRUNCH];
     const finalToppings = [...DEFAULT_SHAKE_TOPPINGS];
 
-    // Merge any additional custom POS add-ons (avoiding duplicate names)
+    // Merge any additional custom POS add-ons (avoiding duplicates)
     bases.forEach(b => {
       if (!finalBases.some(fb => fb.name.toLowerCase() === b.name.toLowerCase())) {
         finalBases.push(b);
@@ -376,27 +356,15 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
     }, 600);
   };
 
-  // Feature flags for visual toppings
-  const hasWhippedCream = selectedToppings.some(t => t.id.includes('cream') || t.name.includes('كريمة'));
-  const hasWholeOreo = selectedToppings.some(t => t.id.includes('oreo') || t.name.includes('أوريو'));
-  const hasWholeLotus = selectedToppings.some(t => t.id.includes('lotus') || t.name.includes('لوتس'));
-  const hasCherryCrown = selectedToppings.some(t => t.id.includes('cherry') || t.name.includes('كرز'));
-
-  // Crunches & Inclusions flags
-  const hasOreoBits = selectedCrunches.some(c => c.id.includes('oreo') || c.name.includes('أوريو'));
-  const hasCherryFilling = selectedCrunches.some(c => c.id.includes('cherry') || c.name.includes('كرز'));
-  const hasBananaChunks = selectedCrunches.some(c => c.id.includes('banana') || c.name.includes('موز'));
-  const hasStrawberryChunks = selectedCrunches.some(c => c.id.includes('strawberry') || c.name.includes('فراولة'));
-  const hasCoffeeFlavor = selectedCrunches.some(c => c.id.includes('coffee') || c.name.includes('قهوة') || c.name.includes('إسبريسو'));
-
-  // Primary sauce color for drizzle over cream
-  const topSauceColor = selectedSauces.length > 0 ? selectedSauces[0].color : null;
-
-  // Cup asset path (works in dev and in GitHub Pages subpath)
-  const cupAssetUrl = `${import.meta.env.BASE_URL}images/the_black_box_cup_overlay.webp`;
+  // All selected items for recipe board
+  const allSelectedAddons = [
+    ...selectedSauces.map(s => ({ ...s, category: 'صوص' })),
+    ...selectedCrunches.map(c => ({ ...c, category: 'إضافة' })),
+    ...selectedToppings.map(t => ({ ...t, category: 'تتويج' }))
+  ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
       {/* Backdrop */}
       <motion.div 
         initial={{ opacity: 0 }}
@@ -411,12 +379,12 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
         initial={{ opacity: 0, scale: 0.96, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 20 }}
-        className="relative w-full max-w-4xl bg-black-surface border border-brand-red-dark/40 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] z-10"
+        className="relative w-full max-w-4xl bg-[#101014] border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] z-10"
       >
         {/* Top Header */}
-        <div className="p-4 sm:p-5 border-b border-white/10 flex items-center justify-between bg-black-primary/70">
+        <div className="p-4 sm:p-5 border-b border-white/10 flex items-center justify-between bg-black-primary/80">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-brand-red/15 text-brand-red flex items-center justify-center border border-brand-red/30">
+            <div className="w-10 h-10 rounded-xl bg-brand-red/15 text-brand-red flex items-center justify-center border border-brand-red/30 shrink-0">
               <Sparkles size={20} />
             </div>
             <div>
@@ -450,383 +418,75 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
           </div>
         </div>
 
-        {/* Modal Body: Two Column Layout */}
+        {/* Modal Body: Two Column Clean Layout */}
         <div className="flex flex-col md:flex-row flex-grow overflow-y-auto">
           
-          {/* ===================== LEFT: REAL BRANDED CUP SIMULATOR ===================== */}
-          <div className="w-full md:w-5/12 bg-gradient-to-b from-[#0A0A0D] via-[#101015] to-[#0A0A0D] p-3 sm:p-5 md:p-6 flex flex-col items-center justify-center border-b md:border-b-0 md:border-l border-white/10 relative overflow-hidden select-none shrink-0">
-            
-            {/* Ambient Gastronomic Spotlight Glow */}
-            <div 
-              className="absolute w-72 h-72 rounded-full blur-[90px] opacity-25 pointer-events-none transition-colors duration-700"
-              style={{ backgroundColor: selectedBase.color }}
-            />
+          {/* ===================== LEFT: ARTISANAL RECIPE BOARD (Clean luxury ticket) ===================== */}
+          <div className="w-full md:w-5/12 bg-[#0B0B0E] p-4 sm:p-6 border-b md:border-b-0 md:border-l border-white/10 flex flex-col justify-between shrink-0">
+            <div>
+              {/* Header Badge */}
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs font-black uppercase tracking-wider text-text-muted flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-brand-red"></span>
+                  بطاقة وصفتك المخصصة
+                </span>
+                <span className="text-xs font-bold text-brand-red bg-brand-red/10 px-2 py-0.5 rounded-full">
+                  {allSelectedAddons.length + 1} مكونات
+                </span>
+              </div>
 
-            {/* THE VISUAL CUP STAGE (Uses exact coordinates of the user's branded cup) */}
-            <div className="relative w-44 sm:w-56 md:w-64 h-[270px] sm:h-[350px] md:h-[430px] flex items-center justify-center">
-              
-              <svg 
-                viewBox="0 0 460 1024" 
-                className="w-full h-full drop-shadow-2xl overflow-visible select-none"
-              >
-                <defs>
-                  {/* Exact Conical Taper of The Black Box Cup */}
-                  <clipPath id="innerCupClip">
-                    <polygon points="56,335 404,335 344,825 116,825" />
-                  </clipPath>
-
-                  {/* Liquid Rich Radial Gradient */}
-                  <radialGradient id="liquidDairyGrad" cx="50%" cy="35%" r="65%">
-                    <stop offset="0%" stopColor={selectedBase.color} />
-                    <stop offset="60%" stopColor={selectedBase.waveColor || selectedBase.color} />
-                    <stop offset="100%" stopColor={selectedBase.shadowColor || '#2B150A'} />
-                  </radialGradient>
-
-                  {/* Sauce Highlight Gradient */}
-                  <linearGradient id="sauceGlossHighlight" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="rgba(255,255,255,0.4)" />
-                    <stop offset="100%" stopColor="rgba(255,255,255,0.05)" />
-                  </linearGradient>
-
-                  {/* Whipped Cream Gradient */}
-                  <linearGradient id="realCreamGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="#FFFFFF" />
-                    <stop offset="55%" stopColor="#F9F6F0" />
-                    <stop offset="85%" stopColor="#EFE8DB" />
-                    <stop offset="100%" stopColor="#D8CDBA" />
-                  </linearGradient>
-                </defs>
-
-                {/* 1. LIQUID CORE (INSIDE CUP) */}
-                <g clipPath="url(#innerCupClip)">
-                  {/* Solid Creamy Liquid Base */}
-                  <rect 
-                    x="40" 
-                    y="335" 
-                    width="380" 
-                    height="500" 
-                    fill="url(#liquidDairyGrad)" 
+              {/* Selected Base Showcase Card */}
+              <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 mb-4 flex items-center gap-3">
+                {selectedBase.iconPath ? (
+                  <img 
+                    src={selectedBase.iconPath} 
+                    alt={selectedBase.name} 
+                    className="w-14 h-14 rounded-xl object-cover border border-white/15 shadow-md shrink-0" 
                   />
+                ) : (
+                  <div className="w-14 h-14 rounded-xl shadow-inner border border-white/15 shrink-0" style={{ backgroundColor: selectedBase.color }} />
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="text-[11px] font-bold text-brand-red uppercase">القاعدة المختارة</div>
+                  <div className="font-bold text-sm text-white truncate">{selectedBase.name}</div>
+                  <div className="text-xs text-text-muted">{selectedBase.price > 0 ? `+${selectedBase.price} ج.م` : 'مشمولة في السعر الأساسي'}</div>
+                </div>
+              </div>
 
-                  {/* Coffee Marble Swirl (if Coffee addition is active) */}
-                  {hasCoffeeFlavor && (
-                    <g className="transition-all duration-500 opacity-70">
-                      <path d="M 120 340 Q 200 480, 150 620 Q 110 740, 200 820" fill="none" stroke="#2D170B" strokeWidth="18" strokeLinecap="round" filter="blur(3px)" />
-                      <path d="M 320 360 Q 240 500, 300 660 Q 330 760, 260 820" fill="none" stroke="#3A2013" strokeWidth="14" strokeLinecap="round" filter="blur(2px)" />
-                    </g>
-                  )}
-
-                  {/* Soft Internal Meniscus / Froth Wave at top */}
-                  <path 
-                    d="M 50 338 Q 230 355, 410 338 L 410 352 Q 230 368, 50 352 Z" 
-                    fill={selectedBase.waveColor || '#F3E8CD'} 
-                    opacity="0.8" 
-                  />
-
-                  {/* Secondary Froth Highlight Ring */}
-                  <ellipse cx="230" cy="344" rx="160" ry="8" fill="#FFFFFF" opacity="0.35" />
-
-                  {/* VISCOUS SAUCE DRIZZLES RUNNING DOWN THE INNER GLASS WALLS */}
-                  {selectedSauces.map((sauce, sIdx) => {
-                    // Drip coordinates across cup width
-                    const xPositions = [
-                      { x: 95, length: 320, width: 22 },
-                      { x: 165, length: 260, width: 18 },
-                      { x: 255, length: 340, width: 24 },
-                      { x: 330, length: 280, width: 20 },
-                      { x: 210, length: 380, width: 26 }
-                    ];
-                    const pos = xPositions[sIdx % xPositions.length];
-                    const dripEnd = 335 + pos.length;
-
-                    return (
-                      <g key={sauce.id} className="transition-all duration-500">
-                        {/* Main Thick Drip River */}
-                        <path 
-                          d={`M ${pos.x - pos.width/2} 335 
-                              Q ${pos.x - pos.width/2 - 2} ${dripEnd - 30}, ${pos.x - pos.width/2 - 4} ${dripEnd - 15}
-                              A ${pos.width/2 + 4} ${pos.width/2 + 4} 0 0 0 ${pos.x + pos.width/2 + 4} ${dripEnd - 15}
-                              Q ${pos.x + pos.width/2 + 2} ${dripEnd - 30}, ${pos.x + pos.width/2} 335 Z`}
-                          fill={sauce.color}
-                          opacity="0.95"
-                          filter="drop-shadow(0 2px 4px rgba(0,0,0,0.35))"
-                        />
-                        {/* 3D Gloss Highlight Line down center of drip */}
-                        <path 
-                          d={`M ${pos.x - 2} 340 Q ${pos.x - 2} ${dripEnd - 25}, ${pos.x - 1} ${dripEnd - 16}`}
-                          stroke="url(#sauceGlossHighlight)"
-                          strokeWidth="3.5"
-                          strokeLinecap="round"
-                          fill="none"
-                        />
-                        {/* Bulbous tip droplet specular sheen */}
-                        <circle cx={pos.x} cy={dripEnd - 12} r={pos.width/4} fill="#FFFFFF" opacity="0.4" />
-                      </g>
-                    );
-                  })}
-
-                  {/* SUSPENDED INCLUSIONS & CRUNCHES */}
-                  {/* A: Oreo Cookie Crumble Bits */}
-                  {hasOreoBits && (
-                    <g className="transition-all duration-300">
-                      {[
-                        { cx: 120, cy: 430, r: 5, rot: 15 },
-                        { cx: 180, cy: 510, r: 7, rot: 45 },
-                        { cx: 290, cy: 460, r: 6, rot: 30 },
-                        { cx: 330, cy: 590, r: 8, rot: 60 },
-                        { cx: 140, cy: 660, r: 6, rot: 75 },
-                        { cx: 270, cy: 720, r: 7, rot: 20 },
-                        { cx: 210, cy: 760, r: 5, rot: 80 },
-                        { cx: 170, cy: 400, r: 4, rot: 10 },
-                        { cx: 310, cy: 680, r: 5, rot: 50 },
-                        { cx: 240, cy: 420, r: 6, rot: 90 },
-                      ].map((crumb, idx) => (
-                        <g key={idx} transform={`rotate(${crumb.rot} ${crumb.cx} ${crumb.cy})`}>
-                          {/* Dark crunchy cookie morsel */}
-                          <rect 
-                            x={crumb.cx - crumb.r} 
-                            y={crumb.cy - crumb.r} 
-                            width={crumb.r * 2} 
-                            height={crumb.r * 2} 
-                            rx={2} 
-                            fill="#1B1718" 
-                            stroke="#0D0B0C" 
-                            strokeWidth="1" 
-                          />
-                          {/* White creme speckle */}
-                          <circle cx={crumb.cx - 1} cy={crumb.cy - 1} r={crumb.r * 0.35} fill="#FFFFFF" opacity="0.85" />
-                        </g>
-                      ))}
-                    </g>
-                  )}
-
-                  {/* B: Ruby Cherry Filling Pieces */}
-                  {hasCherryFilling && (
-                    <g className="transition-all duration-300">
-                      {[
-                        { cx: 150, cy: 480, r: 13 },
-                        { cx: 300, cy: 530, r: 14 },
-                        { cx: 190, cy: 690, r: 12 },
-                        { cx: 260, cy: 620, r: 13 },
-                      ].map((cherry, idx) => (
-                        <g key={idx}>
-                          {/* Cherry berry body */}
-                          <circle cx={cherry.cx} cy={cherry.cy} r={cherry.r} fill="#7A081B" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.4))" />
-                          <circle cx={cherry.cx} cy={cherry.cy} r={cherry.r - 2} fill="#9E0E27" />
-                          {/* Glossy fruit highlight */}
-                          <ellipse cx={cherry.cx - 4} cy={cherry.cy - 4} rx={3} ry={2} fill="#FFFFFF" opacity="0.75" />
-                        </g>
-                      ))}
-                    </g>
-                  )}
-
-                  {/* C: Fresh Banana Chunks */}
-                  {hasBananaChunks && (
-                    <g className="transition-all duration-300">
-                      {[
-                        { cx: 160, cy: 450, r: 12, rot: 25 },
-                        { cx: 280, cy: 490, r: 13, rot: -15 },
-                        { cx: 160, cy: 620, r: 12, rot: 40 },
-                        { cx: 290, cy: 690, r: 13, rot: -30 },
-                      ].map((banana, idx) => (
-                        <g key={idx} transform={`rotate(${banana.rot} ${banana.cx} ${banana.cy})`}>
-                          {/* Banana disc cut */}
-                          <circle cx={banana.cx} cy={banana.cy} r={banana.r} fill="#FAF0CA" stroke="#E6D38E" strokeWidth="1.5" />
-                          <circle cx={banana.cx} cy={banana.cy} r={banana.r * 0.45} fill="#F2E09B" />
-                          {/* Central star seeds */}
-                          <circle cx={banana.cx - 1} cy={banana.cy - 1} r="0.8" fill="#5A4723" />
-                          <circle cx={banana.cx + 1} cy={banana.cy + 1} r="0.8" fill="#5A4723" />
-                          <circle cx={banana.cx - 1} cy={banana.cy + 1} r="0.8" fill="#5A4723" />
-                        </g>
-                      ))}
-                    </g>
-                  )}
-
-                  {/* D: Fresh Strawberry Chunks */}
-                  {hasStrawberryChunks && (
-                    <g className="transition-all duration-300">
-                      {[
-                        { cx: 140, cy: 540, r: 11 },
-                        { cx: 290, cy: 430, r: 12 },
-                        { cx: 240, cy: 670, r: 11 },
-                      ].map((berry, idx) => (
-                        <g key={idx}>
-                          <path 
-                            d={`M ${berry.cx} ${berry.cy - berry.r} Q ${berry.cx + berry.r} ${berry.cy}, ${berry.cx} ${berry.cy + berry.r} Q ${berry.cx - berry.r} ${berry.cy}, ${berry.cx} ${berry.cy - berry.r} Z`} 
-                            fill="#D92546" 
-                          />
-                          <circle cx={berry.cx - 2} cy={berry.cy - 3} r="2" fill="#FFFFFF" opacity="0.6" />
-                        </g>
-                      ))}
-                    </g>
-                  )}
-
-                  {/* Submerged Black Straw Depth & Shadow inside liquid */}
-                  <path 
-                    d="M 235 340 L 175 790 L 195 790 L 255 340 Z" 
-                    fill="#151515" 
-                    opacity="0.3" 
-                  />
-                </g>
-
-                {/* 2. THE OFFICIAL BRANDED CUP OVERLAY (Straw, printed logo, rim, glass gloss) */}
-                <image 
-                  href={cupAssetUrl} 
-                  x="0" 
-                  y="0" 
-                  width="460" 
-                  height="1024" 
-                  preserveAspectRatio="xMidYMid meet"
-                  className="pointer-events-none"
-                />
-
-                {/* 3. WHIPPED CREAM MOUNTAIN ON TOP OF RIM */}
-                <AnimatePresence>
-                  {hasWhippedCream && (
-                    <motion.g
-                      initial={{ scale: 0.7, y: -20, opacity: 0 }}
-                      animate={{ scale: 1, y: 0, opacity: 1 }}
-                      exit={{ scale: 0.7, y: -20, opacity: 0 }}
-                      transition={{ type: "spring", stiffness: 220, damping: 15 }}
-                    >
-                      {/* Cream Base Foundation Mound */}
-                      <path 
-                        d="M 68 338 Q 90 270, 140 280 Q 180 230, 230 250 Q 280 220, 330 270 Q 370 260, 392 338 Z" 
-                        fill="url(#realCreamGrad)" 
-                        stroke="#D5CCC0" 
-                        strokeWidth="1.5"
-                        filter="drop-shadow(0 4px 8px rgba(0,0,0,0.35))"
-                      />
-
-                      {/* Volumetric Cream Swirl Crests */}
-                      <path 
-                        d="M 110 320 Q 150 250, 210 275 Q 270 240, 330 300" 
-                        fill="none" 
-                        stroke="#E8DECF" 
-                        strokeWidth="4" 
-                        strokeLinecap="round" 
-                      />
-                      <path 
-                        d="M 150 290 Q 200 240, 260 260 Q 300 245, 340 310" 
-                        fill="none" 
-                        stroke="#FFFFFF" 
-                        strokeWidth="3" 
-                        strokeLinecap="round" 
-                      />
-
-                      {/* Top Swirl Peak Tip */}
-                      <path 
-                        d="M 215 250 Q 230 215, 242 225 Q 238 245, 245 255" 
-                        fill="#FFFFFF" 
-                        stroke="#E2D7C5" 
-                        strokeWidth="1.5" 
-                      />
-
-                      {/* Luscious Sauce Drizzle Pooling Over Cream if any sauce is selected */}
-                      {topSauceColor && (
-                        <g className="transition-all duration-300">
-                          <path 
-                            d="M 125 310 Q 165 260, 215 285 Q 265 250, 315 295 Q 355 285, 370 330" 
-                            fill="none" 
-                            stroke={topSauceColor} 
-                            strokeWidth="5" 
-                            strokeLinecap="round" 
-                            opacity="0.9"
-                            filter="drop-shadow(0 2px 4px rgba(0,0,0,0.3))"
-                          />
-                          {/* Secondary drip ribbon */}
-                          <path 
-                            d="M 180 270 Q 225 240, 260 255" 
-                            fill="none" 
-                            stroke={topSauceColor} 
-                            strokeWidth="3.5" 
-                            strokeLinecap="round" 
-                            opacity="0.85" 
-                          />
-                        </g>
-                      )}
-                    </motion.g>
-                  )}
-                </AnimatePresence>
-
-                {/* 4. CROWN TOPPINGS: Whole Biscuit / Glazed Cherry */}
-                {/* A: Whole Oreo Cookie Crown */}
-                <AnimatePresence>
-                  {hasWholeOreo && (
-                    <motion.g
-                      initial={{ y: -30, opacity: 0, rotate: -25 }}
-                      animate={{ y: 0, opacity: 1, rotate: -15 }}
-                      exit={{ y: -20, opacity: 0 }}
-                      transition={{ type: "spring", stiffness: 220, damping: 14 }}
-                      transform="translate(260, 190)"
-                    >
-                      {/* Oreo Body */}
-                      <circle cx="35" cy="35" r="32" fill="#1B1718" stroke="#0D0B0C" strokeWidth="2" filter="drop-shadow(0 6px 12px rgba(0,0,0,0.5))" />
-                      <circle cx="35" cy="35" r="28" fill="none" stroke="#2B2728" strokeWidth="2.5" strokeDasharray="3 3" />
-                      <circle cx="35" cy="35" r="20" fill="#252122" />
-                      {/* Oreo Embossed Center */}
-                      <text x="35" y="38" textAnchor="middle" fill="#FFFFFF" opacity="0.6" fontSize="7" fontWeight="bold" fontFamily="sans-serif">
-                        OREO
-                      </text>
-                      {/* White Creme layer visible on rim */}
-                      <path d="M 10 48 Q 35 62, 60 48" fill="none" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" opacity="0.9" />
-                    </motion.g>
-                  )}
-                </AnimatePresence>
-
-                {/* B: Whole Biscoff Lotus Biscuit Crown */}
-                <AnimatePresence>
-                  {hasWholeLotus && (
-                    <motion.g
-                      initial={{ y: -30, opacity: 0, rotate: -20 }}
-                      animate={{ y: 0, opacity: 1, rotate: -12 }}
-                      exit={{ y: -20, opacity: 0 }}
-                      transition={{ type: "spring", stiffness: 220, damping: 14 }}
-                      transform="translate(250, 175)"
-                    >
-                      {/* Biscoff Biscuit Body */}
-                      <rect x="0" y="0" width="36" height="58" rx="4" fill="#6B371B" stroke="#874723" strokeWidth="2" filter="drop-shadow(0 6px 12px rgba(0,0,0,0.5))" />
-                      <rect x="4" y="4" width="28" height="50" rx="2" fill="#753C1E" stroke="#5C2E16" strokeWidth="1" strokeDasharray="2 2" />
-                      <text x="18" y="32" textAnchor="middle" fill="#FFDA88" fontSize="6.5" fontWeight="black" fontFamily="serif">
-                        LOTUS
-                      </text>
-                    </motion.g>
-                  )}
-                </AnimatePresence>
-
-                {/* C: Royal Glazed Cherry Crown */}
-                <AnimatePresence>
-                  {hasCherryCrown && (
-                    <motion.g
-                      initial={{ scale: 0, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0, opacity: 0 }}
-                      transition={{ type: "spring", stiffness: 260, damping: 16 }}
-                      transform="translate(205, 185)"
-                    >
-                      {/* Cherry Stem */}
-                      <path d="M 20 22 Q 35 5, 45 0" fill="none" stroke="#4A6B22" strokeWidth="2.5" strokeLinecap="round" />
-                      {/* Cherry Body */}
-                      <circle cx="20" cy="32" r="16" fill="#800014" filter="drop-shadow(0 4px 8px rgba(0,0,0,0.5))" />
-                      <circle cx="20" cy="32" r="14" fill="#A3001A" />
-                      {/* High-gloss shine */}
-                      <ellipse cx="15" cy="26" rx="4" ry="2.5" fill="#FFFFFF" opacity="0.85" />
-                    </motion.g>
-                  )}
-                </AnimatePresence>
-              </svg>
-
+              {/* Selected Additions List */}
+              <div className="space-y-2 mb-4">
+                <div className="text-[11px] font-bold text-text-muted uppercase mb-1">الإضافات والصوصات النشطة:</div>
+                {allSelectedAddons.length === 0 ? (
+                  <div className="p-4 rounded-xl border border-dashed border-white/10 text-center text-xs text-text-muted">
+                    لم تختر إضافات بعد، اضغط على أي صوص أو كرانش لإضافته
+                  </div>
+                ) : (
+                  <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
+                    {allSelectedAddons.map((item) => (
+                      <div 
+                        key={item.id} 
+                        className="p-2 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-between text-xs"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          {item.iconPath ? (
+                            <img src={item.iconPath} alt="" className="w-6 h-6 rounded-lg object-cover border border-white/10 shrink-0" />
+                          ) : (
+                            <div className="w-6 h-6 rounded-lg shrink-0" style={{ backgroundColor: item.color || '#E63946' }} />
+                          )}
+                          <span className="text-white font-medium truncate">{item.name}</span>
+                        </div>
+                        <span className="text-brand-red font-bold shrink-0">+{item.price} ج.م</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Current Shake Summary */}
-            <div className="mt-4 text-center">
-              <div className="text-xs font-bold text-white mb-1 flex items-center justify-center gap-1.5 flex-wrap">
-                <span className="text-amber-200">{selectedBase.name}</span>
-                {selectedSauces.length > 0 && <span className="text-brand-red font-bold">+ {selectedSauces.length} صوص</span>}
-                {selectedCrunches.length > 0 && <span className="text-brand-red font-bold">+ {selectedCrunches.length} إضافات</span>}
-                {hasWhippedCream && <span className="text-white/80 font-bold">+ كريمة</span>}
-              </div>
-              <p className="text-[11px] text-text-muted">المحرك البصري الحي يعرض كوب THE BLACK BOX الحقيقي مع إضافاتك</p>
+            {/* Chef Tasting Note */}
+            <div className="p-3 rounded-xl bg-brand-red/5 border border-brand-red/20 text-[11px] text-text-muted leading-relaxed">
+              <span className="text-brand-red font-bold block mb-0.5">ملاحظة باريستا THE BLACK BOX:</span>
+              يتم تحضير المشروب طازجاً من الآيس كريم الفاخر مع الصوصات الأصلية والتتويج بالكريمة فور استلام طلبك.
             </div>
           </div>
 
@@ -834,7 +494,7 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
           <div className="w-full md:w-7/12 p-4 sm:p-7 flex flex-col justify-between">
             
             <div>
-              {/* FIXED CLEAN SEGMENTED NAVIGATION TABS (Responsive, no text wrap) */}
+              {/* FIXED CLEAN SEGMENTED NAVIGATION TABS */}
               <div className="grid grid-cols-4 gap-1 sm:gap-2 mb-6 bg-black-primary/70 p-1.5 rounded-2xl border border-white/10">
                 {[
                   { id: 'base', label: 'القاعدة', count: 1 },
@@ -884,9 +544,9 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                         >
                           <div className="flex items-center gap-3 min-w-0">
                             {b.iconPath ? (
-                              <img src={b.iconPath} alt="" className="w-10 h-10 rounded-xl object-cover border border-white/20 shadow shrink-0" />
+                              <img src={b.iconPath} alt="" className="w-11 h-11 rounded-xl object-cover border border-white/20 shadow shrink-0" />
                             ) : (
-                              <div className="w-10 h-10 rounded-xl shadow-inner border border-white/20 shrink-0" style={{ backgroundColor: b.color }} />
+                              <div className="w-11 h-11 rounded-xl shadow-inner border border-white/20 shrink-0" style={{ backgroundColor: b.color }} />
                             )}
                             <div className="min-w-0">
                               <div className="font-bold text-sm text-text-light truncate">{b.name}</div>
@@ -908,7 +568,7 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
               {activeTab === 'sauces' && (
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-text-muted font-bold">اختر الصوصات السائلة لتسيل داخل جدران الكوب (اختياري):</span>
+                    <span className="text-xs text-text-muted font-bold">اختر الصوصات السائلة الفاخرة (اختياري):</span>
                     <span className="text-xs text-brand-red font-bold">{selectedSauces.length} محددة</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -926,9 +586,9 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                         >
                           <div className="flex items-center gap-3 min-w-0">
                             {s.iconPath ? (
-                              <img src={s.iconPath} alt="" className="w-10 h-10 rounded-xl object-cover border border-white/20 shadow shrink-0" />
+                              <img src={s.iconPath} alt="" className="w-11 h-11 rounded-xl object-cover border border-white/20 shadow shrink-0" />
                             ) : (
-                              <div className="w-10 h-10 rounded-xl shadow-md shrink-0" style={{ backgroundColor: s.color }} />
+                              <div className="w-11 h-11 rounded-xl shadow-md shrink-0" style={{ backgroundColor: s.color }} />
                             )}
                             <span className="font-bold text-sm text-text-light truncate">{s.name}</span>
                           </div>
@@ -967,10 +627,10 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                         >
                           <div className="flex items-center gap-3 min-w-0">
                             {c.iconPath ? (
-                              <img src={c.iconPath} alt="" className="w-10 h-10 rounded-xl object-cover border border-white/20 shadow shrink-0" />
+                              <img src={c.iconPath} alt="" className="w-11 h-11 rounded-xl object-cover border border-white/20 shadow shrink-0" />
                             ) : (
-                              <div className="w-10 h-10 rounded-xl shadow-md flex items-center justify-center bg-white/10 border border-white/10 shrink-0">
-                                <Cookie size={16} className="text-amber-400" />
+                              <div className="w-11 h-11 rounded-xl shadow-md flex items-center justify-center bg-white/10 border border-white/10 shrink-0">
+                                <span className="text-amber-400 font-black">✦</span>
                               </div>
                             )}
                             <span className="font-bold text-sm text-text-light truncate">{c.name}</span>
@@ -1009,10 +669,10 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                         >
                           <div className="flex items-center gap-3 min-w-0">
                             {t.iconPath ? (
-                              <img src={t.iconPath} alt="" className="w-10 h-10 rounded-xl object-cover border border-white/20 shadow shrink-0" />
+                              <img src={t.iconPath} alt="" className="w-11 h-11 rounded-xl object-cover border border-white/20 shadow shrink-0" />
                             ) : (
-                              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/10 shrink-0">
-                                <Crown size={16} className="text-amber-400" />
+                              <div className="w-11 h-11 rounded-xl bg-white/10 flex items-center justify-center border border-white/10 shrink-0">
+                                <span className="text-amber-400 font-black">★</span>
                               </div>
                             )}
                             <span className="font-bold text-sm text-text-light truncate">{t.name}</span>
@@ -1058,7 +718,7 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                   </>
                 ) : (
                   <>
-                    <Sparkles size={18} />
+                    <ShoppingBag size={18} />
                     <span>إضافة المشروب للطلب</span>
                   </>
                 )}
