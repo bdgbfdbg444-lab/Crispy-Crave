@@ -14,7 +14,7 @@ export default function Hero({ websiteData }) {
   const navigate = useNavigate();
   const ref = useRef(null);
   const videoRef = useRef(null);
-  const [isVideoReady, setIsVideoReady] = useState(false);
+  // Video plays immediately on mobile and desktop
   const [isMobile, setIsMobile] = useState(() => {
     return typeof window !== 'undefined' ? window.innerWidth < 768 : false;
   });
@@ -26,20 +26,39 @@ export default function Hero({ websiteData }) {
   }, []);
 
   useEffect(() => {
-    // Mount video after initial paint so FCP & LCP are instant, then start playback on all devices
-    const timer = setTimeout(() => {
-      setIsVideoReady(true);
-    }, 600);
-    return () => clearTimeout(timer);
-  }, []);
+    const video = videoRef.current;
+    if (!video) return;
 
-  useEffect(() => {
-    if (isVideoReady && videoRef.current) {
-      videoRef.current.defaultMuted = true;
-      videoRef.current.muted = true;
-      videoRef.current.play().catch(() => {});
-    }
-  }, [isVideoReady]);
+    // Strict Mobile Autoplay Guarantee (iOS Safari & Android Chrome)
+    video.muted = true;
+    video.defaultMuted = true;
+    video.setAttribute('playsinline', '');
+    video.setAttribute('webkit-playsinline', '');
+
+    const startPlay = () => {
+      video.play().catch(() => {});
+    };
+
+    startPlay();
+
+    // Fallback: resume on first user touch/scroll if browser low-power policy blocked autoplay
+    const handleFirstTouch = () => {
+      startPlay();
+      window.removeEventListener('touchstart', handleFirstTouch);
+      window.removeEventListener('scroll', handleFirstTouch);
+      window.removeEventListener('click', handleFirstTouch);
+    };
+
+    window.addEventListener('touchstart', handleFirstTouch, { passive: true, once: true });
+    window.addEventListener('scroll', handleFirstTouch, { passive: true, once: true });
+    window.addEventListener('click', handleFirstTouch, { passive: true, once: true });
+
+    return () => {
+      window.removeEventListener('touchstart', handleFirstTouch);
+      window.removeEventListener('scroll', handleFirstTouch);
+      window.removeEventListener('click', handleFirstTouch);
+    };
+  }, [bgMedia]);
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ['start start', 'end start']
@@ -59,15 +78,16 @@ export default function Hero({ websiteData }) {
       {/* Background Media with Parallax */}
       <motion.div style={{ y, x: '-50%', left: '50%', minWidth: '100%', height: '120%', top: '-10%' }} className="absolute z-0">
         {bgMedia && isVideo ? (
-          isVideoReady ? (
             <video 
               ref={videoRef}
               key={bgMedia}
               autoPlay 
               loop 
               muted 
+              defaultMuted
               playsInline 
               webkit-playsinline="true"
+              preload="metadata"
               poster={optimizeCloudinaryUrl(bgMedia.replace(/\.mp4$/i, '.jpg'), { width: isMobile ? 480 : 800, quality: 'auto' })}
               className="w-full h-full object-cover opacity-40 mix-blend-overlay"
             >
@@ -76,16 +96,6 @@ export default function Hero({ websiteData }) {
                 type="video/mp4" 
               />
             </video>
-          ) : (
-            <img 
-              src={optimizeCloudinaryUrl(bgMedia.replace(/\.mp4$/i, '.jpg'), { width: isMobile ? 480 : 800, quality: 'auto' })}
-              alt="Hero Preview" 
-              className="w-full h-full object-cover opacity-40 mix-blend-overlay"
-              fetchPriority="high"
-              decoding="async"
-              loading="eager"
-            />
-          )
         ) : bgMedia ? (
           <img 
             src={getHeroImageUrl(bgMedia)} 
