@@ -1,6 +1,7 @@
 import { useLanguage } from '../context/LanguageContext';
 import React from 'react';
 import { motion } from 'framer-motion';
+import { optimizeCloudinaryUrl } from '../utils/imageOptimizer';
 import { Play, Heart, MessageCircle } from 'lucide-react';
 import { APP_CONFIG } from '../config/appConfig';
 
@@ -119,9 +120,13 @@ export default function SocialFeed({ websiteData }) {
               className="relative aspect-[4/5] rounded-2xl overflow-hidden group cursor-pointer bg-gray-900 block"
             >
               <img 
-                src={item.url} 
+                src={optimizeCloudinaryUrl(item.url, { width: 450, quality: 'auto' })} 
                 alt="Social Feed Post" 
                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out opacity-90 group-hover:opacity-100"
+                loading="lazy"
+                decoding="async"
+                width={400}
+                height={500}
               />
               
               {/* Video Icon overlay for video types */}

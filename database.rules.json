@@ -736,6 +736,9 @@
     "ActiveOTPs": {
       ".read": false,
       ".write": false
+    },
+    "_systemState": {
+      ".read": true
     }
   }
 }

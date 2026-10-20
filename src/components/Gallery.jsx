@@ -1,6 +1,7 @@
 ﻿import { useLanguage } from '../context/LanguageContext';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { optimizeCloudinaryUrl } from '../utils/imageOptimizer';
 import { Camera, X } from 'lucide-react';
 
 export default function Gallery({ websiteData }) {
@@ -72,10 +73,13 @@ export default function Gallery({ websiteData }) {
               onClick={() => setSelectedImage(src)}
             >
               <img 
-                src={src} 
+                src={optimizeCloudinaryUrl(src, { width: 600, quality: 'auto' })} 
                 alt={`Gallery ${idx + 1}`} 
                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
                 loading="lazy"
+                decoding="async"
+                width={400}
+                height={400}
               />
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
                 <Camera size={32} className="text-white drop-shadow-lg scale-50 group-hover:scale-100 transition-transform duration-300" />

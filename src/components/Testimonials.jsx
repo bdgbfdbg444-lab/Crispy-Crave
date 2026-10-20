@@ -107,10 +107,13 @@ export default function Testimonials({ websiteData }) {
                   {/* Subtle gradient overlay to blend harsh image edges */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black-surface via-transparent to-transparent z-10"></div>
                   <img 
-                    src={(review.imageUrl || review.ImageUrl)} 
+                    src={optimizeCloudinaryUrl((review.imageUrl || review.ImageUrl), { width: 450, quality: 'auto' })} 
                     alt="Customer Order" 
                     className="w-full h-full object-cover opacity-90 group-hover:scale-110 transition-transform duration-700" 
-                    loading="lazy" 
+                    loading="lazy"
+                    decoding="async"
+                    width={400}
+                    height={220}
                   />
                 </div>
               )}

@@ -5,7 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { APP_CONFIG } from '../config/appConfig';
 import { ChevronDown, Utensils } from 'lucide-react';
 import Logo from './Logo';
-import { getHeroImageUrl } from '../utils/imageOptimizer';
+import { getHeroImageUrl, optimizeCloudinaryUrl } from '../utils/imageOptimizer';
 import { useCart } from '../context/CartContext';
 
 export default function Hero({ websiteData }) {
@@ -38,10 +38,10 @@ export default function Hero({ websiteData }) {
             loop 
             muted 
             playsInline 
-            preload="metadata"
+            preload="none"
             className="w-full h-full object-cover opacity-40 mix-blend-overlay"
           >
-            <source src={bgMedia} type="video/mp4" />
+            <source src={optimizeCloudinaryUrl(bgMedia, { width: 720, quality: 'auto' })} type="video/mp4" />
           </video>
         ) : bgMedia ? (
           <img 

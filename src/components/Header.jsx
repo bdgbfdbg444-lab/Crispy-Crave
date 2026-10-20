@@ -124,10 +124,10 @@ export default function Header() {
 
             <div className="h-6 w-px bg-brand-red-dark/50"></div>
 
-            <button onClick={toggleLanguage} className="font-bold text-sm border-2 border-transparent hover:border-brand-red px-3 py-1 rounded-md transition-colors text-text-light mx-2">
+            <button onClick={toggleLanguage} aria-label="تبديل لغة الموقع" className="font-bold text-sm border-2 border-transparent hover:border-brand-red px-3 py-1 rounded-md transition-colors text-text-light mx-2">
 {lang === 'ar' ? 'EN' : 'عربي'}
 </button>
-<button onClick={() => setIsCartOpen(true)}
+<button onClick={() => setIsCartOpen(true)} aria-label="عرض سلة التسوق"
               className="flex items-center gap-2 border-2 border-brand-red hover:bg-brand-red px-6 py-2 rounded-lg transition-colors relative group"
             >
               <ShoppingBag size={18} className="text-brand-red group-hover:text-text-light transition-colors" />
@@ -142,7 +142,7 @@ export default function Header() {
 
           {/* Mobile Language Toggle + Cart */}
           <div className="md:hidden flex items-center gap-3">
-            <button onClick={toggleLanguage} className="font-bold text-sm border-2 border-brand-red hover:bg-brand-red px-3 py-1.5 rounded-md transition-colors text-text-light">
+            <button onClick={toggleLanguage} aria-label="تبديل لغة الموقع" className="font-bold text-sm border-2 border-brand-red hover:bg-brand-red px-3 py-1.5 rounded-md transition-colors text-text-light">
               {lang === 'ar' ? 'EN' : 'عربي'}
             </button>
           </div>

@@ -17,6 +17,7 @@ export default function MobileBottomNav() {
         {/* Home Tab */}
         <Link 
           to="/" 
+          aria-label="الرئيسية"
           className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${location.pathname === '/' ? 'text-brand-red' : 'text-text-muted hover:text-gray-300'}`}
         >
           <Home size={22} strokeWidth={location.pathname === '/' ? 2.5 : 2} />
@@ -26,6 +27,7 @@ export default function MobileBottomNav() {
         {/* Account Tab */}
         <Link 
           to="/account" 
+          aria-label="حسابي"
           className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${location.pathname === '/account' ? 'text-brand-red' : 'text-text-muted hover:text-gray-300'}`}
         >
           <User size={22} strokeWidth={location.pathname === '/account' ? 2.5 : 2} />
@@ -35,6 +37,7 @@ export default function MobileBottomNav() {
         {/* Menu Tab */}
         <Link 
           to="/menu" 
+          aria-label="قائمة الطعام"
           className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${location.pathname === '/menu' ? 'text-brand-red' : 'text-text-muted hover:text-gray-300'}`}
         >
           <MenuSquare size={22} strokeWidth={location.pathname === '/menu' ? 2.5 : 2} />
@@ -44,6 +47,7 @@ export default function MobileBottomNav() {
         {/* Cart Tab */}
         <button 
           onClick={() => setIsCartOpen(true)}
+          aria-label="سلة التسوق"
           className="flex flex-col items-center justify-center w-full h-full space-y-1 text-text-muted hover:text-gray-300 transition-colors relative"
         >
           <div className="relative">

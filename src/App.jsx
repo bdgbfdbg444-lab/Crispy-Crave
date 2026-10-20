@@ -205,10 +205,7 @@ function App() {
       setWebsiteData(wData);
       setMenuData(mData);
       setSystemState(sState);
-      
-      setTimeout(() => {
-        setLoading(false);
-      }, 1000);
+      setLoading(false);
     }
     loadData();
 
