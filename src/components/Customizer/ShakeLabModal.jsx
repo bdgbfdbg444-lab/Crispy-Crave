@@ -6,74 +6,185 @@ import { useCart } from '../../context/CartContext';
 
 // ============================================================================
 // GOURMET RECIPE PRESETS (Directly matching restaurant kitchen recipes)
-// 1. Base Recipe: Vanilla Ice Cream + Fresh Milk + Whipped Cream
-// 2. Customizer Inclusions: Chocolate, Caramel, Lotus, Pistachio, Peanut Butter,
-//    Strawberry, Cherry Filling, Banana, Oreo, Coffee.
+// 1. Base Recipe: Vanilla, Chocolate, Lotus, Pistachio, Strawberry Ice Creams
+// 2. Add-ons & Toppings: Chocolate Sauce, Caramel Sauce, Lotus Spread, 
+//    Pistachio Spread, Peanut Butter, Strawberry, Cherry Filling, Banana, Oreo, Coffee.
+// 3. Crown: Whipped Cream (الوصفة الأساسية), Whole Oreo, Whole Lotus, Royal Cherry.
 // ============================================================================
 
 export const DEFAULT_SHAKE_BASES = [
   { 
-    id: 'vanilla', 
-    name: 'قاعدة فانيليا كلاسيك', 
-    nameEn: 'Classic Vanilla Base', 
+    id: 'base_vanilla', 
+    name: 'آيس كريم فانيليا كلاسيك', 
+    nameEn: 'Classic Vanilla Ice Cream', 
     desc: 'الوصفة الأصلية: آيس كريم فانيليا فاخر مع حليب طازج نقي', 
     color: '#FBF6E9', 
     waveColor: '#F3E8CD',
     shadowColor: '#E2D4B5',
-    price: 0 
+    price: 0,
+    iconPath: `${import.meta.env.BASE_URL}images/customizer/base_vanilla.webp`
   },
   { 
-    id: 'coffee', 
-    name: 'إسبريسو كولد كوفي', 
-    nameEn: 'Cold Espresso Coffee', 
-    desc: 'قهوة إسبريسو مركزة ممتزجة مع آيس كريم الفانيليا والحليب', 
-    color: '#4A2C1D', 
-    waveColor: '#3A2013', 
-    shadowColor: '#28140B',
-    price: 15 
+    id: 'base_chocolate', 
+    name: 'آيس كريم شوكولاتة بلجيكية', 
+    nameEn: 'Belgian Chocolate Ice Cream', 
+    desc: 'كاكاو بلجيكي مركز مع آيس كريم غني وحليب طازج', 
+    color: '#3A1E11', 
+    waveColor: '#251209', 
+    shadowColor: '#150804',
+    price: 15,
+    iconPath: `${import.meta.env.BASE_URL}images/customizer/base_chocolate.webp`
   },
   { 
-    id: 'strawberry_base', 
-    name: 'فراولة طبيعية طازجة', 
-    nameEn: 'Fresh Strawberry Shake', 
-    desc: 'بيوريه فراولة مزارع طبيعي ممزوج مع الحليب والآيس كريم', 
+    id: 'base_lotus', 
+    name: 'آيس كريم بسكويت اللوتس', 
+    nameEn: 'Lotus Biscoff Ice Cream', 
+    desc: 'كريمة لوتس أصلية بالكراميل المكرمل مع حليب طازج', 
+    color: '#D68A36', 
+    waveColor: '#A85E14', 
+    shadowColor: '#753C0C',
+    price: 20,
+    iconPath: `${import.meta.env.BASE_URL}images/customizer/base_lotus.webp`
+  },
+  { 
+    id: 'base_pistachio', 
+    name: 'آيس كريم فستق حلبي / بستاشيو', 
+    nameEn: 'Sicilian Pistachio Ice Cream', 
+    desc: 'بيوريه فستق إيطالي محمص غني بنكهة أصلية فاخرة', 
+    color: '#8FB87A', 
+    waveColor: '#6B9456', 
+    shadowColor: '#476B34',
+    price: 25,
+    iconPath: `${import.meta.env.BASE_URL}images/customizer/base_pistachio.webp`
+  },
+  { 
+    id: 'base_strawberry', 
+    name: 'آيس كريم فراولة مزارع طبيعية', 
+    nameEn: 'Fresh Strawberry Ice Cream', 
+    desc: 'بيوريه فراولة مزارع طبيعي ممزوج مع الآيس كريم المنعش', 
     color: '#EB6B8B', 
     waveColor: '#D44D71', 
     shadowColor: '#AA2B4D',
-    price: 15 
-  },
-  { 
-    id: 'banana_base', 
-    name: 'موز بيوريه طبيعي', 
-    nameEn: 'Fresh Banana Shake', 
-    desc: 'موز طازج طبيعي مضروب مع الحليب والآيس كريم الغني', 
-    color: '#F5E3A9', 
-    waveColor: '#E4CF85', 
-    shadowColor: '#C4AE60',
-    price: 15 
+    price: 15,
+    iconPath: `${import.meta.env.BASE_URL}images/customizer/base_strawberry.webp`
   },
 ];
 
 export const DEFAULT_SHAKE_SAUCES = [
-  { id: 'sauce_chocolate', name: 'صوص شوكولاتة داكنة', nameEn: 'Dark Chocolate Fudge', color: '#26130B', price: 20 },
-  { id: 'sauce_caramel', name: 'صوص كراميل دافئ', nameEn: 'Warm Salted Caramel', color: '#B86B1E', price: 20 },
-  { id: 'sauce_lotus', name: 'زبدة لوتس أصلية سائلة', nameEn: 'Lotus Biscoff Spread', color: '#C67828', price: 25 },
-  { id: 'sauce_pistachio', name: 'زبدة بستاشيو إيطالية', nameEn: 'Sicilian Pistachio Spread', color: '#7A9A5B', price: 30 },
-  { id: 'sauce_peanut', name: 'زبدة فول سوداني كريمية', nameEn: 'Creamy Peanut Butter', color: '#C07E38', price: 20 },
+  { 
+    id: 'sauce_chocolate', 
+    name: 'صوص شوكولاتة داكنة', 
+    nameEn: 'Dark Chocolate Sauce', 
+    color: '#26130B', 
+    price: 20,
+    iconPath: `${import.meta.env.BASE_URL}images/customizer/sauce_chocolate.webp`
+  },
+  { 
+    id: 'sauce_caramel', 
+    name: 'صوص كراميل دافئ', 
+    nameEn: 'Warm Salted Caramel', 
+    color: '#B86B1E', 
+    price: 20,
+    iconPath: `${import.meta.env.BASE_URL}images/customizer/sauce_caramel.webp`
+  },
+  { 
+    id: 'sauce_lotus', 
+    name: 'زبدة لوتس أصلية سائلة', 
+    nameEn: 'Lotus Biscoff Spread', 
+    color: '#C67828', 
+    price: 25,
+    iconPath: `${import.meta.env.BASE_URL}images/customizer/sauce_lotus.webp`
+  },
+  { 
+    id: 'sauce_pistachio', 
+    name: 'زبدة بستاشيو إيطالية', 
+    nameEn: 'Sicilian Pistachio Spread', 
+    color: '#7A9A5B', 
+    price: 30,
+    iconPath: `${import.meta.env.BASE_URL}images/customizer/sauce_pistachio.webp`
+  },
+  { 
+    id: 'sauce_peanut', 
+    name: 'زبدة فول سوداني كريمية', 
+    nameEn: 'Creamy Peanut Butter', 
+    color: '#C07E38', 
+    price: 20,
+    iconPath: `${import.meta.env.BASE_URL}images/customizer/sauce_peanut.webp`
+  },
 ];
 
 export const DEFAULT_SHAKE_CRUNCH = [
-  { id: 'crunch_oreo', name: 'قطع أوريو مقرمشة', nameEn: 'Crushed Oreo Bits', color: '#1A1A1A', price: 15 },
-  { id: 'fill_cherry', name: 'حشوة كرز ياقوتية فاخرة', nameEn: 'Ruby Cherry Filling', color: '#7E0B1E', price: 25 },
-  { id: 'chunk_banana', name: 'قطع موز طازج', nameEn: 'Fresh Banana Chunks', color: '#F7DC78', price: 15 },
-  { id: 'puree_strawberry', name: 'قطع فراولة فريش', nameEn: 'Fresh Strawberry Chunks', color: '#D92546', price: 15 },
+  { 
+    id: 'crunch_oreo', 
+    name: 'بسكويت أوريو مكسر مقرمش', 
+    nameEn: 'Crushed Oreo Bits', 
+    color: '#1A1A1A', 
+    price: 15,
+    iconPath: `${import.meta.env.BASE_URL}images/customizer/crunch_oreo.webp`
+  },
+  { 
+    id: 'fill_cherry', 
+    name: 'حشوة كرز ياقوتية فاخرة', 
+    nameEn: 'Ruby Cherry Filling', 
+    color: '#7E0B1E', 
+    price: 25,
+    iconPath: `${import.meta.env.BASE_URL}images/customizer/fill_cherry.webp`
+  },
+  { 
+    id: 'fill_banana', 
+    name: 'قطع موز طازج', 
+    nameEn: 'Fresh Banana Chunks', 
+    color: '#F7DC78', 
+    price: 15,
+    iconPath: `${import.meta.env.BASE_URL}images/customizer/fill_banana.webp`
+  },
+  { 
+    id: 'fill_strawberry', 
+    name: 'قطع فراولة طبيعية فريش', 
+    nameEn: 'Fresh Strawberry Chunks', 
+    color: '#D92546', 
+    price: 15,
+    iconPath: `${import.meta.env.BASE_URL}images/customizer/fill_strawberry.webp`
+  },
+  { 
+    id: 'flavor_coffee', 
+    name: 'قهوة / إسبريسو مركزة', 
+    nameEn: 'Rich Espresso Coffee', 
+    color: '#3A2013', 
+    price: 15,
+    iconPath: `${import.meta.env.BASE_URL}images/customizer/flavor_coffee.webp`
+  },
 ];
 
 export const DEFAULT_SHAKE_TOPPINGS = [
-  { id: 'top_cream', name: 'جبل كريمة مخفوقة فاخرة', nameEn: 'Whipped Cream Mountain', price: 15 },
-  { id: 'top_whole_oreo', name: 'بسكويتة أوريو كاملة بالقمة', nameEn: 'Whole Oreo Crown', price: 10 },
-  { id: 'top_cherry', name: 'تتويج كرزة ياقوتية ملكية', nameEn: 'Royal Glazed Cherry', price: 10 },
-  { id: 'top_whole_lotus', name: 'بسكويتة لوتس أصلية كاملة', nameEn: 'Whole Biscoff Biscuit', price: 10 },
+  { 
+    id: 'top_cream', 
+    name: 'جبل كريمة مخفوقة فاخرة', 
+    nameEn: 'Whipped Cream Mountain', 
+    price: 15,
+    iconPath: `${import.meta.env.BASE_URL}images/customizer/top_cream.webp`
+  },
+  { 
+    id: 'top_whole_oreo', 
+    name: 'بسكويتة أوريو كاملة بالقمة', 
+    nameEn: 'Whole Oreo Crown', 
+    price: 10,
+    iconPath: `${import.meta.env.BASE_URL}images/customizer/top_whole_oreo.webp`
+  },
+  { 
+    id: 'top_royal_cherry', 
+    name: 'تتويج كرزة ياقوتية ملكية', 
+    nameEn: 'Royal Glazed Cherry', 
+    price: 10,
+    iconPath: `${import.meta.env.BASE_URL}images/customizer/top_royal_cherry.webp`
+  },
+  { 
+    id: 'top_whole_lotus', 
+    name: 'بسكويتة لوتس أصلية كاملة', 
+    nameEn: 'Whole Biscoff Biscuit', 
+    price: 10,
+    iconPath: `${import.meta.env.BASE_URL}images/customizer/top_whole_lotus.webp`
+  },
 ];
 
 export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }) {
@@ -115,7 +226,7 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
         iconPath: a.iconPath || null
       };
 
-      // 1. Explicit Role Check from POS
+      // Explicit Role Check from POS
       if (role === 'base') {
         item.waveColor = a.visualColor || '#F3E8CD';
         bases.push(item);
@@ -129,11 +240,11 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
         // Fallback by name keywords if not explicitly categorized
         if (name.includes('صوص') || name.includes('شلال') || name.includes('sauce') || name.includes('كراميل') || name.includes('فادج') || name.includes('زبدة')) {
           sauces.push(item);
-        } else if (name.includes('أوريو') || name.includes('كرانش') || name.includes('كرز') || name.includes('موز') || name.includes('فراولة') || name.includes('بسكويت')) {
+        } else if (name.includes('أوريو') || name.includes('كرانش') || name.includes('كرز') || name.includes('موز') || name.includes('فراولة') || name.includes('قهوة') || name.includes('إسبريسو')) {
           crunches.push(item);
         } else if (name.includes('كريمة') || name.includes('توبينج') || name.includes('قمة') || name.includes('تتويج')) {
           toppings.push(item);
-        } else if (name.includes('قاعدة') || name.includes('آيس') || name.includes('فانيليا') || name.includes('قهوة') || name.includes('إسبريسو')) {
+        } else if (name.includes('قاعدة') || name.includes('آيس') || name.includes('فانيليا') || name.includes('شوكولاتة') || name.includes('لوتس') || name.includes('بستاشيو')) {
           bases.push(item);
         } else {
           crunches.push(item);
@@ -243,11 +354,12 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
   const hasWholeLotus = selectedToppings.some(t => t.id.includes('lotus') || t.name.includes('لوتس'));
   const hasCherryCrown = selectedToppings.some(t => t.id.includes('cherry') || t.name.includes('كرز'));
 
-  // Crunches flags
+  // Crunches & Inclusions flags
   const hasOreoBits = selectedCrunches.some(c => c.id.includes('oreo') || c.name.includes('أوريو'));
   const hasCherryFilling = selectedCrunches.some(c => c.id.includes('cherry') || c.name.includes('كرز'));
   const hasBananaChunks = selectedCrunches.some(c => c.id.includes('banana') || c.name.includes('موز'));
   const hasStrawberryChunks = selectedCrunches.some(c => c.id.includes('strawberry') || c.name.includes('فراولة'));
+  const hasCoffeeFlavor = selectedCrunches.some(c => c.id.includes('coffee') || c.name.includes('قهوة') || c.name.includes('إسبريسو'));
 
   // Primary sauce color for drizzle over cream
   const topSauceColor = selectedSauces.length > 0 ? selectedSauces[0].color : null;
@@ -367,6 +479,14 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                     height="500" 
                     fill="url(#liquidDairyGrad)" 
                   />
+
+                  {/* Coffee Marble Swirl (if Coffee addition is active) */}
+                  {hasCoffeeFlavor && (
+                    <g className="transition-all duration-500 opacity-70">
+                      <path d="M 120 340 Q 200 480, 150 620 Q 110 740, 200 820" fill="none" stroke="#2D170B" strokeWidth="18" strokeLinecap="round" filter="blur(3px)" />
+                      <path d="M 320 360 Q 240 500, 300 660 Q 330 760, 260 820" fill="none" stroke="#3A2013" strokeWidth="14" strokeLinecap="round" filter="blur(2px)" />
+                    </g>
+                  )}
 
                   {/* Soft Internal Meniscus / Froth Wave at top */}
                   <path 
@@ -715,7 +835,7 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                 ))}
               </div>
 
-              {/* ================= TAB 1: BASE FLAVOR ================= */}
+              {/* ================= TAB 1: BASE ICE CREAM FLAVORS ================= */}
               {activeTab === 'base' && (
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
                   <div className="flex items-center justify-between mb-2">
@@ -728,24 +848,24 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                         <div
                           key={b.id}
                           onClick={() => setSelectedBase(b)}
-                          className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                          className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
                             isSelected
-                              ? 'bg-brand-red/15 border-brand-red shadow-md'
+                              ? 'bg-brand-red/15 border-brand-red shadow-md ring-1 ring-brand-red/50'
                               : 'bg-black-primary/50 border-white/10 hover:border-white/20'
                           }`}
                         >
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
                             {b.iconPath ? (
-                              <img src={b.iconPath} alt="" className="w-8 h-8 rounded-full object-cover border border-white/20" />
+                              <img src={b.iconPath} alt="" className="w-10 h-10 rounded-xl object-cover border border-white/20 shadow shrink-0" />
                             ) : (
-                              <div className="w-8 h-8 rounded-full shadow-inner border border-white/20 shrink-0" style={{ backgroundColor: b.color }} />
+                              <div className="w-10 h-10 rounded-xl shadow-inner border border-white/20 shrink-0" style={{ backgroundColor: b.color }} />
                             )}
-                            <div>
-                              <div className="font-bold text-sm text-text-light">{b.name}</div>
+                            <div className="min-w-0">
+                              <div className="font-bold text-sm text-text-light truncate">{b.name}</div>
                               {b.desc && <div className="text-[11px] text-text-muted line-clamp-1">{b.desc}</div>}
                             </div>
                           </div>
-                          <div className="text-right shrink-0">
+                          <div className="text-right shrink-0 mr-2">
                             <span className="text-xs font-bold text-brand-red">{b.price > 0 ? `+${b.price} ج.م` : 'مشمول'}</span>
                             {isSelected && <Check size={16} className="text-brand-red ml-auto mt-1" />}
                           </div>
@@ -760,7 +880,7 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
               {activeTab === 'sauces' && (
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-text-muted font-bold">اختر الصوصات السائلة لتغمر جدران الكوب (اختياري):</span>
+                    <span className="text-xs text-text-muted font-bold">اختر الصوصات السائلة لتسيل داخل جدران الكوب (اختياري):</span>
                     <span className="text-xs text-brand-red font-bold">{selectedSauces.length} محددة</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -770,21 +890,21 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                         <div
                           key={s.id}
                           onClick={() => toggleSauce(s)}
-                          className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                          className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
                             isSelected
-                              ? 'bg-brand-red/15 border-brand-red shadow-md'
+                              ? 'bg-brand-red/15 border-brand-red shadow-md ring-1 ring-brand-red/50'
                               : 'bg-black-primary/50 border-white/10 hover:border-white/20'
                           }`}
                         >
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
                             {s.iconPath ? (
-                              <img src={s.iconPath} alt="" className="w-7 h-7 rounded-full object-cover border border-white/20" />
+                              <img src={s.iconPath} alt="" className="w-10 h-10 rounded-xl object-cover border border-white/20 shadow shrink-0" />
                             ) : (
-                              <div className="w-7 h-7 rounded-full shadow-md shrink-0" style={{ backgroundColor: s.color }} />
+                              <div className="w-10 h-10 rounded-xl shadow-md shrink-0" style={{ backgroundColor: s.color }} />
                             )}
-                            <span className="font-bold text-sm text-text-light">{s.name}</span>
+                            <span className="font-bold text-sm text-text-light truncate">{s.name}</span>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-2 shrink-0 mr-2">
                             <span className="text-xs font-bold text-brand-red">+{s.price} ج.م</span>
                             <div className={`w-5 h-5 rounded-md flex items-center justify-center border ${isSelected ? 'bg-brand-red border-brand-red text-white' : 'border-white/20'}`}>
                               {isSelected && <Check size={13} />}
@@ -811,23 +931,23 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                         <div
                           key={c.id}
                           onClick={() => toggleCrunch(c)}
-                          className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                          className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
                             isSelected
-                              ? 'bg-brand-red/15 border-brand-red shadow-md'
+                              ? 'bg-brand-red/15 border-brand-red shadow-md ring-1 ring-brand-red/50'
                               : 'bg-black-primary/50 border-white/10 hover:border-white/20'
                           }`}
                         >
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
                             {c.iconPath ? (
-                              <img src={c.iconPath} alt="" className="w-7 h-7 object-contain drop-shadow" />
+                              <img src={c.iconPath} alt="" className="w-10 h-10 rounded-xl object-cover border border-white/20 shadow shrink-0" />
                             ) : (
-                              <div className="w-7 h-7 rounded-lg shadow-md flex items-center justify-center bg-white/10 border border-white/10 shrink-0">
-                                <Cookie size={14} className="text-amber-400" />
+                              <div className="w-10 h-10 rounded-xl shadow-md flex items-center justify-center bg-white/10 border border-white/10 shrink-0">
+                                <Cookie size={16} className="text-amber-400" />
                               </div>
                             )}
-                            <span className="font-bold text-sm text-text-light">{c.name}</span>
+                            <span className="font-bold text-sm text-text-light truncate">{c.name}</span>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-2 shrink-0 mr-2">
                             <span className="text-xs font-bold text-brand-red">+{c.price} ج.م</span>
                             <div className={`w-5 h-5 rounded-md flex items-center justify-center border ${isSelected ? 'bg-brand-red border-brand-red text-white' : 'border-white/20'}`}>
                               {isSelected && <Check size={13} />}
@@ -844,7 +964,7 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
               {activeTab === 'toppings' && (
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-text-muted font-bold">تتويج المشروب: الكريمة والبسكويت على القمة:</span>
+                    <span className="text-xs text-text-muted font-bold">تتويج المشروب: الكريمة والبسكويت والكرز على القمة:</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {shakeToppings.map((t) => {
@@ -853,23 +973,23 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                         <div
                           key={t.id}
                           onClick={() => toggleTopping(t)}
-                          className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                          className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
                             isSelected
-                              ? 'bg-brand-red/15 border-brand-red shadow-md'
+                              ? 'bg-brand-red/15 border-brand-red shadow-md ring-1 ring-brand-red/50'
                               : 'bg-black-primary/50 border-white/10 hover:border-white/20'
                           }`}
                         >
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
                             {t.iconPath ? (
-                              <img src={t.iconPath} alt="" className="w-7 h-7 object-contain drop-shadow" />
+                              <img src={t.iconPath} alt="" className="w-10 h-10 rounded-xl object-cover border border-white/20 shadow shrink-0" />
                             ) : (
-                              <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center border border-white/10 shrink-0">
-                                <Crown size={14} className="text-amber-400" />
+                              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/10 shrink-0">
+                                <Crown size={16} className="text-amber-400" />
                               </div>
                             )}
-                            <span className="font-bold text-sm text-text-light">{t.name}</span>
+                            <span className="font-bold text-sm text-text-light truncate">{t.name}</span>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-2 shrink-0 mr-2">
                             <span className="text-xs font-bold text-brand-red">+{t.price} ج.م</span>
                             <div className={`w-5 h-5 rounded-md flex items-center justify-center border ${isSelected ? 'bg-brand-red border-brand-red text-white' : 'border-white/20'}`}>
                               {isSelected && <Check size={13} />}
