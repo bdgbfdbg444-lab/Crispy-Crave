@@ -252,11 +252,39 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
       }
     });
 
+    // Start with the full gourmet recipe list (19 items from restaurant kitchen sheets)
+    const finalBases = [...DEFAULT_SHAKE_BASES];
+    const finalSauces = [...DEFAULT_SHAKE_SAUCES];
+    const finalCrunches = [...DEFAULT_SHAKE_CRUNCH];
+    const finalToppings = [...DEFAULT_SHAKE_TOPPINGS];
+
+    // Merge any additional custom POS add-ons (avoiding duplicate names)
+    bases.forEach(b => {
+      if (!finalBases.some(fb => fb.name.toLowerCase() === b.name.toLowerCase())) {
+        finalBases.push(b);
+      }
+    });
+    sauces.forEach(s => {
+      if (!finalSauces.some(fs => fs.name.toLowerCase() === s.name.toLowerCase())) {
+        finalSauces.push(s);
+      }
+    });
+    crunches.forEach(c => {
+      if (!finalCrunches.some(fc => fc.name.toLowerCase() === c.name.toLowerCase())) {
+        finalCrunches.push(c);
+      }
+    });
+    toppings.forEach(t => {
+      if (!finalToppings.some(ft => ft.name.toLowerCase() === t.name.toLowerCase())) {
+        finalToppings.push(t);
+      }
+    });
+
     return {
-      shakeBases: bases.length > 0 ? bases : DEFAULT_SHAKE_BASES,
-      shakeSauces: sauces.length > 0 ? sauces : DEFAULT_SHAKE_SAUCES,
-      shakeCrunches: crunches.length > 0 ? crunches : DEFAULT_SHAKE_CRUNCH,
-      shakeToppings: toppings.length > 0 ? toppings : DEFAULT_SHAKE_TOPPINGS
+      shakeBases: finalBases,
+      shakeSauces: finalSauces,
+      shakeCrunches: finalCrunches,
+      shakeToppings: finalToppings
     };
   }, [baseProduct, menuData]);
 
