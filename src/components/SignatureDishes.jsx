@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Flame, Beef, ArrowLeft } from 'lucide-react';
 import ProductModal from './Menu/ProductModal';
+import { optimizeCloudinaryUrl } from '../utils/imageOptimizer';
 
 export default function SignatureDishes({ menuData }) {
   const { lang } = useLanguage();

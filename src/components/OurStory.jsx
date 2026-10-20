@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { motion, useInView } from 'framer-motion';
 import { Flame, Clock, Award } from 'lucide-react';
+import { optimizeCloudinaryUrl } from '../utils/imageOptimizer';
 
 const AnimatedCounter = ({ targetValue, duration = 2 }) => {
   const [count, setCount] = useState(0);
