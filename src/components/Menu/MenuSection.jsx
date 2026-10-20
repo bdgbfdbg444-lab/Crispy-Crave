@@ -48,6 +48,7 @@ export default function MenuSection({ menuData, onProductClick }) {
   const [activeCategory, setActiveCategory] = useState(categories[0]?.id);
   const [searchQuery, setSearchQuery] = useState('');
   const [isShakeLabOpen, setIsShakeLabOpen] = useState(false);
+  const [selectedCustomizableProduct, setSelectedCustomizableProduct] = useState(null);
 
   // Extract products for the active category, or all products if searching
   let productsToDisplay = [];
@@ -233,36 +234,6 @@ export default function MenuSection({ menuData, onProductClick }) {
           </div>
         )}
 
-        {/* Interactive Shake Lab Banner */}
-        {searchQuery.trim() === '' && viewMode === 'products' && (activeCatData?.name?.includes('شيك') || activeCatData?.nameEn?.toLowerCase().includes('shake')) && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            onClick={() => setIsShakeLabOpen(true)}
-            className="mb-8 p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-red-950/40 via-black-surface to-red-950/20 border-2 border-brand-red/50 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-5 cursor-pointer group hover:border-brand-red transition-all"
-          >
-            <div className="flex items-center gap-4 text-right w-full sm:w-auto">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-red to-red-700 text-white flex items-center justify-center text-3xl shadow-xl shadow-brand-red/40 group-hover:scale-105 transition-transform shrink-0">
-                🥤
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-brand-red bg-brand-red/10 px-2.5 py-0.5 rounded-full border border-brand-red/25">
-                    THE SHAKE LAB 🧪
-                  </span>
-                  <span className="text-xs text-text-muted">| صمم مشروبك لايف</span>
-                </div>
-                <h3 className="text-xl sm:text-2xl font-black text-white mt-1">مش عاجبك مشروب جاهز؟ اصنع مشروبك بنفسك!</h3>
-                <p className="text-xs sm:text-sm text-text-muted mt-0.5">اختر طبقات الصوص والآيسكريم والمقرمشات وشاهدها تهبط في كوبك لايف ثانية بثانية.</p>
-              </div>
-            </div>
-            <div className="w-full sm:w-auto py-3.5 px-6 rounded-2xl bg-brand-red hover:bg-red-700 text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-brand-red/40 transition-colors whitespace-nowrap">
-              <Sparkles size={18} className="animate-spin" />
-              <span>ابدأ التصميم التفاعلي ✨</span>
-            </div>
-          </motion.div>
-        )}
-
         {/* Products Grid (Only when searching or in products view) */}
         {(searchQuery.trim() !== '' || viewMode === 'products') && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -272,7 +243,21 @@ export default function MenuSection({ menuData, onProductClick }) {
                   <ProductCard 
                     key={product.id} 
                     product={product} 
-                    onClick={() => onProductClick(product, categories.find(c => c.products && c.products[product.id]))} 
+                    onClick={() => {
+                      const isCustom = Boolean(
+                        product?.isCustomizable || 
+                        product?.IsCustomizable ||
+                        product?.name?.includes('اصنع مشروبك') ||
+                        product?.nameEn?.toLowerCase().includes('build your') ||
+                        product?.name?.includes('صمم مشروبك')
+                      );
+                      if (isCustom) {
+                        setSelectedCustomizableProduct(product);
+                        setIsShakeLabOpen(true);
+                      } else {
+                        onProductClick(product, categories.find(c => c.products && c.products[product.id]));
+                      }
+                    }} 
                   />
                 ))
               ) : (
@@ -295,7 +280,7 @@ export default function MenuSection({ menuData, onProductClick }) {
       <ShakeLabModal 
         isOpen={isShakeLabOpen} 
         onClose={() => setIsShakeLabOpen(false)} 
-        baseProduct={activeCatData?.products ? Object.values(activeCatData.products)[0] : null}
+        baseProduct={selectedCustomizableProduct || (activeCatData?.products ? Object.values(activeCatData.products)[0] : null)}
         menuData={menuData}
       />
     </section>

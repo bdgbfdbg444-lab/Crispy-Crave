@@ -9,11 +9,12 @@ export default function ProductCard({ product, onClick }) {
   if (!product) return null;
 
   const isSoldOut = Boolean(product?.isSoldOut || product?.IsSoldOut || product?.isAvailable === false || product?.IsAvailable === false);
-  const isShake = !isSoldOut && (
-    product?.name?.includes('شيك') || 
-    product?.nameEn?.toLowerCase().includes('shake') ||
-    product?.isCustomizable ||
-    product?.IsCustomizable
+  const isCustomizable = !isSoldOut && Boolean(
+    product?.isCustomizable || 
+    product?.IsCustomizable ||
+    product?.name?.includes('اصنع مشروبك') ||
+    product?.nameEn?.toLowerCase().includes('build your') ||
+    product?.name?.includes('صمم مشروبك')
   );
 
   return (
@@ -24,7 +25,11 @@ export default function ProductCard({ product, onClick }) {
       exit={{ opacity: 0, scale: 0.9 }}
       whileHover={{ y: -5 }}
       onClick={onClick}
-      className="bg-black-surface rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-brand-red-dark/30 cursor-pointer flex flex-col group h-full"
+      className={`rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer flex flex-col group h-full ${
+        isCustomizable 
+          ? 'bg-gradient-to-b from-black-surface to-red-950/20 border-2 border-brand-red/50 hover:border-brand-red'
+          : 'bg-black-surface border border-brand-red-dark/30'
+      }`}
     >
       {/* Image Container */}
       <div className="relative h-48 w-full bg-black-primary overflow-hidden flex-shrink-0">
@@ -46,7 +51,13 @@ export default function ProductCard({ product, onClick }) {
 
         {/* Badges */}
         <div className="absolute top-3 right-3 flex flex-col gap-2">
-          {product.isHotItem && (
+          {isCustomizable && (
+            <div className="bg-brand-red text-text-light text-xs font-bold px-2.5 py-1 rounded-md shadow-md flex items-center gap-1.5">
+              <Sparkles size={12} />
+              <span>{lang === 'en' ? 'Craft Studio' : 'صنف قابل للتخصيص'}</span>
+            </div>
+          )}
+          {product.isHotItem && !isCustomizable && (
             <div className="bg-brand-red text-text-light text-xs font-bold px-2 py-1 rounded-md shadow-md flex items-center gap-1">
               <Flame size={12} fill="currentColor" />
               {lang === 'en' ? 'Best Seller' : 'الأكثر مبيعاً'}
@@ -85,17 +96,17 @@ export default function ProductCard({ product, onClick }) {
             className={`w-full py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
               isSoldOut 
                 ? 'bg-black-primary text-text-muted cursor-not-allowed' 
-                : isShake
+                : isCustomizable
                   ? 'bg-gradient-to-r from-brand-red to-red-600 text-white shadow-lg shadow-brand-red/30 hover:brightness-110'
                   : 'bg-black-surface text-brand-red hover:bg-brand-red hover:text-text-light'
             }`}
           >
             {isSoldOut ? (
               lang === 'en' ? 'Currently Unavailable' : 'غير متوفر حالياً'
-            ) : isShake ? (
+            ) : isCustomizable ? (
               <>
-                <Sparkles size={16} className="animate-pulse" />
-                <span>{lang === 'en' ? 'Customize Live ✨' : 'اصنع مشروبك بنفسك ✨'}</span>
+                <Sparkles size={16} />
+                <span>{lang === 'en' ? 'Customize Shake' : 'تخصيص المشروب'}</span>
               </>
             ) : (
               <>
