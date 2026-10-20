@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Minus, Plus, ShoppingBag } from 'lucide-react';
+import { X, Minus, Plus, ShoppingBag, Sparkles } from 'lucide-react';
+import ShakeLabModal from '../Customizer/ShakeLabModal';
 import { useCart } from '../../context/CartContext';
 import SmartUpsellBar from './SmartUpsellBar';
 import { optimizeCloudinaryUrl } from '../../utils/imageOptimizer';
@@ -14,6 +15,7 @@ export default function ProductModal({ product, category, menuData, isOpen, onCl
   const [quantity, setQuantity] = useState(1);
   const [selectedWeight, setSelectedWeight] = useState(100);
   const [selectedModifiers, setSelectedModifiers] = useState([]);
+  const [isShakeLabOpen, setIsShakeLabOpen] = useState(false);
   
   // Reset state when a new product is opened
   useEffect(() => {
@@ -181,6 +183,35 @@ export default function ProductModal({ product, category, menuData, isOpen, onCl
               <p className="text-text-muted leading-relaxed mb-6">{lang === 'en' && product.descriptionEn ? product.descriptionEn : product.description}</p>
             )}
 
+            {/* Live Shake Lab Banner Callout */}
+            {(product.name?.includes('شيك') || product.nameEn?.toLowerCase().includes('shake') || product.isCustomizable) && (
+              <div className="mb-8 p-4.5 rounded-2xl bg-gradient-to-r from-brand-red/20 via-black-primary to-brand-red/10 border border-brand-red/40 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
+                <div className="flex items-center gap-3.5 text-right w-full sm:w-auto">
+                  <div className="w-12 h-12 rounded-2xl bg-brand-red text-white flex items-center justify-center text-2xl shadow-lg shadow-brand-red/30 shrink-0">
+                    🥤
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-brand-red bg-brand-red/15 px-2 py-0.5 rounded">
+                        THE SHAKE LAB
+                      </span>
+                      <span className="text-[11px] text-text-muted font-bold">| تفاعلي لايف</span>
+                    </div>
+                    <h4 className="font-black text-white text-base mt-0.5">اصنع مشروبك بطريقتك وشاهد الكوب لايف</h4>
+                    <p className="text-xs text-text-muted">اختر الصوصات، الآيسكريم، الكرانش، والكريمة خطوة بخطوة!</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsShakeLabOpen(true)}
+                  className="w-full sm:w-auto py-3 px-5 rounded-xl bg-gradient-to-r from-brand-red to-red-600 hover:brightness-110 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-brand-red/30 whitespace-nowrap transition-all"
+                >
+                  <Sparkles size={16} className="animate-pulse" />
+                  <span>افتح المختبر التفاعلي ✨</span>
+                </button>
+              </div>
+            )}
+
             {/* Ingredients Tags */}
             {product.ingredients && product.ingredients.length > 0 && (
               <div className="mb-8">
@@ -329,6 +360,13 @@ export default function ProductModal({ product, category, menuData, isOpen, onCl
           </div>
         </motion.div>
       </div>
+          {/* Shake Lab Modal */}
+      <ShakeLabModal 
+        isOpen={isShakeLabOpen} 
+        onClose={() => setIsShakeLabOpen(false)} 
+        baseProduct={product}
+        menuData={menuData}
+      />
     </AnimatePresence>,
     document.body
   );

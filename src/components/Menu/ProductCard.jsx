@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { motion } from 'framer-motion';
-import { Plus, Flame, Beef } from 'lucide-react';
+import { Plus, Flame, Beef, Sparkles } from 'lucide-react';
 import { getProductThumbnailUrl } from '../../utils/imageOptimizer';
 
 export default function ProductCard({ product, onClick }) {
@@ -9,6 +9,12 @@ export default function ProductCard({ product, onClick }) {
   if (!product) return null;
 
   const isSoldOut = Boolean(product?.isSoldOut || product?.IsSoldOut || product?.isAvailable === false || product?.IsAvailable === false);
+  const isShake = !isSoldOut && (
+    product?.name?.includes('شيك') || 
+    product?.nameEn?.toLowerCase().includes('shake') ||
+    product?.isCustomizable ||
+    product?.IsCustomizable
+  );
 
   return (
     <motion.div
@@ -76,14 +82,21 @@ export default function ProductCard({ product, onClick }) {
         <div className="mt-auto pt-4 border-t border-brand-red-dark/30">
           <button 
             disabled={isSoldOut}
-            className={`w-full py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors ${
+            className={`w-full py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
               isSoldOut 
                 ? 'bg-black-primary text-text-muted cursor-not-allowed' 
-                : 'bg-black-surface text-brand-red hover:bg-brand-red hover:text-text-light'
+                : isShake
+                  ? 'bg-gradient-to-r from-brand-red to-red-600 text-white shadow-lg shadow-brand-red/30 hover:brightness-110'
+                  : 'bg-black-surface text-brand-red hover:bg-brand-red hover:text-text-light'
             }`}
           >
             {isSoldOut ? (
               lang === 'en' ? 'Currently Unavailable' : 'غير متوفر حالياً'
+            ) : isShake ? (
+              <>
+                <Sparkles size={16} className="animate-pulse" />
+                <span>{lang === 'en' ? 'Customize Live ✨' : 'اصنع مشروبك بنفسك ✨'}</span>
+              </>
             ) : (
               <>
                 <Plus size={18} />
