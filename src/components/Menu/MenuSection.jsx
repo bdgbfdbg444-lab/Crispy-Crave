@@ -72,6 +72,25 @@ export default function MenuSection({ menuData, onProductClick }) {
     if (activeCatData && activeCatData.products) {
       productsToDisplay = Object.values(activeCatData.products).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     }
+    // Guarantee a dedicated standalone 'Build Your Shake' item in Shake category if not yet configured in POS
+    if (activeCatData && (activeCatData.name?.includes('شيك') || activeCatData.nameEn?.toLowerCase().includes('shake'))) {
+      const hasCustomShake = productsToDisplay.some(p => p.isCustomizable || p.IsCustomizable || p.name?.includes('اصنع مشروبك'));
+      if (!hasCustomShake) {
+        productsToDisplay = [
+          {
+            id: 'custom_shake_studio',
+            name: 'اصنع مشروبك بنفسك',
+            nameEn: 'Build Your Own Shake',
+            description: 'استوديو التخصيص التفاعلي: اختر النكهة، طبقات الصوصات، المقرمشات، والكريمة وشاهد مشروبك لايف.',
+            descriptionEn: 'Interactive Craft Studio: Choose your base ice cream, cascading sauce drizzles, crunches, and toppings live.',
+            sellingPrice: 120,
+            isCustomizable: true,
+            imagePath: 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=600&auto=format&fit=crop&q=80'
+          },
+          ...productsToDisplay
+        ];
+      }
+    }
   }
 
   return (
