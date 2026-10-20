@@ -39,6 +39,15 @@ const AnimatedCounter = ({ targetValue, duration = 2 }) => {
 
 export default function OurStory({ websiteData }) {
   const { lang } = useLanguage();
+  const [isMobile, setIsMobile] = useState(() => {
+    return typeof window !== 'undefined' ? window.innerWidth < 768 : false;
+  });
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
   // Use data from Firebase or fallback to empty strings
   const storyText = (lang === 'en' && websiteData?.ourStoryTextEn ? websiteData?.ourStoryTextEn : websiteData?.ourStoryText) ?? "بدأت رحلتنا من شغف تقديم اللحوم المدخنة بالطرق التقليدية الأصيلة. نحن نؤمن بأن التفاصيل الصغيرة تصنع فرقاً كبيراً ولذلك نأخذ وقتنا في كل خطوة. من اختيار أجود أنواع اللحوم وحتى تقديمها لك.";
@@ -101,8 +110,8 @@ export default function OurStory({ websiteData }) {
           >
             <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-gray-800 aspect-square lg:aspect-[4/5] bg-black-primary">
               
-              {/* Optional Video Background behind image or standalone */}
-              {bRollUrl && isInView ? (
+              {/* Optional Video Background behind image or standalone (Desktop only) */}
+              {bRollUrl && isInView && !isMobile ? (
                 <video 
                   autoPlay 
                   loop 
