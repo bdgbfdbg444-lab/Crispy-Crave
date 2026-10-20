@@ -2,7 +2,7 @@ import { useLanguage } from '../context/LanguageContext';
 import React, { useState, useEffect } from 'react';
 import { APP_CONFIG } from '../config/appConfig';
 import { MessageCircle, Star, Smartphone, Download } from 'lucide-react';
-import ReviewModal from './ReviewModal';
+const ReviewModal = React.lazy(() => import('./ReviewModal'));
 
 export default function Footer({ websiteData }) {
   const { lang } = useLanguage();
@@ -206,10 +206,14 @@ export default function Footer({ websiteData }) {
         </div>
       </div>
       
-      <ReviewModal 
-        isOpen={isReviewModalOpen} 
-        onClose={() => setIsReviewModalOpen(false)} 
-      />
+      {isReviewModalOpen && (
+        <React.Suspense fallback={null}>
+          <ReviewModal 
+            isOpen={isReviewModalOpen} 
+            onClose={() => setIsReviewModalOpen(false)} 
+          />
+        </React.Suspense>
+      )}
     </footer>
   );
 }

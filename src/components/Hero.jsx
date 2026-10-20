@@ -14,14 +14,25 @@ export default function Hero({ websiteData }) {
   const navigate = useNavigate();
   const ref = useRef(null);
   const [isVideoReady, setIsVideoReady] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => {
+    return typeof window !== 'undefined' ? window.innerWidth < 768 : false;
+  });
 
   useEffect(() => {
-    // Delay video loading until after initial paint so FCP & LCP are instant (< 1.2s)
-    const timer = setTimeout(() => {
-      setIsVideoReady(true);
-    }, 1200);
-    return () => clearTimeout(timer);
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    // Only load heavy background video on desktop/tablet to preserve mobile data & boost performance
+    if (!isMobile) {
+      const timer = setTimeout(() => {
+        setIsVideoReady(true);
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [isMobile]);
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ['start start', 'end start']
@@ -41,7 +52,7 @@ export default function Hero({ websiteData }) {
       {/* Background Media with Parallax */}
       <motion.div style={{ y, x: '-50%', left: '50%', minWidth: '100%', height: '120%', top: '-10%' }} className="absolute z-0">
         {bgMedia && isVideo ? (
-          isVideoReady ? (
+          (!isMobile && isVideoReady) ? (
             <video 
               key={bgMedia}
               autoPlay 

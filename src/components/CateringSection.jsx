@@ -23,7 +23,8 @@ import {
   TEST_WHITELIST_IPS,
   MAX_CATERING_PER_DAY
 } from '../utils/deviceTracker';
-import AddressMapPicker, { formatAddressDetails } from './AddressMapPicker';
+import { formatAddressDetails } from '../utils/addressUtils';
+const AddressMapPicker = React.lazy(() => import('./AddressMapPicker'));
 
 const EVENT_TYPES = [
   { id: 'family', labelAr: 'لمة عائلة / منزلية', labelEn: 'Family / Home Gathering', icon: Home },
@@ -1196,12 +1197,14 @@ ${structuredTelegramNotes}`;
                                   )}
                                 </div>
 
-                                <AddressMapPicker 
-                                  value={customAddressDraft}
-                                  onChange={handleCustomAddressDraftChange}
-                                  zonesList={websiteData?.deliveryZones || []}
-                                  lang={lang}
-                                />
+                                <React.Suspense fallback={<div className="h-48 bg-black/40 animate-pulse rounded-xl flex items-center justify-center text-gray-500 text-xs">جاري تحميل الخريطة...</div>}>
+                                  <AddressMapPicker 
+                                    value={customAddressDraft}
+                                    onChange={handleCustomAddressDraftChange}
+                                    zonesList={websiteData?.deliveryZones || []}
+                                    lang={lang}
+                                  />
+                                </React.Suspense>
                               </div>
                             </motion.div>
                           )}
