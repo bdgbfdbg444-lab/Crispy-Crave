@@ -4,6 +4,8 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Minus, Plus, ShoppingBag } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
+import SmartUpsellBar from './SmartUpsellBar';
+import { optimizeCloudinaryUrl } from '../../utils/imageOptimizer';
 
 
 export default function ProductModal({ product, category, menuData, isOpen, onClose }) {
@@ -48,6 +50,12 @@ export default function ProductModal({ product, category, menuData, isOpen, onCl
     });
   }
 
+  // Linked Upsell Add-ons set by manager
+  const linkedAddOnIdSet = React.useMemo(() => {
+    if (!product?.linkedUpsellAddOnIds) return new Set();
+    return new Set(String(product.linkedUpsellAddOnIds).split(',').map(s => s.trim()));
+  }, [product]);
+
   // Group add-ons by their 'group' property
   const addOnsByGroup = applicableAddOns.reduce((acc, addOn) => {
     const groupName = addOn.group || 'إضافات أخرى';
@@ -55,6 +63,17 @@ export default function ProductModal({ product, category, menuData, isOpen, onCl
     acc[groupName].push(addOn);
     return acc;
   }, {});
+
+  // Sort each group so that manager-recommended add-ons appear first
+  Object.keys(addOnsByGroup).forEach(group => {
+    addOnsByGroup[group].sort((a, b) => {
+      const aLinked = linkedAddOnIdSet.has(String(a.id));
+      const bLinked = linkedAddOnIdSet.has(String(b.id));
+      if (aLinked && !bLinked) return -1;
+      if (!aLinked && bLinked) return 1;
+      return 0;
+    });
+  });
 
   // 3. Handle Modifier Selection
   const handleModifierToggle = (addOn) => {
@@ -138,7 +157,7 @@ export default function ProductModal({ product, category, menuData, isOpen, onCl
           {/* Header Image */}
           {product.imagePath && (
             <div className="w-full h-64 sm:h-72 bg-black-primary shrink-0 relative">
-              <img src={product.imagePath} alt={lang === 'en' && product.nameEn ? product.nameEn : product.name} className="w-full h-full object-cover" />
+              <img src={optimizeCloudinaryUrl(product.imagePath, { width: 800, quality: 'auto' })} alt={lang === 'en' && product.nameEn ? product.nameEn : product.name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
               <div className="absolute bottom-6 right-6 text-text-light">
                 <h2 className="text-3xl font-display font-black mb-1">{lang === 'en' && product.nameEn ? product.nameEn : product.name}</h2>
@@ -251,6 +270,11 @@ export default function ProductModal({ product, category, menuData, isOpen, onCl
                                 {isSelected && <svg viewBox="0 0 14 14" fill="none" className="w-3 h-3"><path d="M3 8L6 11L11 3.5" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" stroke="currentColor"></path></svg>}
                               </div>
                               <span className={`font-bold ${isSelected ? 'text-brand-red' : 'text-text-light'}`}>{addOn.name}</span>
+                              {linkedAddOnIdSet.has(String(addOn.id)) && (
+                                <span className="text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold">
+                                  ⭐ {lang === 'en' ? 'Recommended' : 'مقترح'}
+                                </span>
+                              )}
                             </div>
                             <span className="text-sm font-bold text-text-muted">{displayPrice}</span>
                           </div>
@@ -261,6 +285,9 @@ export default function ProductModal({ product, category, menuData, isOpen, onCl
                 ))}
               </div>
             )}
+
+            {/* Smart Cross-Selling Bar */}
+            <SmartUpsellBar menuData={menuData} currentProduct={product} />
           </div>
 
           {/* Footer / Add to Cart */}

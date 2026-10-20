@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 import { db } from '../firebase';
-import { ref, get, set, onValue, off } from 'firebase/database';
+import { ref, get, set, push, remove, onValue, off } from 'firebase/database';
 import { getActiveTableSession, setTableSession, invalidateTableSession as purgeTableSession } from '../utils/dineInSecurity';
 
 const CartContext = createContext();
@@ -10,6 +10,44 @@ export const useCart = () => useContext(CartContext);
 
 export const CartProvider = ({ children }) => {
   const { userPhone } = useAuth();
+
+  // Group Order State & Room Management
+  const [groupOrderId, setGroupOrderIdState] = useState(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const groupFromUrl = urlParams.get('group');
+      if (groupFromUrl) return groupFromUrl.toUpperCase();
+      return localStorage.getItem('crispy_group_order_id') || null;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  const [groupData, setGroupData] = useState(null);
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  const [currentGuestName, setCurrentGuestNameState] = useState(() => {
+    try {
+      return localStorage.getItem('crispy_group_guest_name') || '';
+    } catch (e) {
+      return '';
+    }
+  });
+
+  const setCurrentGuestName = (name) => {
+    setCurrentGuestNameState(name);
+    try {
+      if (name) localStorage.setItem('crispy_group_guest_name', name);
+      else localStorage.removeItem('crispy_group_guest_name');
+    } catch (e) {}
+  };
+
+  const setGroupOrderId = (id) => {
+    setGroupOrderIdState(id);
+    try {
+      if (id) localStorage.setItem('crispy_group_order_id', id);
+      else localStorage.removeItem('crispy_group_order_id');
+    } catch (e) {}
+  };
 
   // 1. Local cart items state initialized from localStorage
   const [cartItems, setCartItems] = useState(() => {
@@ -116,7 +154,65 @@ export const CartProvider = ({ children }) => {
     return clean;
   };
 
-  // 2. Persist cart to localStorage on any local change
+  // 2. Group Order Realtime Firebase Listener
+  useEffect(() => {
+    if (!groupOrderId) {
+      setGroupData(null);
+      return;
+    }
+
+    const groupRef = ref(db, `GroupOrders/${groupOrderId}`);
+    const unsubscribe = onValue(groupRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        setGroupData(data);
+      } else {
+        setGroupData(null);
+        setGroupOrderIdState(null);
+        try { localStorage.removeItem('crispy_group_order_id'); } catch(e) {}
+      }
+    });
+
+    return () => {
+      off(groupRef);
+    };
+  }, [groupOrderId]);
+
+  // Check URL query for ?group=GRP-XXXX on load
+  useEffect(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const groupFromUrl = urlParams.get('group');
+      if (groupFromUrl) {
+        const upper = groupFromUrl.trim().toUpperCase();
+        setGroupOrderId(upper);
+        if (!currentGuestName) {
+          setIsGroupModalOpen(true);
+        }
+      }
+    } catch (e) {}
+  }, []);
+
+  const isGroupOrder = Boolean(groupOrderId && groupData && groupData.status === 'open');
+  const isGroupHost = Boolean(
+    isGroupOrder && (
+      (userPhone && groupData?.hostPhone === userPhone) ||
+      (groupData?.hostName && currentGuestName && groupData.hostName.trim().toLowerCase() === currentGuestName.trim().toLowerCase())
+    )
+  );
+
+  const groupItemsList = useMemo(() => {
+    if (!isGroupOrder || !groupData?.items) return [];
+    return Object.entries(groupData.items).map(([key, val]) => ({
+      ...val,
+      groupItemKey: key,
+      guestName: val.guestName || 'ضيف'
+    }));
+  }, [isGroupOrder, groupData?.items]);
+
+  const effectiveCartItems = isGroupOrder ? groupItemsList : cartItems;
+
+  // 3. Persist cart to localStorage on any local change
   useEffect(() => {
     localStorage.setItem('crispy_cart_items', JSON.stringify(cartItems));
   }, [cartItems]);
@@ -217,7 +313,7 @@ export const CartProvider = ({ children }) => {
     return () => clearTimeout(timeout);
   }, [cartItems]);
 
-  // 6. Add to Cart Handler
+  // 6. Add to Cart Handler (Supports Individual & Group Order)
   const addToCart = (customProduct, quantity) => {
     const isSoldOut = Boolean(customProduct?.isSoldOut || customProduct?.IsSoldOut || customProduct?.isAvailable === false || customProduct?.IsAvailable === false);
     if (isSoldOut) {
@@ -225,6 +321,32 @@ export const CartProvider = ({ children }) => {
       return;
     }
     const validQty = Math.max(1, Math.min(99, parseInt(quantity, 10) || 1));
+
+    if (isGroupOrder) {
+      let guestName = currentGuestName;
+      if (!guestName) {
+        guestName = prompt('يرجى كتابة اسمك ليُطبع على الساندوتش:') || 'صديق';
+        setCurrentGuestName(guestName);
+      }
+      const itemRef = push(ref(db, `GroupOrders/${groupOrderId}/items`));
+      set(itemRef, {
+        product: customProduct,
+        quantity: validQty,
+        guestName: (guestName || 'ضيف').trim(),
+        addedAt: Date.now()
+      }).catch(err => {
+        console.error("Failed to add to group order:", err);
+      });
+
+      setLastAddedItem({
+        name: customProduct.name,
+        quantity: validQty,
+        time: Date.now()
+      });
+      if (!dontAutoOpenCart) setIsCartOpen(true);
+      return;
+    }
+
     setCartItems(prev => {
       const existingItemIndex = prev.findIndex(item => {
         if (item.product.id !== customProduct.id) return false;
@@ -257,8 +379,7 @@ export const CartProvider = ({ children }) => {
       time: Date.now()
     });
 
-    // Auto-open logic:
-    // Only auto-open if the user hasn't explicitly clicked "أضف منتج آخر" or closed the cart
+    // Auto-open logic
     if (!dontAutoOpenCart) {
       setIsCartOpen(true);
     }
@@ -288,10 +409,25 @@ export const CartProvider = ({ children }) => {
   };
 
   const removeFromCart = (index) => {
+    if (isGroupOrder) {
+      const item = groupItemsList[index];
+      if (item?.groupItemKey) {
+        remove(ref(db, `GroupOrders/${groupOrderId}/items/${item.groupItemKey}`)).catch(() => {});
+      }
+      return;
+    }
     setCartItems(prev => prev.filter((_, i) => i !== index));
   };
 
   const updateQuantity = (index, delta) => {
+    if (isGroupOrder) {
+      const item = groupItemsList[index];
+      if (item?.groupItemKey) {
+        const newQuantity = Math.max(1, Math.min(99, (parseInt(item.quantity, 10) || 1) + delta));
+        set(ref(db, `GroupOrders/${groupOrderId}/items/${item.groupItemKey}/quantity`), newQuantity).catch(() => {});
+      }
+      return;
+    }
     setCartItems(prev => prev.map((item, i) => {
       if (i === index) {
         const newQuantity = Math.max(1, Math.min(99, (parseInt(item.quantity, 10) || 1) + delta));
@@ -301,14 +437,14 @@ export const CartProvider = ({ children }) => {
     }));
   };
 
-  const cartTotal = cartItems.reduce((total, item) => {
+  const cartTotal = effectiveCartItems.reduce((total, item) => {
     const qty = Math.max(0, parseInt(item.quantity, 10) || 0);
-    const rawPrice = item.product.calculatedPrice || item.product.sellingPrice || 0;
+    const rawPrice = item.product?.calculatedPrice || item.product?.sellingPrice || 0;
     const basePrice = Math.max(0, parseFloat(rawPrice) || 0);
     
     // Add modifiers price
     let modifiersPrice = 0;
-    if (item.product.selectedModifiers && item.product.selectedModifiers.length > 0) {
+    if (item.product?.selectedModifiers && item.product.selectedModifiers.length > 0) {
       modifiersPrice = item.product.selectedModifiers.reduce((sum, mod) => sum + (mod.chargedPrice || 0), 0);
     }
     
@@ -316,6 +452,12 @@ export const CartProvider = ({ children }) => {
   }, 0);
 
   const clearCart = () => {
+    if (isGroupOrder) {
+      if (groupOrderId) {
+        remove(ref(db, `GroupOrders/${groupOrderId}/items`)).catch(() => {});
+      }
+      return;
+    }
     setCartItems([]);
     const cleanPhone = activeUserPhoneRef.current;
     if (cleanPhone) {
@@ -324,6 +466,52 @@ export const CartProvider = ({ children }) => {
         updatedAt: Date.now()
       }).catch(() => {});
     }
+  };
+
+  const startGroupOrder = async (hostName) => {
+    const code = 'GRP-' + Math.random().toString(36).substring(2, 7).toUpperCase();
+    const groupRef = ref(db, `GroupOrders/${code}`);
+    const initialData = {
+      id: code,
+      hostName: hostName.trim(),
+      hostPhone: userPhone || '',
+      createdAt: Date.now(),
+      status: 'open',
+      items: {}
+    };
+    await set(groupRef, initialData);
+    setCurrentGuestName(hostName.trim());
+    setGroupOrderId(code);
+    setGroupData(initialData);
+    setIsCartOpen(true);
+    return code;
+  };
+
+  const joinGroupOrder = async (code, guestName) => {
+    const cleanCode = code.trim().toUpperCase();
+    const groupRef = ref(db, `GroupOrders/${cleanCode}`);
+    const snap = await get(groupRef);
+    if (snap.exists() && snap.val()?.status === 'open') {
+      setCurrentGuestName(guestName.trim());
+      setGroupOrderId(cleanCode);
+      setGroupData(snap.val());
+      setIsCartOpen(true);
+      return true;
+    } else {
+      alert('عذراً، كود الغرفة غير صحيح أو أن الطلب الجماعي غير متاح.');
+      return false;
+    }
+  };
+
+  const leaveGroupOrder = () => {
+    setGroupOrderId(null);
+    setGroupData(null);
+    try {
+      localStorage.removeItem('crispy_group_order_id');
+      const url = new URL(window.location.href);
+      url.searchParams.delete('group');
+      window.history.replaceState({}, '', url.toString());
+    } catch (e) {}
   };
 
   const syncCartWithMenu = (menuData) => {
@@ -403,7 +591,7 @@ export const CartProvider = ({ children }) => {
 
   return (
     <CartContext.Provider value={{ 
-      cartItems, 
+      cartItems: effectiveCartItems, 
       setCartItems, 
       addToCart, 
       removeFromCart, 
@@ -426,7 +614,19 @@ export const CartProvider = ({ children }) => {
       orderType,
       setOrderType,
       isOrderTypeModalOpen,
-      setIsOrderTypeModalOpen
+      setIsOrderTypeModalOpen,
+      // Group Order exports
+      groupOrderId,
+      groupData,
+      isGroupOrder,
+      isGroupHost,
+      currentGuestName,
+      setCurrentGuestName,
+      isGroupModalOpen,
+      setIsGroupModalOpen,
+      startGroupOrder,
+      joinGroupOrder,
+      leaveGroupOrder
     }}>
       {children}
     </CartContext.Provider>

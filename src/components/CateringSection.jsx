@@ -8,6 +8,7 @@ import {
   Layers, Utensils, UtensilsCrossed, UserCheck
 } from 'lucide-react';
 import DOMPurify from 'dompurify';
+import { optimizeCloudinaryUrl } from '../utils/imageOptimizer';
 import { useAuth } from '../context/AuthContext';
 import { db, auth } from '../firebase';
 import { ref, set, get } from 'firebase/database';
@@ -784,10 +785,13 @@ ${structuredTelegramNotes}`;
               >
                 <div className="relative rounded-3xl overflow-hidden aspect-[4/3] group shadow-2xl shadow-brand-red/10 border border-white/5">
                   <img 
-                    src={websiteData?.cateringImageUrl || "https://res.cloudinary.com/vgk0saib/image/upload/v1789401239/cqutdoqk1iptig3mjbkh.webp"}
+                    src={optimizeCloudinaryUrl(websiteData?.cateringImageUrl || "https://res.cloudinary.com/vgk0saib/image/upload/v1789401239/cqutdoqk1iptig3mjbkh.webp", { width: 800, quality: 'auto' })}
                     alt="Catering & Events"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                     loading="lazy"
+                    decoding="async"
+                    width={800}
+                    height={600}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black-primary via-black-primary/20 to-transparent opacity-80 pointer-events-none"></div>
                   

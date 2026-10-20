@@ -23,7 +23,19 @@ import Logo from '../components/Logo';
 
 export default function CheckoutPage({ menuData, websiteData }) {
   const { lang } = useLanguage();
-  const { cartItems, cartTotal, clearCart, tableNumber, orderType, setOrderType, setIsOrderTypeModalOpen, invalidateTableSession } = useCart();
+  const {
+    cartItems,
+    cartTotal,
+    clearCart,
+    tableNumber,
+    orderType,
+    setOrderType,
+    setIsOrderTypeModalOpen,
+    invalidateTableSession,
+    isGroupOrder,
+    groupOrderId,
+    groupData
+  } = useCart();
   const { customerData, userPhone, currentUser } = useAuth();
   const navigate = useNavigate();
   
@@ -80,8 +92,37 @@ export default function CheckoutPage({ menuData, websiteData }) {
   }, [currentFixedZone]);
 
   const subtotal = cartTotal;
+
+  // Free Delivery Configuration & Qualification Check
+  const [liveFreeDelivery, setLiveFreeDelivery] = useState(null);
+  useEffect(() => {
+    fetch(`${APP_CONFIG.firebaseDbUrl}FreeDelivery.json?t=${Date.now()}`)
+      .then(res => {
+        if (!res.ok) return null;
+        return res.json();
+      })
+      .then(data => {
+        if (data && typeof data === 'object' && !data.error) setLiveFreeDelivery(data);
+      })
+      .catch(() => {});
+  }, []);
+
+  const fdConfig = (liveFreeDelivery && !liveFreeDelivery.error)
+    ? liveFreeDelivery
+    : (menuData?.FreeDelivery || menuData?.freeDelivery || websiteData?.FreeDelivery || websiteData?.freeDelivery || null);
+
+  const isFreeDeliveryEnabled = fdConfig && fdConfig.enabled !== undefined
+    ? Boolean(fdConfig.enabled)
+    : (websiteData?.enableFreeDeliveryBar !== undefined ? Boolean(websiteData.enableFreeDeliveryBar) : true);
+
+  const freeDeliveryThreshold = Number(
+    fdConfig?.threshold || fdConfig?.Threshold || websiteData?.freeDeliveryThresholdAmount || 350
+  );
+  const isFreeDeliveryQualified = isFreeDeliveryEnabled && subtotal >= freeDeliveryThreshold;
+
   const selectedZoneObj = deliveryZones.find(z => (z.name || '').trim() === (selectedZone || '').trim());
-  const deliveryFee = formData?.orderType === 'delivery' && selectedZoneObj ? Number(selectedZoneObj.deliveryFee || 0) : 0;
+  const rawDeliveryFee = formData?.orderType === 'delivery' && selectedZoneObj ? Number(selectedZoneObj.deliveryFee || 0) : 0;
+  const deliveryFee = isFreeDeliveryQualified ? 0 : rawDeliveryFee;
   const taxAmount = taxPercentage > 0 ? Math.round((subtotal * (taxPercentage / 100)) * 100) / 100 : 0;
 
   // Store Status (Open / Closed)
@@ -1039,13 +1080,15 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
         const modPrice = Math.max(0, Number(item.product.finalModifiersPrice || 0));
         const unitPrice = Math.round((basePrice + modPrice) * 100) / 100;
 
+        const rawGuestName = item.guestName || item.product?.guestName || '';
         return {
             productName: finalProductName,
             quantity: safeQty,
             unitPrice: unitPrice,
             productId: Number(item.product.id) || 0,
             weightInGrams: Math.max(0, Number(item.product.selectedWeight) || 0),
-            modifierNotes: modifierText
+            modifierNotes: modifierText,
+            guestName: rawGuestName ? sanitizeText(rawGuestName, 50) : ''
           };
       });
 
@@ -1145,7 +1188,9 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
         orderDate: new Date().toISOString(),
         customerName: cleanCustomerName,
         customerPhone: (formData.customerPhone || '').trim(),
-        notes: cleanNotes,
+        notes: isGroupOrder 
+          ? `${cleanNotes ? cleanNotes + ' ' : ''}[👥 طلب جماعي - المنظم: ${groupData?.hostName || 'المنظم'}]` 
+          : cleanNotes,
         orderType: formData.orderType,
         handoverCode: handoverCode,
         deliveryAddress: formData.orderType === 'delivery' ? `[منطقة: ${selectedZone}] ${cleanDeliveryAddress}` : '',
@@ -1306,6 +1351,17 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
         const activePhone = (formData.customerPhone || userPhone || '').trim();
         if (activePhone) {
           set(ref(db, `UsedCoupons/${appliedCoupon.code}/${activePhone}`), true).catch(() => {});
+        }
+      }
+
+      // Group Order Completion
+      if (isGroupOrder && groupOrderId) {
+        try {
+          await set(ref(db, `GroupOrders/${groupOrderId}/status`), 'completed');
+          await set(ref(db, `GroupOrders/${groupOrderId}/orderId`), displayOrderId);
+          localStorage.removeItem('crispy_group_order_id');
+        } catch (e) {
+          console.warn('GroupOrder finalize failed:', e);
         }
       }
 
@@ -1910,8 +1966,19 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
                 {formData.orderType === 'delivery' && (
                   <div className="flex justify-between text-text-muted">
                     <span>{lang === 'en' ? 'Delivery Fee:' : 'سعر التوصيل:'} {selectedZone ? `(${selectedZone})` : ''}</span>
-                    <span className={`font-bold ${deliveryFee > 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
-                      {deliveryFee > 0 ? `+${deliveryFee.toFixed(2)} ${lang === 'en' ? 'EGP' : 'ج.م'}` : (lang === 'en' ? 'Select Zone' : 'اختر المنطقة')}
+                    <span className={`font-bold ${isFreeDeliveryQualified ? 'text-brand-red' : (deliveryFee > 0 ? 'text-emerald-400' : 'text-amber-400')}`}>
+                      {isFreeDeliveryQualified ? (
+                        <span>
+                          {rawDeliveryFee > 0 && (
+                            <span className="line-through text-xs text-text-muted mr-1.5 opacity-60">
+                              {rawDeliveryFee.toFixed(2)} {lang === 'en' ? 'EGP' : 'ج.م'}
+                            </span>
+                          )}
+                          <span className="text-emerald-400 font-extrabold">{lang === 'en' ? 'FREE 🎉' : 'مجاني 🎉'}</span>
+                        </span>
+                      ) : (
+                        deliveryFee > 0 ? `+${deliveryFee.toFixed(2)} ${lang === 'en' ? 'EGP' : 'ج.م'}` : (lang === 'en' ? 'Select Zone' : 'اختر المنطقة')
+                      )}
                     </span>
                   </div>
                 )}

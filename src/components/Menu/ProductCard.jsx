@@ -2,7 +2,7 @@ import React from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { motion } from 'framer-motion';
 import { Plus, Flame, Beef } from 'lucide-react';
-
+import { getProductThumbnailUrl } from '../../utils/imageOptimizer';
 
 export default function ProductCard({ product, onClick }) {
   const { lang, t } = useLanguage();
@@ -24,10 +24,13 @@ export default function ProductCard({ product, onClick }) {
       <div className="relative h-48 w-full bg-black-primary overflow-hidden flex-shrink-0">
         {product.imagePath ? (
           <img 
-            src={product.imagePath} 
+            src={getProductThumbnailUrl(product.imagePath)} 
             alt={lang === 'en' && product.nameEn ? product.nameEn : product.name} 
             className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${isSoldOut ? "grayscale opacity-50" : ""}`}
             loading="lazy"
+            decoding="async"
+            width={400}
+            height={200}
           />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center text-text-muted bg-black-primary">

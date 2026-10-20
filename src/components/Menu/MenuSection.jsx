@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, ChevronRight, Bike, ShoppingBag, UtensilsCrossed } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import ProductCard from './ProductCard';
+import { optimizeCloudinaryUrl } from '../../utils/imageOptimizer';
 
 const SkeletonLoader = () => (
   <div className="py-24 min-h-screen bg-black-surface">
@@ -147,7 +148,7 @@ export default function MenuSection({ menuData, onProductClick }) {
                 className="bg-black-surface rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 border border-brand-red-dark/30 cursor-pointer flex flex-col group h-48 relative"
               >
                 {category.imagePath ? (
-                   <img src={category.imagePath} alt={lang === 'en' && category.nameEn ? category.nameEn : category.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                   <img src={optimizeCloudinaryUrl(category.imagePath, { width: 500, quality: 'auto' })} alt={lang === 'en' && category.nameEn ? category.nameEn : category.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy" decoding="async" width={500} height={200} />
                 ) : (
                    <div className="w-full h-full flex items-center justify-center bg-black-primary text-text-muted">{lang === 'en' ? 'No Image' : 'بدون صورة'}</div>
                 )}
@@ -181,9 +182,13 @@ export default function MenuSection({ menuData, onProductClick }) {
               >
                 {category.imagePath && (
                   <img 
-                    src={category.imagePath} 
+                    src={optimizeCloudinaryUrl(category.imagePath, { width: 100, quality: 'auto' })} 
                     alt={lang === 'en' && category.nameEn ? category.nameEn : category.name} 
                     className="w-7 h-7 rounded-full object-cover ms- border border-white/20"
+                    loading="lazy"
+                    decoding="async"
+                    width={28}
+                    height={28}
                   />
                 )}
                 {lang === 'en' && category.nameEn ? category.nameEn : category.name}

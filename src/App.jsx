@@ -13,6 +13,7 @@ import { ShoppingBag, Star } from 'lucide-react';
 import { useCart } from './context/CartContext';
 import PromoPopup from './components/PromoPopup';
 import OrderTypeModal from './components/OrderTypeModal';
+import GroupOrderModal from './components/Cart/GroupOrderModal';
 import PwaInstallPrompt from './components/PwaInstallPrompt';
 
 // Code Splitting for Pages
@@ -97,28 +98,30 @@ function MainAppShell({ websiteData, menuData, loading, lang, isReviewModalOpen,
       
       <PromoPopup websiteData={websiteData} />
 
-      {/* Floating Toast notification when adding item to cart without auto-opening drawer */}
+      {/* Floating Toast notification when adding item to cart */}
       <AnimatePresence>
         {toastNotification && !isCartOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 30, scale: 0.95 }}
+            initial={{ opacity: 0, y: 25, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="fixed bottom-20 md:bottom-8 left-1/2 -translate-x-1/2 z-40 bg-black-surface/95 border border-brand-red/40 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3 text-text-light max-w-[92vw] sm:max-w-md pointer-events-auto"
+            className="fixed bottom-20 md:bottom-8 inset-x-4 max-w-sm sm:max-w-md mx-auto z-50 bg-black-surface/95 border border-brand-red-dark/50 backdrop-blur-md px-4 py-3 rounded-2xl shadow-2xl flex items-center justify-between gap-3 text-text-light pointer-events-auto"
           >
-            <div className="w-7 h-7 rounded-full bg-brand-red/20 text-brand-red flex items-center justify-center font-bold text-xs shrink-0">
-              ✓
-            </div>
-            <div className="overflow-hidden">
-              <p className="text-[11px] text-text-muted">{lang === 'en' ? 'Added to cart' : 'تمت الإضافة للسلة'}</p>
-              <p className="text-sm font-bold text-text-light truncate">{toastNotification.name}</p>
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="w-8 h-8 rounded-full bg-brand-red/15 border border-brand-red/30 text-brand-red flex items-center justify-center font-bold text-sm shrink-0">
+                ✓
+              </div>
+              <div className="overflow-hidden min-w-0 flex-1">
+                <p className="text-[11px] text-text-muted leading-tight">{lang === 'en' ? 'Added to cart' : 'تمت الإضافة للسلة'}</p>
+                <p className="text-xs sm:text-sm font-bold text-text-light truncate">{toastNotification.name}</p>
+              </div>
             </div>
             <button 
               onClick={() => {
                 setToastNotification(null);
                 setIsCartOpen(true);
               }}
-              className="ms-auto shrink-0 px-3 py-1.5 bg-brand-red text-text-light text-xs font-bold rounded-xl hover:bg-brand-red-dark transition-colors shadow-md"
+              className="shrink-0 px-3.5 py-2 bg-brand-red text-text-light text-xs font-bold rounded-xl hover:bg-brand-red-dark transition-colors shadow-md active:scale-95"
             >
               {lang === 'en' ? 'View Cart' : 'عرض السلة'}
             </button>
@@ -127,7 +130,8 @@ function MainAppShell({ websiteData, menuData, loading, lang, isReviewModalOpen,
       </AnimatePresence>
       
       <OrderTypeModal />
-      <CartSidebar />
+      <GroupOrderModal />
+      <CartSidebar websiteData={websiteData} menuData={menuData} />
       <MobileBottomNav />
       <PwaInstallPrompt />
     </div>

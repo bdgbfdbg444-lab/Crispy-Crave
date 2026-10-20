@@ -68,8 +68,8 @@ export default {
         light: '#1A1815', // 'light' is now a dark surface in this theme to override bg-light
       },
       fontFamily: {
-        sans: ['Poppins', 'Cairo', 'system-ui', 'sans-serif'],
-        display: ['Ultra', 'Changa', 'system-ui', 'serif'],
+        sans: ['Cairo', 'system-ui', 'sans-serif'],
+        display: ['Cairo', 'Bebas Neue', 'system-ui', 'sans-serif'],
       }
     },
   },

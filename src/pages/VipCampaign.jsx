@@ -778,7 +778,7 @@ export default function VipCampaign() {
               }}
             >
               <img 
-                src="./images/envelope_closed.png" 
+                src="./images/envelope_closed.webp" 
                 alt="Royal Sealed Envelope" 
                 className="w-full h-full object-contain pointer-events-none drop-shadow-[0_22px_50px_rgba(0,0,0,0.95)]"
               />
@@ -838,7 +838,7 @@ export default function VipCampaign() {
             <div className="relative w-full h-full">
               {/* Layer 1: Open Envelope Back & Lifted Flap */}
               <img 
-                src="./images/envelope_open.png" 
+                src="./images/envelope_open.webp" 
                 alt="Open Envelope" 
                 className="absolute inset-0 w-full h-full object-contain pointer-events-none z-10 drop-shadow-[0_22px_50px_rgba(0,0,0,0.95)]"
               />
@@ -909,7 +909,7 @@ export default function VipCampaign() {
 
               {/* Layer 3: Envelope Front Pocket (Masks lower card section in true 3D) */}
               <img 
-                src="./images/envelope_pocket_front.png" 
+                src="./images/envelope_pocket_front.webp" 
                 alt="Envelope Front Pocket" 
                 className="absolute inset-0 w-full h-full object-contain pointer-events-none z-30 drop-shadow-[0_-5px_15px_rgba(0,0,0,0.6)]"
               />

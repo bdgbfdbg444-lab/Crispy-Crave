@@ -3,12 +3,32 @@ import React, { useEffect, useState } from 'react';
 import { APP_CONFIG } from '../../config/appConfig';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingBag, X, Plus, Minus, Trash2, ArrowLeft } from 'lucide-react';
+import { ShoppingBag, X, Plus, Minus, Trash2, ArrowLeft, Truck, Sparkles, CheckCircle2, Users } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
+import { useAuth } from '../../context/AuthContext';
+import SmartUpsellBar from '../Menu/SmartUpsellBar';
 
-export default function CartSidebar() {
+export default function CartSidebar({ websiteData, menuData }) {
   const { lang } = useLanguage();
-  const { cartItems, isCartOpen, setIsCartOpen, closeCart, continueShopping, removeFromCart, updateQuantity, cartTotal } = useCart();
+  const { currentUser, customerData } = useAuth();
+  const {
+    cartItems,
+    isCartOpen,
+    setIsCartOpen,
+    closeCart,
+    continueShopping,
+    removeFromCart,
+    updateQuantity,
+    cartTotal,
+    isGroupOrder,
+    isGroupHost,
+    groupOrderId,
+    groupData,
+    currentGuestName,
+    setIsGroupModalOpen,
+    leaveGroupOrder,
+    orderType
+  } = useCart();
   const [activeOrderId, setActiveOrderId] = useState(() => {
     const editingId = localStorage.getItem('editingOrderId');
     if (editingId) return null;
@@ -55,6 +75,49 @@ export default function CartSidebar() {
     return () => { document.body.style.overflow = 'unset'; };
   }, [isCartOpen]);
 
+  // Live Free Delivery configuration
+  const [liveFreeDelivery, setLiveFreeDelivery] = useState(null);
+
+  useEffect(() => {
+    if (!isCartOpen) return;
+    fetch(`${APP_CONFIG.firebaseDbUrl}FreeDelivery.json?t=${Date.now()}`)
+      .then(res => {
+        if (!res.ok) return null;
+        return res.json();
+      })
+      .then(data => {
+        if (data && typeof data === 'object' && !data.error) setLiveFreeDelivery(data);
+      })
+      .catch(() => {});
+  }, [isCartOpen]);
+
+  const fdConfig = (liveFreeDelivery && !liveFreeDelivery.error)
+    ? liveFreeDelivery
+    : (menuData?.FreeDelivery || menuData?.freeDelivery || websiteData?.FreeDelivery || websiteData?.freeDelivery || null);
+
+  const isFreeDeliveryEnabled = fdConfig && fdConfig.enabled !== undefined
+    ? Boolean(fdConfig.enabled)
+    : (websiteData?.enableFreeDeliveryBar !== undefined ? Boolean(websiteData.enableFreeDeliveryBar) : true);
+
+  const freeDeliveryThreshold = Number(
+    fdConfig?.threshold || fdConfig?.Threshold || websiteData?.freeDeliveryThresholdAmount || 350
+  );
+
+  const currentTotal = Number(cartTotal || 0);
+  const progress = Math.min(100, Math.round((currentTotal / freeDeliveryThreshold) * 100));
+  const isUnlocked = progress >= 100;
+  const remaining = Math.max(0, Math.round(freeDeliveryThreshold - currentTotal));
+
+  const progressMessage = (lang === 'en'
+    ? (fdConfig?.messageEn || fdConfig?.MessageEn || websiteData?.freeDeliveryMessageEn || 'Add {remaining} EGP more to get FREE Delivery!')
+    : (fdConfig?.message || fdConfig?.Message || websiteData?.freeDeliveryMessage || 'أضف بـ {remaining} ج.م فقط لتحصل على توصيل مجاني!')
+  ).replace('{remaining}', remaining).replace('🚀', '').trim();
+
+  const successMessage = (lang === 'en'
+    ? (fdConfig?.successMessageEn || fdConfig?.SuccessMessageEn || websiteData?.freeDeliverySuccessMessageEn || 'Congrats! You unlocked FREE Delivery')
+    : (fdConfig?.successMessage || fdConfig?.SuccessMessage || websiteData?.freeDeliverySuccessMessage || 'مبروك! طلبك مؤهل الآن للتوصيل المجاني بالكامل')
+  ).replace('🎉', '').replace('✨', '').trim();
+
   return (
     <AnimatePresence>
       {isCartOpen && (
@@ -77,21 +140,121 @@ export default function CartSidebar() {
             className="fixed top-0 right-0 h-full w-full sm:w-96 bg-black-surface shadow-2xl z-[101] flex flex-col"
           >
             {/* Header */}
-            <div className="p-6 border-b border-brand-red-dark/30 flex items-center justify-between bg-black-surface shrink-0">
-              <div className="flex items-center gap-3 text-text-light">
-                <ShoppingBag size={24} className="text-brand-red" />
-                <h2 className="text-2xl font-display font-black pt-1">{lang === 'en' ? 'Cart' : 'سلة الطلبات'}</h2>
-                <span className="bg-brand-red/10 text-brand-red font-bold px-2 py-0.5 rounded-full text-sm">
+            <div className="p-5 border-b border-brand-red-dark/30 flex items-center justify-between bg-black-surface shrink-0">
+              <div className="flex items-center gap-2.5 text-text-light">
+                <ShoppingBag size={22} className="text-brand-red" />
+                <h2 className="text-xl font-display font-black pt-0.5">{lang === 'en' ? 'Cart' : 'سلة الطلبات'}</h2>
+                <span className="bg-brand-red/10 text-brand-red font-bold px-2 py-0.5 rounded-full text-xs">
                   {cartItems.reduce((acc, item) => acc + item.quantity, 0)}
                 </span>
               </div>
               <button 
                 onClick={closeCart}
-                className="w-10 h-10 rounded-full bg-black-surface hover:bg-black-surface flex items-center justify-center text-text-muted transition-colors"
+                className="w-9 h-9 rounded-full bg-black-surface hover:bg-white/5 flex items-center justify-center text-text-muted hover:text-white transition-colors"
+                title={lang === 'en' ? 'Close' : 'إغلاق'}
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
+
+            {/* Active Group Order Live Banner */}
+            {isGroupOrder && (
+              <div className="px-5 py-3 bg-brand-red-dark/20 border-b border-brand-red-dark/40 shrink-0">
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span className="font-bold text-text-light">
+                      {lang === 'en' ? `Group: ${groupData?.hostName}` : `طلب جماعي: ${groupData?.hostName}`}
+                      {isGroupHost && <span className="ms-1 text-[10px] text-brand-red font-bold">({lang === 'en' ? 'Host' : 'المنظم'})</span>}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsGroupModalOpen(true)}
+                    className="text-[11px] font-bold text-brand-red hover:underline flex items-center gap-1"
+                  >
+                    <span>{lang === 'en' ? 'Invite & Details' : 'دعوة وتفاصيل'}</span>
+                  </button>
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-text-muted">
+                  <span>{lang === 'en' ? 'Your Name:' : 'اسمك على الساندوتش:'} <b className="text-text-light font-bold">{currentGuestName || (lang === 'en' ? 'Guest' : 'ضيف')}</b></span>
+                  <span className="font-mono text-[11px] text-text-light font-bold bg-white/5 px-2 py-0.5 rounded border border-white/10">{groupOrderId}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Group Order Card - Clean & Professional Dark Red */}
+            {currentUser && !isGroupOrder && (
+              <div className="mx-4 my-2.5 p-3 rounded-2xl bg-black-surface border border-brand-red-dark/40 shadow-sm shrink-0">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-brand-red/15 text-brand-red flex items-center justify-center shrink-0 border border-brand-red/30">
+                      <Users size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-bold text-text-light">
+                        {lang === 'en' ? 'Group Ordering' : 'الطلب الجماعي'}
+                      </h4>
+                      <p className="text-[11px] text-text-muted truncate mt-0.5">
+                        {lang === 'en'
+                          ? 'Order together, each sandwich labeled by name'
+                          : 'اطلب مع أصحابك وكل ساندوتش يوصل باسم صاحبه'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsGroupModalOpen(true)}
+                    className="shrink-0 px-3 py-1.5 bg-brand-red hover:bg-brand-red-dark text-white font-bold text-xs rounded-xl transition-all shadow-sm"
+                  >
+                    {lang === 'en' ? 'Start Order' : 'بدء طلب'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Free Delivery Progress Bar */}
+            {isFreeDeliveryEnabled && cartItems.length > 0 && orderType === 'delivery' && (
+              <div className="px-5 py-3.5 bg-gradient-to-r from-brand-red-dark/20 via-black-surface to-brand-red-dark/20 border-b border-brand-red-dark/30 shrink-0">
+                <div className="flex items-center gap-2 mb-2 text-xs sm:text-sm font-bold">
+                  {isUnlocked ? (
+                    <>
+                      <Truck className="w-4 h-4 text-brand-red shrink-0" />
+                      <span className="text-brand-red font-black flex-1 leading-snug">
+                        {successMessage}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Truck className="w-4 h-4 text-brand-red shrink-0" />
+                      <span className="text-text-light flex-1 leading-snug">
+                        {progressMessage}
+                      </span>
+                    </>
+                  )}
+                </div>
+                {/* Progress track */}
+                <div className="w-full bg-black-primary/90 h-2.5 rounded-full overflow-hidden border border-brand-red-dark/40 relative">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${progress}%` }}
+                    transition={{ duration: 0.6, ease: "easeOut" }}
+                    className={`h-full rounded-full transition-all duration-300 ${
+                      isUnlocked 
+                        ? 'bg-gradient-to-r from-brand-red-dark via-brand-red to-red-600 shadow-[0_0_12px_rgba(220,38,38,0.5)]' 
+                        : 'bg-gradient-to-r from-brand-red-dark to-brand-red shadow-[0_0_8px_rgba(220,38,38,0.3)]'
+                    }`}
+                  />
+                </div>
+                <div className="flex justify-between items-center text-[11px] text-text-muted mt-1 font-mono">
+                  <span>{currentTotal} {lang === 'en' ? 'EGP' : 'ج.م'}</span>
+                  <span className={isUnlocked ? 'text-brand-red font-bold' : 'text-text-muted'}>
+                    {isUnlocked ? '100%' : `${progress}%`}
+                  </span>
+                  <span>{freeDeliveryThreshold} {lang === 'en' ? 'EGP' : 'ج.م'}</span>
+                </div>
+              </div>
+            )}
 
             {/* Cart Items */}
             <div className="flex-grow overflow-y-auto p-6 bg-black-primary custom-scrollbar">
@@ -139,6 +302,16 @@ export default function CartSidebar() {
                           <div className="flex-grow flex flex-col">
                             <h3 className="font-bold text-text-light text-lg leading-tight mb-1 pe-">{item.product.name}</h3>
                             
+                            {/* Group Order Guest Badge */}
+                            {(item.guestName || item.product?.guestName) && (
+                              <div className="mb-1.5">
+                                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-400 bg-blue-500/10 border border-blue-500/30 px-2.5 py-0.5 rounded-full">
+                                  
+                                  <span>{lang === 'en' ? 'For:' : 'لـ:'} {item.guestName || item.product?.guestName}</span>
+                                </span>
+                              </div>
+                            )}
+                            
                             {item.product.isSoldByWeight && (
                               <span className="text-sm text-text-muted mb-1">{lang === 'en' ? 'Weight:' : 'الوزن:'} {item.product.selectedWeight} {lang === 'en' ? 'g' : 'جرام'}</span>
                             )}
@@ -180,6 +353,9 @@ export default function CartSidebar() {
                       </motion.div>
                     ))}
                   </AnimatePresence>
+
+                  {/* Smart Upsell & Cross-Selling Bar */}
+                  <SmartUpsellBar menuData={menuData} />
                 </div>
               )}
             </div>
@@ -191,16 +367,37 @@ export default function CartSidebar() {
                   <span className="font-bold text-text-muted">{lang === 'en' ? 'Total:' : 'الإجمالي:'}</span>
                   <span className="font-black text-2xl text-text-light">{cartTotal} {lang === 'en' ? 'EGP' : 'ج.م'}</span>
                 </div>
-                <button 
-                  onClick={() => {
-                    setIsCartOpen(false);
-                    navigate('/checkout');
-                  }}
-                  className="w-full py-4 bg-brand-red text-text-light font-bold rounded-xl text-lg flex items-center justify-center gap-2 hover:bg-brand-red-dark transition-colors shadow-lg shadow-brand-red/30 active:scale-[0.99]"
-                >
-                  <span>{lang === 'en' ? 'Checkout' : 'إتمام الطلب'}</span>
-                  <ArrowLeft size={20} />
-                </button>
+                {isGroupOrder && !isGroupHost ? (
+                  <div className="space-y-2.5">
+                    <div className="p-3 bg-purple-500/10 border border-purple-500/30 rounded-xl text-center text-xs text-purple-200 font-bold flex items-center justify-center gap-2">
+                      
+                      <span>
+                        {lang === 'en' 
+                          ? `Waiting for host (${groupData?.hostName}) to complete checkout` 
+                          : `في انتظار المنظم (${groupData?.hostName}) لتأكيد وإرسال الطلب`}
+                      </span>
+                    </div>
+                    <button 
+                      type="button"
+                      onClick={() => setIsGroupModalOpen(true)}
+                      className="w-full py-3 bg-purple-900/40 hover:bg-purple-900/60 text-purple-200 border border-purple-500/30 font-bold rounded-xl text-sm flex items-center justify-center gap-2 transition-all"
+                    >
+                      <Users size={16} />
+                      <span>{lang === 'en' ? 'Invite More Friends' : 'دعوة أصدقاء آخرين'}</span>
+                    </button>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => {
+                      setIsCartOpen(false);
+                      navigate('/checkout');
+                    }}
+                    className="w-full py-4 bg-brand-red text-text-light font-bold rounded-xl text-lg flex items-center justify-center gap-2 hover:bg-brand-red-dark transition-colors shadow-lg shadow-brand-red/30 active:scale-[0.99]"
+                  >
+                    <span>{isGroupOrder ? (lang === 'en' ? 'Checkout Group Order 🚀' : 'إتمام الطلب الجماعي') : (lang === 'en' ? 'Checkout' : 'إتمام الطلب')}</span>
+                    <ArrowLeft size={20} />
+                  </button>
+                )}
 
                 {/* زر أضف منتج آخر */}
                 <button 

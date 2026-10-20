@@ -116,9 +116,13 @@ export default function OurStory({ websiteData }) {
               {/* Main Signature Dish Image */}
               {signatureImage ? (
                 <img 
-                  src={signatureImage} 
+                  src={optimizeCloudinaryUrl(signatureImage, { width: 800, quality: 'auto' })} 
                   alt="Signature Dish" 
                   className="absolute inset-0 w-full h-full object-cover hover:scale-105 transition-transform duration-700 ease-out z-10"
+                  loading="lazy"
+                  decoding="async"
+                  width={800}
+                  height={600}
                 />
               ) : (
                 <div className="absolute inset-0 w-full h-full bg-gradient-to-tr from-brand-red-dark/20 to-black-primary flex items-center justify-center z-10">

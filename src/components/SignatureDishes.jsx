@@ -98,9 +98,13 @@ export default function SignatureDishes({ menuData }) {
               <div className="relative h-64 overflow-hidden bg-black-primary">
                 {item.imagePath ? (
                   <img 
-                    src={item.imagePath} 
+                    src={optimizeCloudinaryUrl(item.imagePath, { width: 600, quality: 'auto' })} 
                     alt={lang === 'en' && item.nameEn ? item.nameEn : item.name} 
                     className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700 ease-in-out opacity-90 group-hover:opacity-100"
+                    loading="lazy"
+                    decoding="async"
+                    width={600}
+                    height={400}
                   />
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center text-text-muted bg-gray-800">
