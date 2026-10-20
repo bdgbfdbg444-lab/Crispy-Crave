@@ -1,5 +1,5 @@
 import { useLanguage } from '../context/LanguageContext';
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { APP_CONFIG } from '../config/appConfig';
@@ -13,6 +13,15 @@ export default function Hero({ websiteData }) {
   const { orderType, setIsOrderTypeModalOpen } = useCart();
   const navigate = useNavigate();
   const ref = useRef(null);
+  const [isVideoReady, setIsVideoReady] = useState(false);
+
+  useEffect(() => {
+    // Delay video loading until after initial paint so FCP & LCP are instant (< 1.2s)
+    const timer = setTimeout(() => {
+      setIsVideoReady(true);
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, []);
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ['start start', 'end start']
@@ -32,17 +41,29 @@ export default function Hero({ websiteData }) {
       {/* Background Media with Parallax */}
       <motion.div style={{ y, x: '-50%', left: '50%', minWidth: '100%', height: '120%', top: '-10%' }} className="absolute z-0">
         {bgMedia && isVideo ? (
-          <video 
-            key={bgMedia} /* Forces React to reload video on source change */
-            autoPlay 
-            loop 
-            muted 
-            playsInline 
-            preload="none"
-            className="w-full h-full object-cover opacity-40 mix-blend-overlay"
-          >
-            <source src={optimizeCloudinaryUrl(bgMedia, { width: 720, quality: 'auto' })} type="video/mp4" />
-          </video>
+          isVideoReady ? (
+            <video 
+              key={bgMedia}
+              autoPlay 
+              loop 
+              muted 
+              playsInline 
+              preload="none"
+              poster={optimizeCloudinaryUrl(bgMedia.replace(/\.mp4$/i, '.jpg'), { width: 800, quality: 'auto' })}
+              className="w-full h-full object-cover opacity-40 mix-blend-overlay"
+            >
+              <source src={optimizeCloudinaryUrl(bgMedia, { width: 720, quality: 'auto' })} type="video/mp4" />
+            </video>
+          ) : (
+            <img 
+              src={optimizeCloudinaryUrl(bgMedia.replace(/\.mp4$/i, '.jpg'), { width: 800, quality: 'auto' })}
+              alt="Hero Preview" 
+              className="w-full h-full object-cover opacity-40 mix-blend-overlay"
+              fetchPriority="high"
+              decoding="async"
+              loading="eager"
+            />
+          )
         ) : bgMedia ? (
           <img 
             src={getHeroImageUrl(bgMedia)} 

@@ -102,15 +102,17 @@ export default function OurStory({ websiteData }) {
             <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-gray-800 aspect-square lg:aspect-[4/5] bg-black-primary">
               
               {/* Optional Video Background behind image or standalone */}
-              {bRollUrl ? (
+              {bRollUrl && isInView ? (
                 <video 
                   autoPlay 
                   loop 
                   muted 
                   playsInline 
+                  preload="none"
+                  poster={optimizeCloudinaryUrl(bRollUrl.replace(/\.mp4$/i, '.jpg'), { width: 720, quality: 'auto' })}
                   className="absolute inset-0 w-full h-full object-cover opacity-60 mix-blend-screen"
                 >
-                  <source src={bRollUrl} type="video/mp4" />
+                  <source src={optimizeCloudinaryUrl(bRollUrl, { width: 720, quality: 'auto' })} type="video/mp4" />
                 </video>
               ) : null}
 
