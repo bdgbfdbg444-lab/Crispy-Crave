@@ -99,7 +99,18 @@ export default function Header() {
           
           {/* Logo */}
           <div className="flex items-center">
-            <Link to="/" className="flex items-center gap-2 group cursor-pointer"><Logo className="text-xl md:text-3xl" /></Link>
+            <a 
+              href="#/" 
+              onClick={(e) => {
+                e.preventDefault();
+                window.location.href = window.location.origin + window.location.pathname + '#/';
+                window.location.reload();
+              }} 
+              className="flex items-center gap-2 group cursor-pointer"
+              aria-label="الرئيسية - تحديث كامل للصفحة"
+            >
+              <Logo className="text-xl md:text-3xl" />
+            </a>
           </div>
 
           {/* Desktop Navigation Links */}

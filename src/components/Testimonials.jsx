@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Star, MessageSquareQuote } from 'lucide-react';
 import { APP_CONFIG } from '../config/appConfig';
+import { optimizeCloudinaryUrl } from '../utils/imageOptimizer';
 
 export default function Testimonials({ websiteData }) {
   const { lang } = useLanguage();

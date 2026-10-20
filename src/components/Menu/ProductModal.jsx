@@ -27,6 +27,12 @@ export default function ProductModal({ product, category, menuData, isOpen, onCl
     }
   }, [isOpen, product]);
 
+  // Linked Upsell Add-ons set by manager
+  const linkedAddOnIdSet = React.useMemo(() => {
+    if (!product?.linkedUpsellAddOnIds) return new Set();
+    return new Set(String(product.linkedUpsellAddOnIds).split(',').map(s => s.trim()));
+  }, [product]);
+
   if (!isOpen || !product) return null;
 
   const isSoldOut = Boolean(product.isSoldOut || product.IsSoldOut || product.isAvailable === false || product.IsAvailable === false);
@@ -50,11 +56,7 @@ export default function ProductModal({ product, category, menuData, isOpen, onCl
     });
   }
 
-  // Linked Upsell Add-ons set by manager
-  const linkedAddOnIdSet = React.useMemo(() => {
-    if (!product?.linkedUpsellAddOnIds) return new Set();
-    return new Set(String(product.linkedUpsellAddOnIds).split(',').map(s => s.trim()));
-  }, [product]);
+
 
   // Group add-ons by their 'group' property
   const addOnsByGroup = applicableAddOns.reduce((acc, addOn) => {
