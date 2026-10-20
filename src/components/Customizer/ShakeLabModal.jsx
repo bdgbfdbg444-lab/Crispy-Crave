@@ -314,7 +314,7 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
         <div className="flex flex-col md:flex-row flex-grow overflow-y-auto">
           
           {/* ===================== LEFT: REAL BRANDED CUP SIMULATOR ===================== */}
-          <div className="w-full md:w-5/12 bg-gradient-to-b from-[#0A0A0D] via-[#101015] to-[#0A0A0D] p-5 sm:p-6 flex flex-col items-center justify-center border-b md:border-b-0 md:border-l border-white/10 relative overflow-hidden select-none min-h-[420px]">
+          <div className="w-full md:w-5/12 bg-gradient-to-b from-[#0A0A0D] via-[#101015] to-[#0A0A0D] p-3 sm:p-5 md:p-6 flex flex-col items-center justify-center border-b md:border-b-0 md:border-l border-white/10 relative overflow-hidden select-none shrink-0">
             
             {/* Ambient Gastronomic Spotlight Glow */}
             <div 
@@ -323,7 +323,7 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
             />
 
             {/* THE VISUAL CUP STAGE (Uses exact coordinates of the user's branded cup) */}
-            <div className="relative w-56 sm:w-64 h-[400px] sm:h-[450px] flex items-center justify-center">
+            <div className="relative w-44 sm:w-56 md:w-64 h-[270px] sm:h-[350px] md:h-[430px] flex items-center justify-center">
               
               <svg 
                 viewBox="0 0 460 1024" 
