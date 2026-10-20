@@ -9,6 +9,18 @@ export default defineConfig({
     target: 'esnext',
     cssCodeSplit: true,
     chunkSizeWarningLimit: 650,
+    modulePreload: {
+      resolveDependencies: (filename, deps) => {
+        // Exclude heavy vendors from index.html modulepreload
+        // This speeds up initial mobile FCP drastically!
+        return deps.filter(dep => 
+          !dep.includes('firebase-vendor') && 
+          !dep.includes('three-vendor') && 
+          !dep.includes('leaflet-vendor') &&
+          !dep.includes('motion-vendor')
+        );
+      }
+    },
     rollupOptions: {
       output: {
         manualChunks(id) {
