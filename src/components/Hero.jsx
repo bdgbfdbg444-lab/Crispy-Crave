@@ -14,6 +14,12 @@ export default function Hero({ websiteData }) {
   const navigate = useNavigate();
   const ref = useRef(null);
   const videoRef = useRef(null);
+
+  const bgMedia = websiteData?.heroMediaUrl;
+  const isVideo = Boolean(bgMedia && (bgMedia.toLowerCase().endsWith('.mp4') || bgMedia.toLowerCase().endsWith('.webm') || bgMedia.toLowerCase().endsWith('.mov') || bgMedia.toLowerCase().endsWith('.avi')));
+  const headline = (lang === 'en' && websiteData?.heroHeadlineEn ? websiteData?.heroHeadlineEn : websiteData?.heroHeadline) ?? 'THE BLACK BOX';
+  const subtitle = (lang === 'en' && websiteData?.heroSubtitleEn ? websiteData?.heroSubtitleEn : websiteData?.heroSubtitle) ?? "SMOKED BRISKET & GOURMET BURGERS • ELITE STREET FOOD\nبرجر ولحم بريسكيت مدخن • مأكولات الشارع الراقية";
+
   // Video plays immediately on mobile and desktop
   const [isMobile, setIsMobile] = useState(() => {
     return typeof window !== 'undefined' ? window.innerWidth < 768 : false;
@@ -65,13 +71,6 @@ export default function Hero({ websiteData }) {
   });
   
   const y = useTransform(scrollYProgress, [0, 1], ['0%', '50%']);
-  
-  // Use data from Firebase or fallback to empty strings
-  const headline = (lang === 'en' && websiteData?.heroHeadlineEn ? websiteData?.heroHeadlineEn : websiteData?.heroHeadline) ?? 'THE BLACK BOX';
-  const subtitle = (lang === 'en' && websiteData?.heroSubtitleEn ? websiteData?.heroSubtitleEn : websiteData?.heroSubtitle) ?? "SMOKED BRISKET & GOURMET BURGERS • ELITE STREET FOOD\nبرجر ولحم بريسكيت مدخن • مأكولات الشارع الراقية";
-  const bgMedia = websiteData?.heroMediaUrl;
-  
-  const isVideo = bgMedia && (bgMedia.toLowerCase().endsWith('.mp4') || bgMedia.toLowerCase().endsWith('.webm') || bgMedia.toLowerCase().endsWith('.mov') || bgMedia.toLowerCase().endsWith('.avi'));
 
   return (
     <section ref={ref} id="hero" className="relative w-full h-[100vh] overflow-hidden bg-black-primary text-text-light flex flex-col justify-center items-center">
