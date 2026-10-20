@@ -3,6 +3,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, ChevronRight, Bike, ShoppingBag, UtensilsCrossed, Sparkles } from 'lucide-react';
 import ShakeLabModal from '../Customizer/ShakeLabModal';
+import BurgerLabModal from '../Customizer/BurgerLabModal';
 import { useCart } from '../../context/CartContext';
 import ProductCard from './ProductCard';
 import { optimizeCloudinaryUrl } from '../../utils/imageOptimizer';
@@ -48,6 +49,7 @@ export default function MenuSection({ menuData, onProductClick }) {
   const [activeCategory, setActiveCategory] = useState(categories[0]?.id);
   const [searchQuery, setSearchQuery] = useState('');
   const [isShakeLabOpen, setIsShakeLabOpen] = useState(false);
+  const [isBurgerLabOpen, setIsBurgerLabOpen] = useState(false);
   const [selectedCustomizableProduct, setSelectedCustomizableProduct] = useState(null);
 
   // Extract products for the active category, or all products if searching
@@ -86,6 +88,25 @@ export default function MenuSection({ menuData, onProductClick }) {
             sellingPrice: 120,
             isCustomizable: true,
             imagePath: 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=600&auto=format&fit=crop&q=80'
+          },
+          ...productsToDisplay
+        ];
+      }
+    }
+    // Guarantee a dedicated standalone 'Build Your Burger' item in Burger category if not yet configured in POS
+    if (activeCatData && (activeCatData.name?.includes('برجر') || activeCatData.nameEn?.toLowerCase().includes('burger') || activeCatData.name?.includes('ساندوتش'))) {
+      const hasCustomBurger = productsToDisplay.some(p => p.isCustomizable || p.IsCustomizable || p.name?.includes('اصنع ساندوتشك') || p.name?.includes('كوّن برجرك'));
+      if (!hasCustomBurger) {
+        productsToDisplay = [
+          {
+            id: 'custom_burger_studio',
+            name: 'كوّن ساندوتشك بنفسك',
+            nameEn: 'Build Your Custom Burger',
+            description: 'استوديو الساندوتشات التفاعلي: اختر نوع الخبز، شريحة السماش، الجبنة الذائبة، والإضافات الفاخرة وشاهد طبقات الساندوتش تهبط لايف.',
+            descriptionEn: 'Interactive Burger Studio: Choose your brioche bun, smashed angus patty, melted cheddar, and toppings live.',
+            sellingPrice: 140,
+            isCustomizable: true,
+            imagePath: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&auto=format&fit=crop&q=80'
           },
           ...productsToDisplay
         ];
@@ -272,7 +293,18 @@ export default function MenuSection({ menuData, onProductClick }) {
                       );
                       if (isCustom) {
                         setSelectedCustomizableProduct(product);
-                        setIsShakeLabOpen(true);
+                        const isBurger = Boolean(
+                          product?.name?.includes('برجر') || 
+                          product?.name?.includes('ساندوتش') || 
+                          product?.nameEn?.toLowerCase().includes('burger') || 
+                          activeCatData?.name?.includes('برجر') || 
+                          activeCatData?.name?.includes('ساندوتش')
+                        );
+                        if (isBurger) {
+                          setIsBurgerLabOpen(true);
+                        } else {
+                          setIsShakeLabOpen(true);
+                        }
                       } else {
                         onProductClick(product, categories.find(c => c.products && c.products[product.id]));
                       }
@@ -299,6 +331,14 @@ export default function MenuSection({ menuData, onProductClick }) {
       <ShakeLabModal 
         isOpen={isShakeLabOpen} 
         onClose={() => setIsShakeLabOpen(false)} 
+        baseProduct={selectedCustomizableProduct || (activeCatData?.products ? Object.values(activeCatData.products)[0] : null)}
+        menuData={menuData}
+      />
+    
+      {/* Burger Lab Modal */}
+      <BurgerLabModal 
+        isOpen={isBurgerLabOpen} 
+        onClose={() => setIsBurgerLabOpen(false)} 
         baseProduct={selectedCustomizableProduct || (activeCatData?.products ? Object.values(activeCatData.products)[0] : null)}
         menuData={menuData}
       />
