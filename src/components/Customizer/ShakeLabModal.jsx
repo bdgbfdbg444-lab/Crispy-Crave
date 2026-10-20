@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, Sparkles, RefreshCw, ShoppingBag, Plus } from 'lucide-react';
+import { X, Check, Sparkles, RefreshCw, ShoppingBag, Gift } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useCart } from '../../context/CartContext';
 
@@ -8,7 +8,10 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
   const { lang } = useLanguage();
   const { addToCart } = useCart();
 
-  // Extract purely dynamic Add-Ons coming from POS / Firebase
+  // 1. Free Modifiers Limit defined from POS for this product (e.g. 3 free additions)
+  const freeLimit = Number(baseProduct?.freeModifiersLimit ?? baseProduct?.FreeModifiersLimit ?? 0);
+
+  // 2. Extract purely dynamic Add-Ons coming from POS / Firebase
   const { shakeBases, shakeSauces, shakeCrunches, shakeToppings } = useMemo(() => {
     const pId = baseProduct?.id?.toString();
     const allAddons = menuData?.AddOns || menuData?.addOns || [];
@@ -46,7 +49,6 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
         } else if (role === 'topping') {
           toppings.push(item);
         }
-        // Items with role 'none' or uncategorized are general food add-ons and will NOT appear here!
       });
     }
 
@@ -80,19 +82,78 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
   // Base price from product in POS or fallback to standard 120 EGP
   const initialBasePrice = Number(baseProduct?.sellingPrice) || 120;
 
+  // 3. Combined list of selected additions across Sauces, Crunches, and Toppings
+  const allSelectedAddons = useMemo(() => [
+    ...selectedSauces,
+    ...selectedCrunches,
+    ...selectedToppings
+  ], [selectedSauces, selectedCrunches, selectedToppings]);
+
+  // 4. Smart Free-Allowance Distributor:
+  // If freeLimit > 0, the top `freeLimit` items (by value) are 100% FREE (0 EGP)
+  // Any extra items beyond `freeLimit` are charged at regular price
+  const processedAddonsMap = useMemo(() => {
+    const map = {};
+    if (freeLimit <= 0) {
+      allSelectedAddons.forEach(item => {
+        map[item.id] = { chargedPrice: item.price || 0, isFree: false };
+      });
+      return map;
+    }
+
+    // Sort a copy descending by price so the customer gets maximum savings
+    const sorted = [...allSelectedAddons].sort((a, b) => (b.price || 0) - (a.price || 0));
+    const freeItemIds = new Set(sorted.slice(0, freeLimit).map(item => item.id));
+
+    allSelectedAddons.forEach(item => {
+      const isFree = freeItemIds.has(item.id);
+      map[item.id] = {
+        chargedPrice: isFree ? 0 : (item.price || 0),
+        isFree
+      };
+    });
+
+    return map;
+  }, [allSelectedAddons, freeLimit]);
+
+  const freeAddonsCountUsed = Math.min(allSelectedAddons.length, freeLimit);
+  const freeAddonsRemaining = Math.max(0, freeLimit - allSelectedAddons.length);
+
   // Calculate live total price
   const totalPrice = useMemo(() => {
     let sum = initialBasePrice;
     if (selectedBase) {
       sum += selectedBase.price || 0;
     }
-    selectedSauces.forEach(s => sum += s.price || 0);
-    selectedCrunches.forEach(c => sum += c.price || 0);
-    selectedToppings.forEach(t => sum += t.price || 0);
+    allSelectedAddons.forEach(item => {
+      const info = processedAddonsMap[item.id];
+      sum += info ? info.chargedPrice : (item.price || 0);
+    });
     return sum;
-  }, [initialBasePrice, selectedBase, selectedSauces, selectedCrunches, selectedToppings]);
+  }, [initialBasePrice, selectedBase, allSelectedAddons, processedAddonsMap]);
 
   if (!isOpen) return null;
+
+  // Pricing badge helper for addition cards
+  const getAddonDisplayPrice = (item, isSelected) => {
+    if (isSelected) {
+      const info = processedAddonsMap[item.id];
+      if (info?.isFree) {
+        return { text: 'مجاناً (هدية)', isFree: true, className: 'text-emerald-400 font-bold' };
+      }
+      return { text: `+${item.price} ج.م`, isFree: false, className: 'text-brand-red font-bold' };
+    }
+
+    // Not selected yet
+    if (freeLimit > 0 && allSelectedAddons.length < freeLimit) {
+      return { text: 'مشمول مجاناً', isFree: true, className: 'text-emerald-400 font-bold' };
+    }
+    return { 
+      text: item.price > 0 ? `+${item.price} ج.م` : 'مجاناً', 
+      isFree: item.price === 0, 
+      className: item.price > 0 ? 'text-brand-red font-bold' : 'text-emerald-400 font-bold' 
+    };
+  };
 
   // Toggle Sauce
   const toggleSauce = (sauce) => {
@@ -132,10 +193,26 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
   // Add customized item to cart
   const handleAddToCart = () => {
     const modifiersList = [
-      ...(selectedBase ? [{ id: `base_${selectedBase.id}`, name: `قاعدة: ${selectedBase.name}`, nameEn: `Base: ${selectedBase.nameEn || selectedBase.name}`, price: selectedBase.price || 0 }] : []),
-      ...selectedSauces.map(s => ({ id: s.id, name: s.name, nameEn: s.nameEn || s.name, price: s.price || 0 })),
-      ...selectedCrunches.map(c => ({ id: c.id, name: c.name, nameEn: c.nameEn || c.name, price: c.price || 0 })),
-      ...selectedToppings.map(t => ({ id: t.id, name: t.name, nameEn: t.nameEn || t.name, price: t.price || 0 }))
+      ...(selectedBase ? [{ 
+        id: `base_${selectedBase.id}`, 
+        name: `قاعدة: ${selectedBase.name}`, 
+        nameEn: `Base: ${selectedBase.nameEn || selectedBase.name}`, 
+        price: selectedBase.price || 0,
+        isFree: false
+      }] : []),
+      ...allSelectedAddons.map(mod => {
+        const info = processedAddonsMap[mod.id];
+        const isFree = Boolean(info?.isFree);
+        return {
+          id: mod.id,
+          name: mod.name,
+          nameEn: mod.nameEn || mod.name,
+          price: isFree ? 0 : (mod.price || 0),
+          originalPrice: mod.price || 0,
+          isFree,
+          group: isFree ? 'Free' : 'Paid'
+        };
+      })
     ];
 
     const customizedProduct = {
@@ -157,12 +234,6 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
       onClose();
     }, 600);
   };
-
-  const allSelectedAddons = [
-    ...selectedSauces,
-    ...selectedCrunches,
-    ...selectedToppings
-  ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-hidden animate-fadeIn">
@@ -257,29 +328,44 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
 
               {/* Selected Additions List */}
               <div className="space-y-2 mb-4">
-                <div className="text-[11px] font-bold text-text-muted uppercase mb-1">الإضافات والصوصات النشطة:</div>
+                <div className="flex items-center justify-between text-[11px] font-bold text-text-muted uppercase mb-1">
+                  <span>الإضافات والصوصات النشطة:</span>
+                  {freeLimit > 0 && (
+                    <span className="text-emerald-400 font-bold">{freeAddonsCountUsed} / {freeLimit} مجاني</span>
+                  )}
+                </div>
                 {allSelectedAddons.length === 0 ? (
                   <div className="p-4 rounded-xl border border-dashed border-white/10 text-center text-xs text-text-muted">
                     لم تختر إضافات بعد، اختر الصوصات أو المقرمشات التي تريدها
                   </div>
                 ) : (
                   <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
-                    {allSelectedAddons.map((item) => (
-                      <div 
-                        key={item.id} 
-                        className="p-2 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-between text-xs"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          {item.iconPath ? (
-                            <img src={item.iconPath} alt="" className="w-6 h-6 rounded-lg object-cover border border-white/10 shrink-0" />
+                    {allSelectedAddons.map((item) => {
+                      const info = processedAddonsMap[item.id];
+                      const isFree = info?.isFree;
+                      return (
+                        <div 
+                          key={item.id} 
+                          className="p-2 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-between text-xs"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            {item.iconPath ? (
+                              <img src={item.iconPath} alt="" className="w-6 h-6 rounded-lg object-cover border border-white/10 shrink-0" />
+                            ) : (
+                              <div className="w-6 h-6 rounded-lg shrink-0" style={{ backgroundColor: item.color || '#E63946' }} />
+                            )}
+                            <span className="text-white font-medium truncate">{item.name}</span>
+                          </div>
+                          {isFree ? (
+                            <span className="text-emerald-400 font-bold shrink-0 text-[11px] bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                              مجاناً (ضمن العرض)
+                            </span>
                           ) : (
-                            <div className="w-6 h-6 rounded-lg shrink-0" style={{ backgroundColor: item.color || '#E63946' }} />
+                            <span className="text-brand-red font-bold shrink-0">+{item.price} ج.م</span>
                           )}
-                          <span className="text-white font-medium truncate">{item.name}</span>
                         </div>
-                        <span className="text-brand-red font-bold shrink-0">+{item.price} ج.م</span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -296,6 +382,36 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
           <div className="w-full md:w-7/12 p-4 sm:p-7 flex flex-col justify-between">
             
             <div>
+              {/* Dynamic Free Modifiers Banner (When Product has FreeModifiersLimit > 0) */}
+              {freeLimit > 0 && (
+                <div className="mb-4 p-3 sm:p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/15 via-emerald-500/5 to-transparent border border-emerald-500/30 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
+                      <Gift size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-black text-emerald-300">
+                        مشمول {freeLimit} إضافات مجانية مع هذا المشروب!
+                      </div>
+                      <div className="text-[11px] text-text-muted truncate">
+                        قسّمها بحرية بين الصوصات، المقرمشات، أو التوبينج
+                      </div>
+                    </div>
+                  </div>
+                  <div className="shrink-0 mr-2">
+                    <span className={`text-xs px-2.5 py-1 rounded-full font-black border transition-all ${
+                      freeAddonsRemaining > 0 
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 animate-pulse' 
+                        : 'bg-white/10 text-text-light border-white/20'
+                    }`}>
+                      {freeAddonsRemaining > 0 
+                        ? `متبقي لك ${freeAddonsRemaining} مجاناً` 
+                        : `استخدمت ${freeLimit} من ${freeLimit} مجاناً ✓`}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* SEGMENTED NAVIGATION TABS */}
               <div className="grid grid-cols-4 gap-1 sm:gap-2 mb-6 bg-black-primary/70 p-1.5 rounded-2xl border border-white/10">
                 {[
@@ -393,6 +509,7 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       {shakeSauces.map((s) => {
                         const isSelected = selectedSauces.some(item => item.id === s.id);
+                        const priceInfo = getAddonDisplayPrice(s, isSelected);
                         return (
                           <div
                             key={s.id}
@@ -412,7 +529,7 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                               <span className="font-bold text-sm text-text-light truncate">{s.name}</span>
                             </div>
                             <div className="flex items-center gap-2 shrink-0 mr-2">
-                              <span className="text-xs font-bold text-brand-red">{s.price > 0 ? `+${s.price} ج.م` : 'مجاناً'}</span>
+                              <span className={`text-xs ${priceInfo.className}`}>{priceInfo.text}</span>
                               <div className={`w-5 h-5 rounded-md flex items-center justify-center border ${isSelected ? 'bg-brand-red border-brand-red text-white' : 'border-white/20'}`}>
                                 {isSelected && <Check size={13} />}
                               </div>
@@ -442,6 +559,7 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       {shakeCrunches.map((c) => {
                         const isSelected = selectedCrunches.some(item => item.id === c.id);
+                        const priceInfo = getAddonDisplayPrice(c, isSelected);
                         return (
                           <div
                             key={c.id}
@@ -463,7 +581,7 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                               <span className="font-bold text-sm text-text-light truncate">{c.name}</span>
                             </div>
                             <div className="flex items-center gap-2 shrink-0 mr-2">
-                              <span className="text-xs font-bold text-brand-red">{c.price > 0 ? `+${c.price} ج.م` : 'مجاناً'}</span>
+                              <span className={`text-xs ${priceInfo.className}`}>{priceInfo.text}</span>
                               <div className={`w-5 h-5 rounded-md flex items-center justify-center border ${isSelected ? 'bg-brand-red border-brand-red text-white' : 'border-white/20'}`}>
                                 {isSelected && <Check size={13} />}
                               </div>
@@ -493,6 +611,7 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       {shakeToppings.map((t) => {
                         const isSelected = selectedToppings.some(item => item.id === t.id);
+                        const priceInfo = getAddonDisplayPrice(t, isSelected);
                         return (
                           <div
                             key={t.id}
@@ -514,7 +633,7 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                               <span className="font-bold text-sm text-text-light truncate">{t.name}</span>
                             </div>
                             <div className="flex items-center gap-2 shrink-0 mr-2">
-                              <span className="text-xs font-bold text-brand-red">{t.price > 0 ? `+${t.price} ج.م` : 'مجاناً'}</span>
+                              <span className={`text-xs ${priceInfo.className}`}>{priceInfo.text}</span>
                               <div className={`w-5 h-5 rounded-md flex items-center justify-center border ${isSelected ? 'bg-brand-red border-brand-red text-white' : 'border-white/20'}`}>
                                 {isSelected && <Check size={13} />}
                               </div>
