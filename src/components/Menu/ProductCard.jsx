@@ -4,18 +4,37 @@ import { motion } from 'framer-motion';
 import { Plus, Flame, Beef, Sparkles } from 'lucide-react';
 import { getProductThumbnailUrl } from '../../utils/imageOptimizer';
 
+export const getCustomizerType = (prod) => {
+  if (!prod) return 'drink';
+  const rawType = (prod.customizerType || prod.CustomizerType || '').toLowerCase();
+  if (rawType === 'sandwich' || rawType.includes('ساندوتش') || rawType.includes('برجر') || rawType.includes('burger')) return 'sandwich';
+  if (rawType === 'meal' || rawType.includes('وجبة') || rawType.includes('وجبه')) return 'meal';
+  if (rawType === 'drink' || rawType.includes('مشروب') || rawType.includes('شيك') || rawType.includes('shake')) return 'drink';
+
+  // Heuristic fallback if not specified in POS
+  const name = ((prod.name || '') + ' ' + (prod.nameEn || '')).toLowerCase();
+  if (name.includes('برجر') || name.includes('ساندوتش') || name.includes('burger') || name.includes('sandwich')) return 'sandwich';
+  if (name.includes('وجب') || name.includes('meal') || name.includes('كومبو') || name.includes('combo')) return 'meal';
+  return 'drink';
+};
+
 export default function ProductCard({ product, onClick }) {
   const { lang, t } = useLanguage();
   if (!product) return null;
 
   const isSoldOut = Boolean(product?.isSoldOut || product?.IsSoldOut || product?.isAvailable === false || product?.IsAvailable === false);
-  const isCustomizable = !isSoldOut && Boolean(
-    product?.isCustomizable || 
-    product?.IsCustomizable ||
-    product?.name?.includes('اصنع مشروبك') ||
-    product?.nameEn?.toLowerCase().includes('build your') ||
-    product?.name?.includes('صمم مشروبك')
-  );
+  const isCustomizable = !isSoldOut && Boolean(product?.isCustomizable || product?.IsCustomizable);
+  const customizerType = getCustomizerType(product);
+
+  const getCustomizerButtonText = () => {
+    if (customizerType === 'sandwich') {
+      return lang === 'en' ? 'Customize Sandwich' : 'تخصيص الساندوتش';
+    }
+    if (customizerType === 'meal') {
+      return lang === 'en' ? 'Customize Meal' : 'تخصيص الوجبة';
+    }
+    return lang === 'en' ? 'Customize Drink' : 'تخصيص المشروب';
+  };
 
   return (
     <motion.div
@@ -106,7 +125,7 @@ export default function ProductCard({ product, onClick }) {
             ) : isCustomizable ? (
               <>
                 <Sparkles size={16} />
-                <span>{lang === 'en' ? 'Customize Shake' : 'تخصيص المشروب'}</span>
+                <span>{getCustomizerButtonText()}</span>
               </>
             ) : (
               <>

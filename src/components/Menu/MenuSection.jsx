@@ -5,7 +5,7 @@ import { Search, ChevronRight, Bike, ShoppingBag, UtensilsCrossed, Sparkles } fr
 import ShakeLabModal from '../Customizer/ShakeLabModal';
 import BurgerLabModal from '../Customizer/BurgerLabModal';
 import { useCart } from '../../context/CartContext';
-import ProductCard from './ProductCard';
+import ProductCard, { getCustomizerType } from './ProductCard';
 import { optimizeCloudinaryUrl } from '../../utils/imageOptimizer';
 
 const SkeletonLoader = () => (
@@ -73,44 +73,6 @@ export default function MenuSection({ menuData, onProductClick }) {
     activeCatData = categories.find(c => c.id === activeCategory);
     if (activeCatData && activeCatData.products) {
       productsToDisplay = Object.values(activeCatData.products).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-    }
-    // Guarantee a dedicated standalone 'Build Your Shake' item in Shake category if not yet configured in POS
-    if (activeCatData && (activeCatData.name?.includes('شيك') || activeCatData.nameEn?.toLowerCase().includes('shake'))) {
-      const hasCustomShake = productsToDisplay.some(p => p.isCustomizable || p.IsCustomizable || p.name?.includes('اصنع مشروبك'));
-      if (!hasCustomShake) {
-        productsToDisplay = [
-          {
-            id: 'custom_shake_studio',
-            name: 'اصنع مشروبك بنفسك',
-            nameEn: 'Build Your Own Shake',
-            description: 'استوديو التخصيص التفاعلي: اختر النكهة، طبقات الصوصات، المقرمشات، والكريمة وشاهد مشروبك لايف.',
-            descriptionEn: 'Interactive Craft Studio: Choose your base ice cream, cascading sauce drizzles, crunches, and toppings live.',
-            sellingPrice: 120,
-            isCustomizable: true,
-            imagePath: 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=600&auto=format&fit=crop&q=80'
-          },
-          ...productsToDisplay
-        ];
-      }
-    }
-    // Guarantee a dedicated standalone 'Build Your Burger' item in Burger category if not yet configured in POS
-    if (activeCatData && (activeCatData.name?.includes('برجر') || activeCatData.nameEn?.toLowerCase().includes('burger') || activeCatData.name?.includes('ساندوتش'))) {
-      const hasCustomBurger = productsToDisplay.some(p => p.isCustomizable || p.IsCustomizable || p.name?.includes('اصنع ساندوتشك') || p.name?.includes('كوّن برجرك'));
-      if (!hasCustomBurger) {
-        productsToDisplay = [
-          {
-            id: 'custom_burger_studio',
-            name: 'كوّن ساندوتشك بنفسك',
-            nameEn: 'Build Your Custom Burger',
-            description: 'استوديو الساندوتشات التفاعلي: اختر نوع الخبز، شريحة السماش، الجبنة الذائبة، والإضافات الفاخرة وشاهد طبقات الساندوتش تهبط لايف.',
-            descriptionEn: 'Interactive Burger Studio: Choose your brioche bun, smashed angus patty, melted cheddar, and toppings live.',
-            sellingPrice: 140,
-            isCustomizable: true,
-            imagePath: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600&auto=format&fit=crop&q=80'
-          },
-          ...productsToDisplay
-        ];
-      }
     }
   }
 
@@ -284,29 +246,18 @@ export default function MenuSection({ menuData, onProductClick }) {
                     key={product.id} 
                     product={product} 
                     onClick={() => {
-                      const isCustom = Boolean(
-                        product?.isCustomizable || 
-                        product?.IsCustomizable ||
-                        product?.name?.includes('اصنع مشروبك') ||
-                        product?.nameEn?.toLowerCase().includes('build your') ||
-                        product?.name?.includes('صمم مشروبك')
-                      );
+                      const isSoldOut = Boolean(product?.isSoldOut || product?.IsSoldOut || product?.isAvailable === false || product?.IsAvailable === false);
+                      const isCustom = !isSoldOut && Boolean(product?.isCustomizable || product?.IsCustomizable);
                       if (isCustom) {
                         setSelectedCustomizableProduct(product);
-                        const isBurger = Boolean(
-                          product?.name?.includes('برجر') || 
-                          product?.name?.includes('ساندوتش') || 
-                          product?.nameEn?.toLowerCase().includes('burger') || 
-                          activeCatData?.name?.includes('برجر') || 
-                          activeCatData?.name?.includes('ساندوتش')
-                        );
-                        if (isBurger) {
+                        const type = getCustomizerType(product);
+                        if (type === 'sandwich' || type === 'meal') {
                           setIsBurgerLabOpen(true);
                         } else {
                           setIsShakeLabOpen(true);
                         }
                       } else {
-                        onProductClick(product, categories.find(c => c.products && c.products[product.id]));
+                        onProductClick(product, categories.find(c => c.products && (Array.isArray(c.products) ? c.products.some(p => p.id === product.id) : c.products?.[product.id])));
                       }
                     }} 
                   />

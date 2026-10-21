@@ -1,52 +1,46 @@
 import React, { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, Sparkles, RefreshCw, Flame, Beef, Layers, Droplet } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Beef, Sparkles, Check, X, RefreshCw } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 
-// Default Gourmet Burger Presets
-export const DEFAULT_BURGER_BUNS = [
-  { id: 'bun_brioche', name: 'خبز بريوش محمص بالزبدة', nameEn: 'Buttered Brioche Bun', price: 0, desc: 'خبز بريوش فرنسي خفيف ومحمص بلمعة ذهبية' },
-  { id: 'bun_potato', name: 'خبز بطاطس أمريكي فاخر', nameEn: 'Potato Roll Bun', price: 10, desc: 'طري جداً ويمتص عصارة اللحم بامتياز' },
-  { id: 'bun_sesame', name: 'خبز بريوش بالسمسم المكرمل', nameEn: 'Sesame Brioche Bun', price: 10, desc: 'حبيبات سمسم محمصة بنكهة غنية' },
-  { id: 'bun_lettuce', name: 'خس ملفوف بروتين (بدون خبز)', nameEn: 'Lettuce Wrap (Low Carb)', price: 0, desc: 'أوراق خس آيسبيرج كريسبي طازجة مناسب للكيتو' },
+// Default Fallback Elements if POS addons not configured
+const DEFAULT_BURGER_BUNS = [
+  { id: 'bun_brioche', name: 'خبز بريوش محمص بالزبدة', nameEn: 'Buttered Brioche Bun', price: 0, color: '#C4883E', desc: 'طري وذهبي غني بنكهة الزبدة الطبيعية' },
+  { id: 'bun_sesame', name: 'خبز كلاسيكي بالسمسم', nameEn: 'Classic Sesame Bun', price: 0, color: '#D4A373', desc: 'الخبز الكلاسيكي الهش بحبات السمسم المحمصة' },
+  { id: 'bun_potato', name: 'خبز البطاطس الفاخر', nameEn: 'Golden Potato Roll', price: 15, color: '#E09F3E', desc: 'قوام فائق الطراوة يمتص العصارة بمثالية' }
 ];
 
-export const DEFAULT_BURGER_SAUCES = [
-  { id: 'sauce_secret', name: 'صوص بلاك بوكس السري', nameEn: 'Black Box Secret Sauce', color: '#E05A1F', price: 15, desc: 'مزيج كريمي مدخن بنكهة تكساس الخاصة' },
-  { id: 'sauce_cheddar', name: 'شلال شيدر سائلة ذائبة', nameEn: 'Warm Melted Cheddar', color: '#FFB703', price: 20, desc: 'جبنة شيدر أمريكية أصلية دافئة' },
-  { id: 'sauce_bbq', name: 'صوص باربيكيو مدخن بالعسل', nameEn: 'Smoked Honey BBQ', color: '#3A140B', price: 15, desc: 'حلاوة عسل مع دخان خشب الأوك الحقيقي' },
-  { id: 'sauce_spicy_mayo', name: 'مايونيز هالبينو سبايسي', nameEn: 'Spicy Jalapeño Mayo', color: '#C83218', price: 15, desc: 'حرارة متوازنة مع قرمشة الهالبينو' },
-  { id: 'sauce_ranch', name: 'رانش كريمي بالأعشاب', nameEn: 'Herbed Garlic Ranch', color: '#F1EEDB', price: 15, desc: 'ثوم خفيف مع أعشاب ريفية منعشة' },
+const DEFAULT_BURGER_SAUCES = [
+  { id: 'sauce_blackbox', name: 'صوص بلاك بوكس الخاص', nameEn: 'Signature Black Box Sauce', price: 15, color: '#9B2226', desc: 'مزيج مدخن حار قليلاً مع نكهة المستردة والتوابل' },
+  { id: 'sauce_cheddar', name: 'شيدر صوص ذائب', nameEn: 'Melted Cheddar Sauce', price: 20, color: '#E9D8A6', desc: 'جبنة شيدر إنجليزية دافئة وكريمية' },
+  { id: 'sauce_smoky_bbq', name: 'باربيكيو تكساس المدخن', nameEn: 'Texas Smoked BBQ', price: 15, color: '#582F0E', desc: 'صوص خشب الحطب العتيق مع حلاوة السكر البني' },
+  { id: 'sauce_truffle_mayo', name: 'مايونيز الكمأة (Truffle)', nameEn: 'Truffle Mayo', price: 25, color: '#DDA15E', desc: 'نكهة أرستقراطية فاخرة بزيت الكمأة الأصلي' },
+  { id: 'sauce_ranch', name: 'رانش الأعشاب الريفية', nameEn: 'Herb Ranch Sauce', price: 15, color: '#F4F1DE', desc: 'منعش وغني بأعشاب الشبت والثوم المعمر' }
 ];
 
-export const DEFAULT_BURGER_CRUNCH = [
-  { id: 'crunch_onion', name: 'بصل مكرمل دافئ على الجريل', nameEn: 'Caramelized Grilled Onion', color: '#6A381F', price: 15 },
-  { id: 'crunch_bacon', name: 'بيكون بقري مدخن مقرمش', nameEn: 'Crispy Beef Bacon Strips', color: '#5C1D18', price: 25 },
-  { id: 'crunch_jalapeno', name: 'شرائح هالبينو مشوية حارة', nameEn: 'Grilled Jalapeño Slices', color: '#2D5A27', price: 10 },
-  { id: 'crunch_pickles', name: 'خيار مخلل كريسبي أمريكي', nameEn: 'Dill Pickles Chips', color: '#4E6E32', price: 10 },
-  { id: 'crunch_onion_rings', name: 'حلقات بصل مقلية ذهبية', nameEn: 'Golden Onion Rings', color: '#C98528', price: 15 },
+const DEFAULT_BURGER_CRUNCH = [
+  { id: 'crunch_bacon', name: 'شرائح بيكون بقري مقرمش', nameEn: 'Crispy Beef Bacon', price: 30, color: '#800F2F' },
+  { id: 'crunch_onion', name: 'بصل مكرمل بالبلسمك', nameEn: 'Caramelized Balsamic Onions', price: 15, color: '#4A0E17' },
+  { id: 'crunch_pickles', name: 'خيار مخلل مقرمش شيبس', nameEn: 'Crispy Dill Pickles', price: 10, color: '#2D6A4F' },
+  { id: 'crunch_jalapeno', name: 'هالبينو مدخن مشوي', nameEn: 'Smoked Grilled Jalapeños', price: 15, color: '#1B4332' }
 ];
 
-export const DEFAULT_BURGER_TOPPINGS = [
-  { id: 'top_extra_patty', name: 'شريحة برجر سماش إضافية 150 جم', nameEn: 'Double Smash Patty (150g)', color: '#3D1C12', price: 45 },
-  { id: 'top_smoked_brisket', name: 'شرائح بريسكت مدخن 100 جم', nameEn: 'Smoked Brisket Topping', color: '#4A1F18', price: 55 },
-  { id: 'top_extra_cheddar', name: 'شريحة جبنة شيدر حمراء إضافية', nameEn: 'Extra Red Cheddar Slice', color: '#FFA200', price: 15 },
-  { id: 'top_mozzarella_stick', name: 'أصابع موتزاريلا مقلية مقرمشة', nameEn: 'Fried Mozzarella Sticks', color: '#D49B35', price: 25 },
+const DEFAULT_BURGER_TOPPINGS = [
+  { id: 'top_extra_patty', name: 'شريحة سماش أنجوس إضافية (150g)', nameEn: 'Extra Angus Smash Patty (150g)', price: 65, color: '#3E1F17' },
+  { id: 'top_smoked_brisket', name: 'بريسكت مدخن 12 ساعة (100g)', nameEn: '12-hr Smoked Brisket (100g)', price: 85, color: '#4A1F18' },
+  { id: 'top_extra_cheddar', name: 'شريحة جبنة شيدر حمراء مزدوجة', nameEn: 'Double Red Cheddar Slice', price: 20, color: '#F77F00' },
+  { id: 'top_mozzarella_patty', name: 'قرص موتزاريلا مقلي مقرمش', nameEn: 'Deep-fried Mozzarella Patty', price: 45, color: '#FDF0D5' }
 ];
 
 export default function BurgerLabModal({ isOpen, onClose, baseProduct, menuData }) {
   const { lang } = useLanguage();
+  const isEn = lang === 'en';
   const { addToCart } = useCart();
 
-  // Dynamic Options Resolution from POS Add-Ons
+  // Extract real AddOns from POS if available
   const { burgerBuns, burgerSauces, burgerCrunches, burgerToppings } = useMemo(() => {
-    const pId = String(baseProduct?.id || '');
-    const posAddOns = (menuData?.addOns || []).filter(a => {
-      if (!a.linkedProductIds) return false;
-      const ids = a.linkedProductIds.split(',').map(s => s.trim());
-      return ids.includes(pId);
-    });
+    const posAddOns = menuData?.addOns || [];
 
     if (!posAddOns || posAddOns.length === 0) {
       return {
@@ -103,23 +97,23 @@ export default function BurgerLabModal({ isOpen, onClose, baseProduct, menuData 
       burgerCrunches: crunches.length > 0 ? crunches : DEFAULT_BURGER_CRUNCH,
       burgerToppings: toppings.length > 0 ? toppings : DEFAULT_BURGER_TOPPINGS
     };
-  }, [baseProduct, menuData]);
+  }, [menuData]);
 
   // Selected Customization State
-  const [selectedBun, setSelectedBun] = useState(DEFAULT_BURGER_BUNS[0]);
-  const [selectedSauces, setSelectedSauces] = useState([DEFAULT_BURGER_SAUCES[0]]);
-  const [selectedCrunches, setSelectedCrunches] = useState([DEFAULT_BURGER_CRUNCH[0]]);
+  const [selectedBun, setSelectedBun] = useState(burgerBuns[0] || DEFAULT_BURGER_BUNS[0]);
+  const [selectedSauces, setSelectedSauces] = useState([burgerSauces[0] || DEFAULT_BURGER_SAUCES[0]]);
+  const [selectedCrunches, setSelectedCrunches] = useState([]);
   const [selectedToppings, setSelectedToppings] = useState([]);
   const [activeTab, setActiveTab] = useState('bun'); // 'bun' | 'sauces' | 'crunch' | 'toppings'
   const [isSuccessBurger, setIsSuccessBurger] = useState(false);
 
-  // Base price from POS or standard 140 EGP
+  // Base price from product or standard 140 EGP
   const initialBasePrice = Number(baseProduct?.sellingPrice) || 140;
 
   // Calculate live total price
   const totalPrice = useMemo(() => {
     let sum = initialBasePrice;
-    sum += selectedBun.price || 0;
+    sum += selectedBun?.price || 0;
     selectedSauces.forEach(s => sum += s.price || 0);
     selectedCrunches.forEach(c => sum += c.price || 0);
     selectedToppings.forEach(t => sum += t.price || 0);
@@ -161,17 +155,17 @@ export default function BurgerLabModal({ isOpen, onClose, baseProduct, menuData 
 
   const handleAddToCart = () => {
     const modifiersList = [
-      { id: `bun_${selectedBun.id}`, name: `الخبز: ${selectedBun.name}`, nameEn: `Bun: ${selectedBun.nameEn || selectedBun.name}`, price: selectedBun.price },
-      ...selectedSauces.map(s => ({ id: s.id, name: s.name, nameEn: s.nameEn || s.name, price: s.price })),
-      ...selectedCrunches.map(c => ({ id: c.id, name: c.name, nameEn: c.nameEn || c.name, price: c.price })),
-      ...selectedToppings.map(t => ({ id: t.id, name: t.name, nameEn: t.nameEn || t.name, price: t.price }))
+      { id: `bun_${selectedBun.id}`, name: isEn ? `Bun: ${selectedBun.nameEn || selectedBun.name}` : `الخبز: ${selectedBun.name}`, nameEn: `Bun: ${selectedBun.nameEn || selectedBun.name}`, price: selectedBun.price },
+      ...selectedSauces.map(s => ({ id: s.id, name: isEn ? (s.nameEn || s.name) : s.name, nameEn: s.nameEn || s.name, price: s.price })),
+      ...selectedCrunches.map(c => ({ id: c.id, name: isEn ? (c.nameEn || c.name) : c.name, nameEn: c.nameEn || c.name, price: c.price })),
+      ...selectedToppings.map(t => ({ id: t.id, name: isEn ? (t.nameEn || t.name) : t.name, nameEn: t.nameEn || t.name, price: t.price }))
     ];
 
     const customizedProduct = {
       ...(baseProduct || {}),
       id: baseProduct?.id || 8888,
-      name: lang === 'en' ? (baseProduct?.nameEn || 'Artisanal Custom Burger') : (baseProduct?.name || 'كوّن ساندوتشك بنفسك'),
-      nameEn: baseProduct?.nameEn || 'Artisanal Custom Burger',
+      name: isEn ? (baseProduct?.nameEn || 'Artisanal Custom Sandwich') : (baseProduct?.name || 'تخصيص الساندوتش'),
+      nameEn: baseProduct?.nameEn || 'Artisanal Custom Sandwich',
       sellingPrice: totalPrice,
       calculatedPrice: totalPrice,
       selectedModifiers: modifiersList,
@@ -188,15 +182,10 @@ export default function BurgerLabModal({ isOpen, onClose, baseProduct, menuData 
     }, 600);
   };
 
-  const hasDoublePatty = selectedToppings.some(t => t.id.includes('patty') || t.name.includes('شريحة'));
-  const hasSmokedBrisket = selectedToppings.some(t => t.id.includes('brisket') || t.name.includes('بريسكت'));
-  const hasBacon = selectedCrunches.some(c => c.id.includes('bacon') || c.name.includes('بيكون'));
-  const hasCaramelizedOnion = selectedCrunches.some(c => c.id.includes('onion') || c.name.includes('بصل'));
-  const hasPickles = selectedCrunches.some(c => c.id.includes('pickles') || c.name.includes('مخلل'));
-  const hasJalapeno = selectedCrunches.some(c => c.id.includes('jalapeno') || c.name.includes('هالبينو'));
+  const curr = isEn ? 'EGP' : 'ج.م';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto" dir={isEn ? 'ltr' : 'rtl'}>
       {/* Backdrop */}
       <motion.div 
         initial={{ opacity: 0 }}
@@ -211,23 +200,17 @@ export default function BurgerLabModal({ isOpen, onClose, baseProduct, menuData 
         initial={{ opacity: 0, scale: 0.96, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 20 }}
-        className="relative w-full max-w-4xl bg-black-surface border border-brand-red-dark/40 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] z-10"
+        className="relative w-full max-w-4xl bg-[#101014] border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] z-10"
       >
         {/* Top Header */}
-        <div className="p-4 sm:p-5 border-b border-white/10 flex items-center justify-between bg-black-primary/70">
+        <div className="p-4 sm:p-5 border-b border-white/10 flex items-center justify-between bg-black-primary/80">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-brand-red/15 text-brand-red flex items-center justify-center border border-brand-red/30">
+            <div className="w-10 h-10 rounded-xl bg-brand-red/15 text-brand-red flex items-center justify-center border border-brand-red/30 shrink-0">
               <Beef size={20} />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-brand-red bg-brand-red/10 px-2 py-0.5 rounded">
-                  THE BLACK BOX SMASH LAB
-                </span>
-                <span className="text-xs text-text-muted">| استوديو البرجر التفاعلي</span>
-              </div>
               <h2 className="text-lg sm:text-xl font-black text-text-light">
-                {baseProduct?.name || (lang === 'en' ? 'Build Your Custom Burger' : 'كوّن ساندوتش البرجر بنفسك')}
+                {isEn ? (baseProduct?.nameEn || baseProduct?.name || 'Build Your Sandwich') : (baseProduct?.name || baseProduct?.nameEn || 'تخصيص الساندوتش')}
               </h2>
             </div>
           </div>
@@ -236,10 +219,10 @@ export default function BurgerLabModal({ isOpen, onClose, baseProduct, menuData 
             <button
               onClick={handleReset}
               className="p-2 text-text-muted hover:text-white hover:bg-white/5 rounded-xl transition-colors text-xs flex items-center gap-1.5"
-              title="إعادة ضبط"
+              title={isEn ? 'Reset' : 'إعادة ضبط'}
             >
               <RefreshCw size={14} />
-              <span className="hidden sm:inline">إعادة ضبط</span>
+              <span className="hidden sm:inline">{isEn ? 'Reset' : 'إعادة ضبط'}</span>
             </button>
             <button 
               onClick={onClose}
@@ -250,134 +233,108 @@ export default function BurgerLabModal({ isOpen, onClose, baseProduct, menuData 
           </div>
         </div>
 
-        {/* Modal Body: Two Column Layout */}
+        {/* Modal Body: Two Column Clean Layout (No Cartoon Simulator) */}
         <div className="flex flex-col md:flex-row flex-grow overflow-y-auto">
           
-          {/* ===================== LEFT: 2D/3D BURGER STACKING SIMULATOR ===================== */}
-          <div className="w-full md:w-5/12 bg-gradient-to-b from-[#0A0A0D] via-[#121217] to-[#0A0A0D] p-6 flex flex-col items-center justify-center border-b md:border-b-0 md:border-l border-white/10 relative overflow-hidden select-none min-h-[380px]">
-            
-            {/* Grill Fire Ambient Glow */}
-            <div className="absolute w-60 h-60 rounded-full blur-[70px] opacity-20 pointer-events-none bg-amber-600" />
+          {/* ===================== LEFT: ARTISANAL RECIPE BOARD ===================== */}
+          <div className="w-full md:w-5/12 bg-[#0B0B0E] p-4 sm:p-6 border-b md:border-b-0 md:border-r rtl:md:border-r-0 rtl:md:border-l border-white/10 flex flex-col justify-between shrink-0">
+            <div>
+              {/* Header Badge */}
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs font-black uppercase tracking-wider text-text-muted flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-brand-red"></span>
+                  {isEn ? 'Your Custom Recipe' : 'بطاقة وصفتك المخصصة'}
+                </span>
+                <span className="text-xs font-bold text-brand-red bg-brand-red/10 px-2 py-0.5 rounded-full">
+                  {(selectedBun ? 1 : 0) + selectedSauces.length + selectedCrunches.length + selectedToppings.length} {isEn ? 'Items' : 'مكونات'}
+                </span>
+              </div>
 
-            {/* The Stacking Burger Container */}
-            <div className="relative w-56 flex flex-col items-center justify-center py-4">
-              
-              {/* 1. TOP BRIOCHE BUN (With Sesame & Golden Sheen) */}
-              <motion.div
-                layout
-                initial={{ y: -40, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ type: "spring", stiffness: 220, damping: 16 }}
-                className="relative w-44 h-18 rounded-t-[50px] rounded-b-[10px] bg-gradient-to-b from-[#C4883E] via-[#A66D29] to-[#87551D] border-t border-amber-200/40 shadow-2xl flex items-center justify-center z-40 overflow-hidden"
-              >
-                {/* Sesame Seeds */}
-                <div className="absolute inset-0 opacity-80 pointer-events-none">
-                  {[
-                    { t: '25%', l: '30%' }, { t: '20%', l: '50%' }, { t: '30%', l: '70%' },
-                    { t: '45%', l: '20%' }, { t: '50%', l: '45%' }, { t: '40%', l: '65%' },
-                    { t: '60%', l: '35%' }, { t: '55%', l: '80%' }
-                  ].map((pos, i) => (
-                    <div key={i} className="absolute w-2 h-1 bg-amber-100/90 rounded-full rotate-45 shadow-sm" style={{ top: pos.t, left: pos.l }} />
-                  ))}
+              {/* Selected Bun Showcase Card */}
+              {selectedBun && (
+                <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 mb-4 flex items-center gap-3">
+                  {selectedBun.iconPath ? (
+                    <img 
+                      src={selectedBun.iconPath} 
+                      alt={selectedBun.name} 
+                      className="w-14 h-14 rounded-xl object-cover border border-white/15 shadow-md shrink-0" 
+                    />
+                  ) : (
+                    <div 
+                      className="w-14 h-14 rounded-xl shadow-inner border border-white/15 flex items-center justify-center shrink-0 bg-amber-900/30"
+                    >
+                      <Beef size={22} className="text-amber-400 opacity-90" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[11px] font-bold text-brand-red uppercase">
+                      {isEn ? 'SELECTED BUN' : 'نوع الخبز'}
+                    </div>
+                    <div className="font-bold text-sm text-white truncate">
+                      {isEn && selectedBun.nameEn ? selectedBun.nameEn : selectedBun.name}
+                    </div>
+                    <div className="text-xs text-text-muted">
+                      {selectedBun.price > 0 ? `+${selectedBun.price} ${curr}` : (isEn ? 'Included in base price' : 'مشمول في السعر')}
+                    </div>
+                  </div>
                 </div>
-                {/* Bun Specular Light Reflection */}
-                <div className="absolute top-1 left-4 right-4 h-3 rounded-full bg-white/20 blur-[1px]" />
-              </motion.div>
-
-              {/* 2. TOP SAUCE SPREAD / DRIP */}
-              {selectedSauces.length > 0 && (
-                <motion.div
-                  initial={{ scaleX: 0 }}
-                  animate={{ scaleX: 1 }}
-                  className="w-42 h-3.5 -mt-1.5 rounded-full z-35 shadow-md origin-center"
-                  style={{ backgroundColor: selectedSauces[0].color, filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' }}
-                />
               )}
 
-              {/* 3. SMOKED BRISKET TOPPING LAYER (If selected) */}
-              <AnimatePresence>
-                {hasSmokedBrisket && (
-                  <motion.div
-                    initial={{ scale: 0.8, y: -15, opacity: 0 }}
-                    animate={{ scale: 1, y: 0, opacity: 1 }}
-                    exit={{ scale: 0.8, opacity: 0 }}
-                    className="w-42 h-6 -mt-1.5 rounded-lg bg-gradient-to-r from-[#4A1F18] via-[#632E24] to-[#4A1F18] border-y border-[#8E4438] flex items-center justify-center text-[10px] font-black text-rose-200 tracking-wider shadow-lg z-32"
-                  >
-                    SMOKED BRISKET (100g)
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {/* Selected Additions List */}
+              <div className="space-y-2 mb-4">
+                <div className="flex items-center justify-between text-[11px] font-bold text-text-muted uppercase mb-1">
+                  <span>{isEn ? 'Active Sauces & Toppings:' : 'الصوصات والإضافات المختارة:'}</span>
+                </div>
 
-              {/* 4. CRISPY BEEF BACON (If selected) */}
-              <AnimatePresence>
-                {hasBacon && (
-                  <motion.div
-                    initial={{ rotate: -10, opacity: 0 }}
-                    animate={{ rotate: 0, opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="w-44 h-4 -mt-1 rounded-sm bg-gradient-to-r from-[#5C1D18] via-[#852C25] to-[#5C1D18] border-b-2 border-[#360F0C] shadow-md z-30"
-                  />
-                )}
-              </AnimatePresence>
-
-              {/* 5. CARAMELIZED ONIONS & JALAPENOS / PICKLES */}
-              <div className="w-40 -mt-1 flex items-center justify-center gap-1.5 z-28">
-                {hasCaramelizedOnion && (
-                  <div className="h-3 flex-1 bg-[#5A311A] rounded-full border border-amber-900/60 shadow-sm" title="بصل مكرمل" />
-                )}
-                {hasJalapeno && (
-                  <div className="w-5 h-3 bg-[#24521E] rounded-full border border-emerald-400/40 shadow-sm" title="هالبينو مشوي" />
-                )}
-                {hasPickles && (
-                  <div className="w-6 h-3 bg-[#3F5B25] rounded-full border border-lime-400/30 shadow-sm" title="خيار مخلل" />
-                )}
+                <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                  {selectedSauces.map(s => (
+                    <div key={s.id} className="flex items-center justify-between p-2 rounded-xl bg-white/[0.02] border border-white/5 text-xs">
+                      <div className="flex items-center gap-2 truncate">
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color || '#E63946' }}></span>
+                        <span className="text-white truncate">{isEn && s.nameEn ? s.nameEn : s.name}</span>
+                      </div>
+                      <span className="text-brand-red font-bold shrink-0">{s.price > 0 ? `+${s.price}` : (isEn ? 'Free' : 'مجاناً')}</span>
+                    </div>
+                  ))}
+                  {selectedCrunches.map(c => (
+                    <div key={c.id} className="flex items-center justify-between p-2 rounded-xl bg-white/[0.02] border border-white/5 text-xs">
+                      <div className="flex items-center gap-2 truncate">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0"></span>
+                        <span className="text-white truncate">{isEn && c.nameEn ? c.nameEn : c.name}</span>
+                      </div>
+                      <span className="text-brand-red font-bold shrink-0">{c.price > 0 ? `+${c.price}` : (isEn ? 'Free' : 'مجاناً')}</span>
+                    </div>
+                  ))}
+                  {selectedToppings.map(t => (
+                    <div key={t.id} className="flex items-center justify-between p-2 rounded-xl bg-white/[0.02] border border-white/5 text-xs">
+                      <div className="flex items-center gap-2 truncate">
+                        <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shrink-0"></span>
+                        <span className="text-white truncate">{isEn && t.nameEn ? t.nameEn : t.name}</span>
+                      </div>
+                      <span className="text-brand-red font-bold shrink-0">+{t.price}</span>
+                    </div>
+                  ))}
+                  {selectedSauces.length === 0 && selectedCrunches.length === 0 && selectedToppings.length === 0 && (
+                    <div className="p-3 rounded-xl border border-dashed border-white/10 text-center text-xs text-text-muted">
+                      {isEn ? 'No extra additions selected' : 'لم تختر إضافات إضافية'}
+                    </div>
+                  )}
+                </div>
               </div>
-
-              {/* 6. MELTED CHEDDAR CHEESE LAYER */}
-              <div className="relative w-44 h-5 -mt-1.5 z-25 flex items-center justify-center">
-                <div className="w-full h-3.5 bg-gradient-to-r from-[#FFB703] via-[#FCA311] to-[#FFB703] rounded-sm shadow-md" />
-                {/* Dripping Cheese Corners */}
-                <div className="absolute -bottom-2.5 left-5 w-3.5 h-3.5 bg-[#FFB703] rounded-b-md shadow-sm" />
-                <div className="absolute -bottom-2 right-8 w-3 h-3 bg-[#FCA311] rounded-b-md shadow-sm" />
-              </div>
-
-              {/* 7. FIRST SEAPED BEEF PATTY (150g Smash Patty) */}
-              <motion.div
-                layout
-                className="w-45 h-8 -mt-1 rounded-xl bg-gradient-to-b from-[#3D2016] via-[#2A140E] to-[#1E0D08] border-y border-[#522D20] shadow-2xl flex items-center justify-center text-[10px] font-bold text-amber-100/70 tracking-wider z-20"
-              >
-                100% ANGUS SMASH PATTY
-              </motion.div>
-
-              {/* 8. OPTIONAL SECOND PATTY (Double Smash) */}
-              <AnimatePresence>
-                {hasDoublePatty && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 32, opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    className="w-45 h-8 -mt-1 rounded-xl bg-gradient-to-b from-[#3D2016] via-[#2A140E] to-[#1E0D08] border-y border-[#522D20] shadow-2xl flex items-center justify-center text-[10px] font-bold text-amber-100/70 tracking-wider z-15"
-                  >
-                    EXTRA SMASH PATTY (+150g)
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* 9. BOTTOM BRIOCHE BUN (Heel) */}
-              <div className="w-43 h-7 -mt-1 rounded-b-[20px] rounded-t-[4px] bg-gradient-to-b from-[#A66D29] to-[#734515] border-b border-amber-950 shadow-2xl z-10" />
-
-              {/* Shadow under Burger on Dark Table */}
-              <div className="w-44 h-4 bg-black/90 rounded-full blur-md mt-1" />
             </div>
 
-            {/* Burger Summary Badge */}
-            <div className="mt-4 text-center">
-              <div className="text-xs font-bold text-white mb-1 flex items-center justify-center gap-1.5">
-                <span>{selectedBun.name}</span>
-                {selectedSauces.length > 0 && <span className="text-brand-red font-medium">+ {selectedSauces.length} صوص</span>}
-                {selectedCrunches.length > 0 && <span className="text-brand-red font-medium">+ {selectedCrunches.length} إضافات</span>}
+            {/* Clean Live Price Summary */}
+            <div className="pt-3 border-t border-white/10">
+              <div className="flex items-center justify-between text-xs text-text-muted mb-1">
+                <span>{isEn ? 'Base Item:' : 'الصنف الأساسي:'}</span>
+                <span className="font-bold text-white">{initialBasePrice} {curr}</span>
               </div>
-              <p className="text-[11px] text-text-muted">طبقات الساندوتش تهبط حية مع كل إضافة تختارها</p>
+              {totalPrice > initialBasePrice && (
+                <div className="flex items-center justify-between text-xs text-brand-red mb-2">
+                  <span>{isEn ? 'Custom Additions:' : 'إضافات التخصيص:'}</span>
+                  <span className="font-bold">+{totalPrice - initialBasePrice} {curr}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -387,10 +344,10 @@ export default function BurgerLabModal({ isOpen, onClose, baseProduct, menuData 
               {/* Segmented Step Tabs */}
               <div className="grid grid-cols-4 gap-1 sm:gap-2 mb-6 bg-black-primary/70 p-1.5 rounded-2xl border border-white/10">
                 {[
-                  { id: 'bun', label: '1. الخبز', count: 1 },
-                  { id: 'sauces', label: '2. الصوصات', count: selectedSauces.length },
-                  { id: 'crunch', label: '3. الإضافات', count: selectedCrunches.length },
-                  { id: 'toppings', label: '4. اللحوم والأجبان', count: selectedToppings.length },
+                  { id: 'bun', label: isEn ? '1. Bun' : '1. الخبز', count: 1 },
+                  { id: 'sauces', label: isEn ? '2. Sauces' : '2. الصوصات', count: selectedSauces.length },
+                  { id: 'crunch', label: isEn ? '3. Veggies' : '3. الإضافات', count: selectedCrunches.length },
+                  { id: 'toppings', label: isEn ? '4. Premium' : '4. لحوم وأجبان', count: selectedToppings.length },
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -417,28 +374,39 @@ export default function BurgerLabModal({ isOpen, onClose, baseProduct, menuData 
               {activeTab === 'bun' && (
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-text-muted font-bold">اختر نوع الخبز المفضل (إجباري):</span>
+                    <span className="text-xs text-text-muted font-bold">
+                      {isEn ? 'Choose Bun Type (Required):' : 'اختر نوع الخبز المفضل:'}
+                    </span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {burgerBuns.map((b) => {
-                      const isSelected = selectedBun.id === b.id;
+                  <div className="grid grid-cols-1 gap-2.5">
+                    {burgerBuns.map((bun) => {
+                      const isSelected = selectedBun?.id === bun.id;
                       return (
                         <div
-                          key={b.id}
-                          onClick={() => setSelectedBun(b)}
+                          key={bun.id}
+                          onClick={() => setSelectedBun(bun)}
                           className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
                             isSelected
                               ? 'bg-brand-red/15 border-brand-red shadow-md'
                               : 'bg-black-primary/50 border-white/10 hover:border-white/20'
                           }`}
                         >
-                          <div>
-                            <div className="font-bold text-sm text-text-light">{b.name}</div>
-                            {b.desc && <div className="text-[11px] text-text-muted line-clamp-1">{b.desc}</div>}
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border border-white/10" style={{ backgroundColor: bun.color || '#C4883E' }}>
+                              <Beef size={20} className="text-black/80" />
+                            </div>
+                            <div>
+                              <div className="font-bold text-sm text-text-light">{isEn && bun.nameEn ? bun.nameEn : bun.name}</div>
+                              {bun.desc && <div className="text-[11px] text-text-muted">{bun.desc}</div>}
+                            </div>
                           </div>
-                          <div className="text-right shrink-0">
-                            <span className="text-xs font-bold text-brand-red">{b.price > 0 ? `+${b.price} ج.م` : 'مشمول'}</span>
-                            {isSelected && <Check size={16} className="text-brand-red ml-auto mt-1" />}
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-xs font-bold text-brand-red">
+                              {bun.price > 0 ? `+${bun.price} ${curr}` : (isEn ? 'Included' : 'مشمول')}
+                            </span>
+                            <div className={`w-5 h-5 rounded-full flex items-center justify-center border ${isSelected ? 'bg-brand-red border-brand-red text-white' : 'border-white/20'}`}>
+                              {isSelected && <Check size={12} />}
+                            </div>
                           </div>
                         </div>
                       );
@@ -451,8 +419,10 @@ export default function BurgerLabModal({ isOpen, onClose, baseProduct, menuData 
               {activeTab === 'sauces' && (
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-text-muted font-bold">اختر صوصات البرجر الذائبة (اختياري):</span>
-                    <span className="text-xs text-brand-red font-bold">{selectedSauces.length} محددة</span>
+                    <span className="text-xs text-text-muted font-bold">
+                      {isEn ? 'Choose Gourmet Sauces (Optional):' : 'اختر صوصات البرجر الذائبة (اختياري):'}
+                    </span>
+                    <span className="text-xs text-brand-red font-bold">{selectedSauces.length} {isEn ? 'Selected' : 'محددة'}</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {burgerSauces.map((s) => {
@@ -467,15 +437,15 @@ export default function BurgerLabModal({ isOpen, onClose, baseProduct, menuData 
                               : 'bg-black-primary/50 border-white/10 hover:border-white/20'
                           }`}
                         >
-                          <div className="flex items-center gap-3">
-                            <div className="w-4 h-4 rounded-full shadow-md shrink-0" style={{ backgroundColor: s.color }} />
-                            <div>
-                              <div className="font-bold text-sm text-text-light">{s.name}</div>
-                              {s.desc && <div className="text-[10px] text-text-muted">{s.desc}</div>}
+                          <div className="flex items-center gap-3 truncate">
+                            <div className="w-4 h-4 rounded-full shadow-md shrink-0" style={{ backgroundColor: s.color || '#E63946' }} />
+                            <div className="truncate">
+                              <div className="font-bold text-sm text-text-light truncate">{isEn && s.nameEn ? s.nameEn : s.name}</div>
+                              {s.desc && <div className="text-[10px] text-text-muted truncate">{s.desc}</div>}
                             </div>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-xs font-bold text-brand-red">+{s.price} ج.م</span>
+                            <span className="text-xs font-bold text-brand-red">+{s.price} {curr}</span>
                             <div className={`w-5 h-5 rounded-md flex items-center justify-center border ${isSelected ? 'bg-brand-red border-brand-red text-white' : 'border-white/20'}`}>
                               {isSelected && <Check size={13} />}
                             </div>
@@ -491,8 +461,10 @@ export default function BurgerLabModal({ isOpen, onClose, baseProduct, menuData 
               {activeTab === 'crunch' && (
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-text-muted font-bold">أضف الخضار والمقرمشات المشوية داخل الساندوتش:</span>
-                    <span className="text-xs text-brand-red font-bold">{selectedCrunches.length} محددة</span>
+                    <span className="text-xs text-text-muted font-bold">
+                      {isEn ? 'Add Veggies & Crunches:' : 'أضف الخضار والمقرمشات المشوية داخل الساندوتش:'}
+                    </span>
+                    <span className="text-xs text-brand-red font-bold">{selectedCrunches.length} {isEn ? 'Selected' : 'محددة'}</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {burgerCrunches.map((c) => {
@@ -507,9 +479,9 @@ export default function BurgerLabModal({ isOpen, onClose, baseProduct, menuData 
                               : 'bg-black-primary/50 border-white/10 hover:border-white/20'
                           }`}
                         >
-                          <span className="font-bold text-sm text-text-light">{c.name}</span>
+                          <span className="font-bold text-sm text-text-light truncate">{isEn && c.nameEn ? c.nameEn : c.name}</span>
                           <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-xs font-bold text-brand-red">+{c.price} ج.م</span>
+                            <span className="text-xs font-bold text-brand-red">+{c.price} {curr}</span>
                             <div className={`w-5 h-5 rounded-md flex items-center justify-center border ${isSelected ? 'bg-brand-red border-brand-red text-white' : 'border-white/20'}`}>
                               {isSelected && <Check size={13} />}
                             </div>
@@ -525,7 +497,9 @@ export default function BurgerLabModal({ isOpen, onClose, baseProduct, menuData 
               {activeTab === 'toppings' && (
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-text-muted font-bold">مضاعفة اللحوم والأجبان الفاخرة (Double Up):</span>
+                    <span className="text-xs text-text-muted font-bold">
+                      {isEn ? 'Double Up Meats & Artisan Cheeses:' : 'مضاعفة اللحوم والأجبان الفاخرة:'}
+                    </span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {burgerToppings.map((t) => {
@@ -540,9 +514,9 @@ export default function BurgerLabModal({ isOpen, onClose, baseProduct, menuData 
                               : 'bg-black-primary/50 border-white/10 hover:border-white/20'
                           }`}
                         >
-                          <span className="font-bold text-sm text-text-light">{t.name}</span>
+                          <span className="font-bold text-sm text-text-light truncate">{isEn && t.nameEn ? t.nameEn : t.name}</span>
                           <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-xs font-bold text-brand-red">+{t.price} ج.م</span>
+                            <span className="text-xs font-bold text-brand-red">+{t.price} {curr}</span>
                             <div className={`w-5 h-5 rounded-md flex items-center justify-center border ${isSelected ? 'bg-brand-red border-brand-red text-white' : 'border-white/20'}`}>
                               {isSelected && <Check size={13} />}
                             </div>
@@ -558,10 +532,12 @@ export default function BurgerLabModal({ isOpen, onClose, baseProduct, menuData 
             {/* Bottom Footer Bar */}
             <div className="mt-8 pt-4 border-t border-white/10 flex items-center justify-between gap-4">
               <div>
-                <span className="text-xs text-text-muted block font-medium">سعر الساندوتش المخصص:</span>
+                <span className="text-xs text-text-muted block font-medium">
+                  {isEn ? 'Total Customized Price:' : 'سعر الساندوتش المخصص:'}
+                </span>
                 <div className="text-2xl font-black text-white flex items-baseline gap-1">
                   <span>{totalPrice}</span>
-                  <span className="text-sm text-brand-red font-bold">ج.م</span>
+                  <span className="text-sm text-brand-red font-bold">{curr}</span>
                 </div>
               </div>
 
@@ -578,12 +554,12 @@ export default function BurgerLabModal({ isOpen, onClose, baseProduct, menuData 
                 {isSuccessBurger ? (
                   <>
                     <Check size={20} className="animate-bounce" />
-                    <span>تمت الإضافة للطلب بنجاح!</span>
+                    <span>{isEn ? 'Added to order!' : 'تمت الإضافة للطلب بنجاح!'}</span>
                   </>
                 ) : (
                   <>
                     <Sparkles size={18} />
-                    <span>إضافة الساندوتش للطلب</span>
+                    <span>{isEn ? 'Add to order' : 'إضافة الساندوتش للطلب'}</span>
                   </>
                 )}
               </motion.button>
