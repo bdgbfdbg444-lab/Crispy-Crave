@@ -149,9 +149,9 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
       const info = processedAddonsMap[item.id];
       if (info?.isFree) {
         return { 
-          text: isEn ? 'Free (Gift)' : 'مجاناً (ضمن العرض)', 
+          text: isEn ? 'Free (Gift)' : 'مجاناً (هدية)', 
           isFree: true, 
-          className: 'text-emerald-400 font-bold' 
+          className: 'text-amber-400 font-bold' 
         };
       }
       return { 
@@ -166,13 +166,13 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
       return { 
         text: isEn ? 'Included Free' : 'مشمول مجاناً', 
         isFree: true, 
-        className: 'text-emerald-400 font-bold' 
+        className: 'text-amber-400 font-bold' 
       };
     }
     return { 
       text: item.price > 0 ? `+${item.price} ${curr}` : (isEn ? 'Free' : 'مجاناً'), 
       isFree: item.price === 0, 
-      className: item.price > 0 ? 'text-brand-red font-bold' : 'text-emerald-400 font-bold' 
+      className: item.price > 0 ? 'text-brand-red font-bold' : 'text-amber-400 font-bold' 
     };
   };
 
@@ -352,7 +352,7 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                 <div className="flex items-center justify-between text-[11px] font-bold text-text-muted uppercase mb-1">
                   <span>{isEn ? 'Active Additions & Syrups:' : 'الإضافات والصوصات النشطة:'}</span>
                   {freeLimit > 0 && (
-                    <span className="text-emerald-400 font-bold">
+                    <span className="text-amber-400 font-bold">
                       {freeAddonsCountUsed} / {freeLimit} {isEn ? 'Free' : 'مجاني'}
                     </span>
                   )}
@@ -380,8 +380,8 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                             <span className="text-white font-medium truncate">{getItemName(item)}</span>
                           </div>
                           {isFree ? (
-                            <span className="text-emerald-400 font-bold shrink-0 text-[11px] bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-                              {isEn ? 'Free (Gift)' : 'مجاناً (ضمن العرض)'}
+                            <span className="text-amber-400 font-bold shrink-0 text-[11px] bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/25">
+                              {isEn ? 'Free (Gift)' : 'مجاناً (هدية)'}
                             </span>
                           ) : (
                             <span className="text-brand-red font-bold shrink-0">+{item.price} {curr}</span>
@@ -401,29 +401,31 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
             <div>
               {/* Dynamic Free Modifiers Banner (When Product has FreeModifiersLimit > 0) */}
               {freeLimit > 0 && (
-                <div className="mb-4 p-3 sm:p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/15 via-emerald-500/5 to-transparent border border-emerald-500/30 flex items-center justify-between">
+                <div className="mb-4 p-2.5 sm:p-3 rounded-2xl bg-brand-red/10 border border-brand-red/25 flex items-center justify-between gap-2.5">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
+                    <div className="w-8 h-8 rounded-xl bg-brand-red/20 text-brand-red flex items-center justify-center shrink-0 border border-brand-red/30">
                       <Gift size={16} />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-xs font-black text-emerald-300">
-                        {isEn ? `${freeLimit} Free additions included with this shake!` : `مشمول ${freeLimit} إضافات مجانية مع هذا المشروب!`}
+                      <div className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5">
+                        <span>{isEn ? `${freeLimit} Free Add-ons Included` : `لك ${freeLimit} إضافات مجانية`}</span>
                       </div>
-                      <div className="text-[11px] text-text-muted truncate">
-                        {isEn ? 'Freely divide between sauces, crunches or toppings' : 'قسّمها بحرية بين الصوصات، المقرمشات، أو التوبينج'}
+                      <div className="text-[11px] text-text-muted">
+                        {freeAddonsRemaining > 0 
+                          ? (isEn ? `Choose ${freeAddonsRemaining} more for free` : `اختر ${freeAddonsRemaining} أخرى مجاناً`)
+                          : (isEn ? 'All free additions selected ✓' : 'تم اختيار كل المجاني ✓')}
                       </div>
                     </div>
                   </div>
-                  <div className="shrink-0 mx-2">
-                    <span className={`text-xs px-2.5 py-1 rounded-full font-black border transition-all ${
+                  <div className="shrink-0">
+                    <span className={`text-[11px] sm:text-xs px-2.5 py-1 rounded-xl font-bold border transition-all ${
                       freeAddonsRemaining > 0 
-                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 animate-pulse' 
+                        ? 'bg-brand-red text-white border-brand-red shadow-sm shadow-brand-red/30' 
                         : 'bg-white/10 text-text-light border-white/20'
                     }`}>
                       {freeAddonsRemaining > 0 
-                        ? (isEn ? `${freeAddonsRemaining} free remaining` : `متبقي لك ${freeAddonsRemaining} مجاناً`) 
-                        : (isEn ? `Used ${freeLimit} of ${freeLimit} free ✓` : `استخدمت ${freeLimit} من ${freeLimit} مجاناً ✓`)}
+                        ? (isEn ? `${freeAddonsRemaining} left` : `متبقي ${freeAddonsRemaining}`) 
+                        : (isEn ? 'Done ✓' : 'اكتمل ✓')}
                     </span>
                   </div>
                 </div>
