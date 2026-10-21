@@ -642,6 +642,58 @@ export const CartProvider = ({ children }) => {
     }
   };
 
+  // Full session reset on logout or clean start
+  const resetSession = () => {
+    // 1. Reset Cart Items
+    setCartItems([]);
+    try { localStorage.removeItem('crispy_cart_items'); } catch (e) {}
+
+    // 2. Reset Group Order
+    setGroupOrderIdState(null);
+    setCurrentGuestNameState('');
+    setGroupData(null);
+    setIsGroupModalOpen(false);
+    try {
+      localStorage.removeItem('crispy_group_order_id');
+      localStorage.removeItem('crispy_group_guest_name');
+      const url = new URL(window.location.href);
+      url.searchParams.delete('group');
+      window.history.replaceState({}, '', url.toString());
+    } catch (e) {}
+
+    // 3. Reset Order Type & Table Sessions
+    setOrderTypeState(null);
+    setTableNumberState(null);
+    try {
+      localStorage.removeItem('crispy_order_type');
+      localStorage.removeItem('crispy_cart_table');
+      purgeTableSession();
+    } catch (e) {}
+
+    // 4. Reset Editing & Tracking Orders
+    try {
+      localStorage.removeItem('editingOrderId');
+      localStorage.removeItem('editingOrderDisplayId');
+      localStorage.removeItem('editingOrderDetails');
+      localStorage.removeItem('modificationExpiresAt');
+      localStorage.removeItem('activeOrderId');
+      localStorage.removeItem('activeOrderTotal');
+      sessionStorage.removeItem('crispy_dont_auto_open_cart');
+    } catch (e) {}
+
+    // 5. Close cart sidebar if open
+    setIsCartOpen(false);
+  };
+
+  // Automatic cleanup on logout (when userPhone changes from a phone number to null)
+  const prevUserPhoneRef = useRef(userPhone);
+  useEffect(() => {
+    if (prevUserPhoneRef.current && !userPhone) {
+      resetSession();
+    }
+    prevUserPhoneRef.current = userPhone;
+  }, [userPhone]);
+
   const syncCartWithMenu = (menuData) => {
     if (!menuData || !menuData.categories) return;
     
@@ -754,7 +806,8 @@ export const CartProvider = ({ children }) => {
       setIsGroupModalOpen,
       startGroupOrder,
       joinGroupOrder,
-      leaveGroupOrder
+      leaveGroupOrder,
+      resetSession
     }}>
       {children}
     </CartContext.Provider>

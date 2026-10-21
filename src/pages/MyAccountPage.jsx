@@ -672,6 +672,7 @@ export default function MyAccountPage() {
   const { lang } = useLanguage();
   const navigate = useNavigate();
   const { customerData, refreshCustomerData, userPhone, loading: authLoading } = useAuth();
+  const { resetSession } = useCart();
   const [menuData, setMenuData] = useState(null);
 
   useEffect(() => {
@@ -680,6 +681,7 @@ export default function MyAccountPage() {
 
   const handleLogout = async () => {
     try {
+      if (resetSession) resetSession();
       await signOut(auth);
       await signInAnonymously(auth);
       navigate('/');
@@ -691,6 +693,7 @@ export default function MyAccountPage() {
   const handleDeleteAccount = async () => {
     if (window.confirm(lang === 'en' ? 'Are you sure you want to permanently delete your account?' : 'هل أنت متأكد من حذف الحساب نهائياً؟')) {
       try {
+        if (resetSession) resetSession();
         if (userPhone) {
           const updates = {};
           updates[`PublicCustomers/${userPhone}/Deleted`] = true;
