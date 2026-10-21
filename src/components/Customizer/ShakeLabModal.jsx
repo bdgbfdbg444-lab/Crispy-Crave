@@ -149,7 +149,7 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
       const info = processedAddonsMap[item.id];
       if (info?.isFree) {
         return { 
-          text: isEn ? 'Free (Gift)' : 'مجاناً (هدية)', 
+          text: isEn ? 'Free' : 'مجاناً', 
           isFree: true, 
           className: 'text-amber-400 font-bold' 
         };
@@ -164,7 +164,7 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
     // Not selected yet
     if (freeLimit > 0 && allSelectedAddons.length < freeLimit) {
       return { 
-        text: isEn ? 'Included Free' : 'مشمول مجاناً', 
+        text: isEn ? 'Free' : 'مجاناً', 
         isFree: true, 
         className: 'text-amber-400 font-bold' 
       };
@@ -381,7 +381,7 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                           </div>
                           {isFree ? (
                             <span className="text-amber-400 font-bold shrink-0 text-[11px] bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/25">
-                              {isEn ? 'Free (Gift)' : 'مجاناً (هدية)'}
+                              {isEn ? 'Free' : 'مجاناً'}
                             </span>
                           ) : (
                             <span className="text-brand-red font-bold shrink-0">+{item.price} {curr}</span>
