@@ -1,11 +1,11 @@
-import { useLanguage } from '../context/LanguageContext';
-﻿import React from 'react';
+import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Home, MenuSquare, ShoppingBag, User } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 import { useCart } from '../context/CartContext';
 
 export default function MobileBottomNav() {
-  const { lang } = useLanguage();
+  const { t } = useLanguage();
   const { cartItems, setIsCartOpen } = useCart();
   const location = useLocation();
   const cartItemsCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
@@ -17,37 +17,37 @@ export default function MobileBottomNav() {
         {/* Home Tab */}
         <Link 
           to="/" 
-          aria-label="الرئيسية"
+          aria-label={t('home')}
           className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${location.pathname === '/' ? 'text-brand-red' : 'text-text-muted hover:text-gray-300'}`}
         >
           <Home size={22} strokeWidth={location.pathname === '/' ? 2.5 : 2} />
-          <span className="text-[10px] font-bold">الرئيسية</span>
+          <span className="text-[10px] font-bold">{t('home')}</span>
         </Link>
 
         {/* Account Tab */}
         <Link 
           to="/account" 
-          aria-label="حسابي"
+          aria-label={t('myAccount')}
           className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${location.pathname === '/account' ? 'text-brand-red' : 'text-text-muted hover:text-gray-300'}`}
         >
           <User size={22} strokeWidth={location.pathname === '/account' ? 2.5 : 2} />
-          <span className="text-[10px] font-bold">حسابي</span>
+          <span className="text-[10px] font-bold">{t('myAccount')}</span>
         </Link>
 
         {/* Menu Tab */}
         <Link 
           to="/menu" 
-          aria-label="قائمة الطعام"
+          aria-label={t('menu')}
           className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${location.pathname === '/menu' ? 'text-brand-red' : 'text-text-muted hover:text-gray-300'}`}
         >
           <MenuSquare size={22} strokeWidth={location.pathname === '/menu' ? 2.5 : 2} />
-          <span className="text-[10px] font-bold">{lang === 'en' ? 'Menu' : 'المنيو'}</span>
+          <span className="text-[10px] font-bold">{t('menu')}</span>
         </Link>
 
         {/* Cart Tab */}
         <button 
           onClick={() => setIsCartOpen(true)}
-          aria-label="سلة التسوق"
+          aria-label={t('cart')}
           className="flex flex-col items-center justify-center w-full h-full space-y-1 text-text-muted hover:text-gray-300 transition-colors relative"
         >
           <div className="relative">
@@ -58,7 +58,7 @@ export default function MobileBottomNav() {
               </span>
             )}
           </div>
-          <span className="text-[10px] font-bold">السلة</span>
+          <span className="text-[10px] font-bold">{t('cart')}</span>
         </button>
 
       </div>

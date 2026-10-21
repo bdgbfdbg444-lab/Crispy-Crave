@@ -7,6 +7,13 @@ import { useCart } from '../../context/CartContext';
 export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }) {
   const { lang } = useLanguage();
   const { addToCart } = useCart();
+  const isEn = lang === 'en';
+
+  // Helper to pick the proper localized name
+  const getItemName = (item) => {
+    if (!item) return '';
+    return isEn ? (item.nameEn || item.name) : (item.name || item.nameEn);
+  };
 
   // 1. Free Modifiers Limit defined from POS for this product (e.g. 3 free additions)
   const freeLimit = Number(baseProduct?.freeModifiersLimit ?? baseProduct?.FreeModifiersLimit ?? 0);
@@ -134,22 +141,36 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
 
   if (!isOpen) return null;
 
+  const curr = isEn ? 'EGP' : 'ج.م';
+
   // Pricing badge helper for addition cards
   const getAddonDisplayPrice = (item, isSelected) => {
     if (isSelected) {
       const info = processedAddonsMap[item.id];
       if (info?.isFree) {
-        return { text: 'مجاناً (هدية)', isFree: true, className: 'text-emerald-400 font-bold' };
+        return { 
+          text: isEn ? 'Free (Gift)' : 'مجاناً (ضمن العرض)', 
+          isFree: true, 
+          className: 'text-emerald-400 font-bold' 
+        };
       }
-      return { text: `+${item.price} ج.م`, isFree: false, className: 'text-brand-red font-bold' };
+      return { 
+        text: `+${item.price} ${curr}`, 
+        isFree: false, 
+        className: 'text-brand-red font-bold' 
+      };
     }
 
     // Not selected yet
     if (freeLimit > 0 && allSelectedAddons.length < freeLimit) {
-      return { text: 'مشمول مجاناً', isFree: true, className: 'text-emerald-400 font-bold' };
+      return { 
+        text: isEn ? 'Included Free' : 'مشمول مجاناً', 
+        isFree: true, 
+        className: 'text-emerald-400 font-bold' 
+      };
     }
     return { 
-      text: item.price > 0 ? `+${item.price} ج.م` : 'مجاناً', 
+      text: item.price > 0 ? `+${item.price} ${curr}` : (isEn ? 'Free' : 'مجاناً'), 
       isFree: item.price === 0, 
       className: item.price > 0 ? 'text-brand-red font-bold' : 'text-emerald-400 font-bold' 
     };
@@ -195,7 +216,7 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
     const modifiersList = [
       ...(selectedBase ? [{ 
         id: `base_${selectedBase.id}`, 
-        name: `قاعدة: ${selectedBase.name}`, 
+        name: isEn ? `Base: ${selectedBase.nameEn || selectedBase.name}` : `قاعدة: ${selectedBase.name || selectedBase.nameEn}`, 
         nameEn: `Base: ${selectedBase.nameEn || selectedBase.name}`, 
         price: selectedBase.price || 0,
         isFree: false
@@ -205,7 +226,7 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
         const isFree = Boolean(info?.isFree);
         return {
           id: mod.id,
-          name: mod.name,
+          name: isEn ? (mod.nameEn || mod.name) : (mod.name || mod.nameEn),
           nameEn: mod.nameEn || mod.name,
           price: isFree ? 0 : (mod.price || 0),
           originalPrice: mod.price || 0,
@@ -218,7 +239,7 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
     const customizedProduct = {
       ...(baseProduct || {}),
       id: baseProduct?.id || 9999,
-      name: lang === 'en' ? (baseProduct?.nameEn || 'Artisanal Custom Shake') : (baseProduct?.name || 'اصنع مشروبك بنفسك'),
+      name: isEn ? (baseProduct?.nameEn || 'Artisanal Custom Shake') : (baseProduct?.name || 'اصنع مشروبك بنفسك'),
       nameEn: baseProduct?.nameEn || 'Artisanal Custom Shake',
       sellingPrice: totalPrice,
       calculatedPrice: totalPrice,
@@ -236,7 +257,7 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-hidden animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md overflow-hidden animate-fadeIn" dir={isEn ? 'ltr' : 'rtl'}>
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -254,10 +275,12 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                 <span className="text-[11px] font-bold uppercase tracking-wider text-brand-red bg-brand-red/10 px-2 py-0.5 rounded">
                   THE BLACK BOX
                 </span>
-                <span className="text-xs text-text-muted">| استوديو التخصيص الحصري</span>
+                <span className="text-xs text-text-muted">
+                  | {isEn ? 'Exclusive Customizer Studio' : 'استوديو التخصيص الحصري'}
+                </span>
               </div>
               <h2 className="text-lg sm:text-xl font-black text-text-light">
-                {baseProduct?.name || (lang === 'en' ? 'Build Your Milkshake' : 'اصنع مشروبك بنفسك')}
+                {isEn ? (baseProduct?.nameEn || baseProduct?.name || 'Build Your Milkshake') : (baseProduct?.name || baseProduct?.nameEn || 'اصنع مشروبك بنفسك')}
               </h2>
             </div>
           </div>
@@ -266,10 +289,10 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
             <button
               onClick={handleReset}
               className="p-2 text-text-muted hover:text-white hover:bg-white/5 rounded-xl transition-colors text-xs flex items-center gap-1.5"
-              title="إعادة ضبط"
+              title={isEn ? 'Reset' : 'إعادة ضبط'}
             >
               <RefreshCw size={14} />
-              <span className="hidden sm:inline">إعادة ضبط</span>
+              <span className="hidden sm:inline">{isEn ? 'Reset' : 'إعادة ضبط'}</span>
             </button>
             <button 
               onClick={onClose}
@@ -284,16 +307,16 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
         <div className="flex flex-col md:flex-row flex-grow overflow-y-auto">
           
           {/* ===================== LEFT: ARTISANAL RECIPE BOARD ===================== */}
-          <div className="w-full md:w-5/12 bg-[#0B0B0E] p-4 sm:p-6 border-b md:border-b-0 md:border-l border-white/10 flex flex-col justify-between shrink-0">
+          <div className="w-full md:w-5/12 bg-[#0B0B0E] p-4 sm:p-6 border-b md:border-b-0 md:border-r rtl:md:border-r-0 rtl:md:border-l border-white/10 flex flex-col justify-between shrink-0">
             <div>
               {/* Header Badge */}
               <div className="flex items-center justify-between mb-4">
                 <span className="text-xs font-black uppercase tracking-wider text-text-muted flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-brand-red"></span>
-                  بطاقة وصفتك المخصصة
+                  {isEn ? 'Your Custom Recipe' : 'بطاقة وصفتك المخصصة'}
                 </span>
                 <span className="text-xs font-bold text-brand-red bg-brand-red/10 px-2 py-0.5 rounded-full">
-                  {(selectedBase ? 1 : 0) + allSelectedAddons.length} مكونات
+                  {(selectedBase ? 1 : 0) + allSelectedAddons.length} {isEn ? 'Items' : 'مكونات'}
                 </span>
               </div>
 
@@ -303,7 +326,7 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                   {selectedBase.iconPath ? (
                     <img 
                       src={selectedBase.iconPath} 
-                      alt={selectedBase.name} 
+                      alt={getItemName(selectedBase)} 
                       className="w-14 h-14 rounded-xl object-cover border border-white/15 shadow-md shrink-0" 
                     />
                   ) : (
@@ -315,28 +338,36 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <div className="text-[11px] font-bold text-brand-red uppercase">القاعدة المختارة</div>
-                    <div className="font-bold text-sm text-white truncate">{selectedBase.name}</div>
-                    <div className="text-xs text-text-muted">{selectedBase.price > 0 ? `+${selectedBase.price} ج.م` : 'مشمولة في السعر الأساسي'}</div>
+                    <div className="text-[11px] font-bold text-brand-red uppercase">
+                      {isEn ? 'SELECTED BASE' : 'القاعدة المختارة'}
+                    </div>
+                    <div className="font-bold text-sm text-white truncate">
+                      {getItemName(selectedBase)}
+                    </div>
+                    <div className="text-xs text-text-muted">
+                      {selectedBase.price > 0 ? `+${selectedBase.price} ${curr}` : (isEn ? 'Included in base price' : 'مشمولة في السعر الأساسي')}
+                    </div>
                   </div>
                 </div>
               ) : (
                 <div className="p-4 rounded-xl border border-dashed border-white/10 text-center text-xs text-text-muted mb-4">
-                  لم يتم اختيار قاعدة آيس كريم بعد
+                  {isEn ? 'No ice cream base selected yet' : 'لم يتم اختيار قاعدة آيس كريم بعد'}
                 </div>
               )}
 
               {/* Selected Additions List */}
               <div className="space-y-2 mb-4">
                 <div className="flex items-center justify-between text-[11px] font-bold text-text-muted uppercase mb-1">
-                  <span>الإضافات والصوصات النشطة:</span>
+                  <span>{isEn ? 'Active Additions & Syrups:' : 'الإضافات والصوصات النشطة:'}</span>
                   {freeLimit > 0 && (
-                    <span className="text-emerald-400 font-bold">{freeAddonsCountUsed} / {freeLimit} مجاني</span>
+                    <span className="text-emerald-400 font-bold">
+                      {freeAddonsCountUsed} / {freeLimit} {isEn ? 'Free' : 'مجاني'}
+                    </span>
                   )}
                 </div>
                 {allSelectedAddons.length === 0 ? (
                   <div className="p-4 rounded-xl border border-dashed border-white/10 text-center text-xs text-text-muted">
-                    لم تختر إضافات بعد، اختر الصوصات أو المقرمشات التي تريدها
+                    {isEn ? 'No additions selected yet. Choose your favorite sauces or mix-ins.' : 'لم تختر إضافات بعد، اختر الصوصات أو المقرمشات التي تريدها'}
                   </div>
                 ) : (
                   <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
@@ -354,14 +385,14 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                             ) : (
                               <div className="w-6 h-6 rounded-lg shrink-0" style={{ backgroundColor: item.color || '#E63946' }} />
                             )}
-                            <span className="text-white font-medium truncate">{item.name}</span>
+                            <span className="text-white font-medium truncate">{getItemName(item)}</span>
                           </div>
                           {isFree ? (
-                            <span className="text-emerald-400 font-bold shrink-0 text-[11px] bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                              مجاناً (ضمن العرض)
+                            <span className="text-emerald-400 font-bold shrink-0 text-[11px] bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                              {isEn ? 'Free (Gift)' : 'مجاناً (ضمن العرض)'}
                             </span>
                           ) : (
-                            <span className="text-brand-red font-bold shrink-0">+{item.price} ج.م</span>
+                            <span className="text-brand-red font-bold shrink-0">+{item.price} {curr}</span>
                           )}
                         </div>
                       );
@@ -373,8 +404,12 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
 
             {/* Barista Tasting Note */}
             <div className="p-3 rounded-xl bg-brand-red/5 border border-brand-red/20 text-[11px] text-text-muted leading-relaxed">
-              <span className="text-brand-red font-bold block mb-0.5">ملاحظة باريستا THE BLACK BOX:</span>
-              يتم تحضير المشروب طازجاً من الآيس كريم الفاخر مع الصوصات الأصلية والتتويج فور استلام طلبك.
+              <span className="text-brand-red font-bold block mb-0.5">
+                {isEn ? 'THE BLACK BOX BARISTA NOTE:' : 'ملاحظة باريستا THE BLACK BOX:'}
+              </span>
+              {isEn 
+                ? 'Your shake is freshly crafted with premium ice cream, authentic syrups and handcrafted toppings upon receiving your order.' 
+                : 'يتم تحضير المشروب طازجاً من الآيس كريم الفاخر مع الصوصات الأصلية والتتويج فور استلام طلبك.'}
             </div>
           </div>
 
@@ -391,22 +426,22 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                     </div>
                     <div className="min-w-0">
                       <div className="text-xs font-black text-emerald-300">
-                        مشمول {freeLimit} إضافات مجانية مع هذا المشروب!
+                        {isEn ? `${freeLimit} Free additions included with this shake!` : `مشمول ${freeLimit} إضافات مجانية مع هذا المشروب!`}
                       </div>
                       <div className="text-[11px] text-text-muted truncate">
-                        قسّمها بحرية بين الصوصات، المقرمشات، أو التوبينج
+                        {isEn ? 'Freely divide between sauces, crunches or toppings' : 'قسّمها بحرية بين الصوصات، المقرمشات، أو التوبينج'}
                       </div>
                     </div>
                   </div>
-                  <div className="shrink-0 mr-2">
+                  <div className="shrink-0 mx-2">
                     <span className={`text-xs px-2.5 py-1 rounded-full font-black border transition-all ${
                       freeAddonsRemaining > 0 
                         ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 animate-pulse' 
                         : 'bg-white/10 text-text-light border-white/20'
                     }`}>
                       {freeAddonsRemaining > 0 
-                        ? `متبقي لك ${freeAddonsRemaining} مجاناً` 
-                        : `استخدمت ${freeLimit} من ${freeLimit} مجاناً ✓`}
+                        ? (isEn ? `${freeAddonsRemaining} free remaining` : `متبقي لك ${freeAddonsRemaining} مجاناً`) 
+                        : (isEn ? `Used ${freeLimit} of ${freeLimit} free ✓` : `استخدمت ${freeLimit} من ${freeLimit} مجاناً ✓`)}
                     </span>
                   </div>
                 </div>
@@ -415,10 +450,10 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
               {/* SEGMENTED NAVIGATION TABS */}
               <div className="grid grid-cols-4 gap-1 sm:gap-2 mb-6 bg-black-primary/70 p-1.5 rounded-2xl border border-white/10">
                 {[
-                  { id: 'base', label: 'القاعدة', count: selectedBase ? 1 : 0 },
-                  { id: 'sauces', label: 'الصوصات', count: selectedSauces.length },
-                  { id: 'crunch', label: 'المقرمشات', count: selectedCrunches.length },
-                  { id: 'toppings', label: 'التوبينج', count: selectedToppings.length }
+                  { id: 'base', label: isEn ? 'Base' : 'القاعدة', count: selectedBase ? 1 : 0 },
+                  { id: 'sauces', label: isEn ? 'Sauces' : 'الصوصات', count: selectedSauces.length },
+                  { id: 'crunch', label: isEn ? 'Crunches' : 'المقرمشات', count: selectedCrunches.length },
+                  { id: 'toppings', label: isEn ? 'Toppings' : 'التوبينج', count: selectedToppings.length }
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -445,13 +480,19 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
               {activeTab === 'base' && (
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-text-muted font-bold">اختر طعم وقاعدة الآيسكريم المفضلة (إجباري):</span>
+                    <span className="text-xs text-text-muted font-bold">
+                      {isEn ? 'Choose your favorite ice cream base (Required):' : 'اختر طعم وقاعدة الآيسكريم المفضلة (إجباري):'}
+                    </span>
                   </div>
                   {shakeBases.length === 0 ? (
                     <div className="py-12 text-center text-text-muted bg-white/[0.02] border border-dashed border-white/10 rounded-2xl p-6">
                       <Sparkles size={24} className="text-brand-red opacity-60 mx-auto mb-2" />
-                      <p className="font-bold text-sm text-text-light mb-1">لم يتم إضافة قواعد آيس كريم بعد</p>
-                      <p className="text-xs text-text-muted">أضف قاعدة من شاشة "إدارة الإضافات" في POS واختر قسم "1. القاعدة (Base)"</p>
+                      <p className="font-bold text-sm text-text-light mb-1">
+                        {isEn ? 'No ice cream bases added yet' : 'لم يتم إضافة قواعد آيس كريم بعد'}
+                      </p>
+                      <p className="text-xs text-text-muted">
+                        {isEn ? 'Add a base from POS Add-ons and set role to "1. Base"' : 'أضف قاعدة من شاشة "إدارة الإضافات" في POS واختر قسم "1. القاعدة (Base)"'}
+                      </p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -476,12 +517,13 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                                 </div>
                               )}
                               <div className="min-w-0">
-                                <div className="font-bold text-sm text-text-light truncate">{b.name}</div>
-                                {b.nameEn && <div className="text-[11px] text-text-muted line-clamp-1">{b.nameEn}</div>}
+                                <div className="font-bold text-sm text-text-light truncate">{getItemName(b)}</div>
                               </div>
                             </div>
-                            <div className="text-right shrink-0 mr-2">
-                              <span className="text-xs font-bold text-brand-red">{b.price > 0 ? `+${b.price} ج.م` : 'مشمول'}</span>
+                            <div className="text-right shrink-0 mx-2">
+                              <span className="text-xs font-bold text-brand-red">
+                                {b.price > 0 ? `+${b.price} ${curr}` : (isEn ? 'Included' : 'مشمول')}
+                              </span>
                               {isSelected && <Check size={16} className="text-brand-red ml-auto mt-1" />}
                             </div>
                           </div>
@@ -496,14 +538,22 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
               {activeTab === 'sauces' && (
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-text-muted font-bold">اختر الصوصات السائلة الفاخرة (اختياري):</span>
-                    <span className="text-xs text-brand-red font-bold">{selectedSauces.length} محددة</span>
+                    <span className="text-xs text-text-muted font-bold">
+                      {isEn ? 'Choose gourmet liquid sauces (Optional):' : 'اختر الصصوصات السائلة الفاخرة (اختياري):'}
+                    </span>
+                    <span className="text-xs text-brand-red font-bold">
+                      {selectedSauces.length} {isEn ? 'selected' : 'محددة'}
+                    </span>
                   </div>
                   {shakeSauces.length === 0 ? (
                     <div className="py-12 text-center text-text-muted bg-white/[0.02] border border-dashed border-white/10 rounded-2xl p-6">
                       <Sparkles size={24} className="text-brand-red opacity-60 mx-auto mb-2" />
-                      <p className="font-bold text-sm text-text-light mb-1">لم يتم إضافة صوصات بعد</p>
-                      <p className="text-xs text-text-muted">أضف صوصاً من شاشة "إدارة الإضافات" في POS واختر قسم "2. الصوصات (Sauce)"</p>
+                      <p className="font-bold text-sm text-text-light mb-1">
+                        {isEn ? 'No sauces added yet' : 'لم يتم إضافة صوصات بعد'}
+                      </p>
+                      <p className="text-xs text-text-muted">
+                        {isEn ? 'Add sauces from POS Add-ons and set role to "2. Sauce"' : 'أضف صوصاً من شاشة "إدارة الإضافات" في POS واختر قسم "2. الصوصات (Sauce)"'}
+                      </p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -526,9 +576,9 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                               ) : (
                                 <div className="w-11 h-11 rounded-xl shadow-md shrink-0" style={{ backgroundColor: s.color || '#E63946' }} />
                               )}
-                              <span className="font-bold text-sm text-text-light truncate">{s.name}</span>
+                              <span className="font-bold text-sm text-text-light truncate">{getItemName(s)}</span>
                             </div>
-                            <div className="flex items-center gap-2 shrink-0 mr-2">
+                            <div className="flex items-center gap-2 shrink-0 mx-2">
                               <span className={`text-xs ${priceInfo.className}`}>{priceInfo.text}</span>
                               <div className={`w-5 h-5 rounded-md flex items-center justify-center border ${isSelected ? 'bg-brand-red border-brand-red text-white' : 'border-white/20'}`}>
                                 {isSelected && <Check size={13} />}
@@ -546,14 +596,22 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
               {activeTab === 'crunch' && (
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-text-muted font-bold">أضف القرمشة والحشوات اللذيذة داخل المشروب:</span>
-                    <span className="text-xs text-brand-red font-bold">{selectedCrunches.length} محددة</span>
+                    <span className="text-xs text-text-muted font-bold">
+                      {isEn ? 'Add delicious crunches and mix-ins inside the shake:' : 'أضف القرمشة والحشوات اللذيذة داخل المشروب:'}
+                    </span>
+                    <span className="text-xs text-brand-red font-bold">
+                      {selectedCrunches.length} {isEn ? 'selected' : 'محددة'}
+                    </span>
                   </div>
                   {shakeCrunches.length === 0 ? (
                     <div className="py-12 text-center text-text-muted bg-white/[0.02] border border-dashed border-white/10 rounded-2xl p-6">
                       <Sparkles size={24} className="text-brand-red opacity-60 mx-auto mb-2" />
-                      <p className="font-bold text-sm text-text-light mb-1">لم يتم إضافة مقرمشات بعد</p>
-                      <p className="text-xs text-text-muted">أضف مقرمشات من شاشة "إدارة الإضافات" في POS واختر قسم "3. المقرمشات (Crunch)"</p>
+                      <p className="font-bold text-sm text-text-light mb-1">
+                        {isEn ? 'No crunches added yet' : 'لم يتم إضافة مقرمشات بعد'}
+                      </p>
+                      <p className="text-xs text-text-muted">
+                        {isEn ? 'Add crunches from POS Add-ons and set role to "3. Crunch"' : 'أضف مقرمشات من شاشة "إدارة الإضافات" في POS واختر قسم "3. المقرمشات (Crunch)"'}
+                      </p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -578,9 +636,9 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                                   <span className="text-amber-400 font-black">✦</span>
                                 </div>
                               )}
-                              <span className="font-bold text-sm text-text-light truncate">{c.name}</span>
+                              <span className="font-bold text-sm text-text-light truncate">{getItemName(c)}</span>
                             </div>
-                            <div className="flex items-center gap-2 shrink-0 mr-2">
+                            <div className="flex items-center gap-2 shrink-0 mx-2">
                               <span className={`text-xs ${priceInfo.className}`}>{priceInfo.text}</span>
                               <div className={`w-5 h-5 rounded-md flex items-center justify-center border ${isSelected ? 'bg-brand-red border-brand-red text-white' : 'border-white/20'}`}>
                                 {isSelected && <Check size={13} />}
@@ -598,14 +656,22 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
               {activeTab === 'toppings' && (
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-text-muted font-bold">تتويج المشروب: الكريمة والبسكويت والكرز على القمة:</span>
-                    <span className="text-xs text-brand-red font-bold">{selectedToppings.length} محددة</span>
+                    <span className="text-xs text-text-muted font-bold">
+                      {isEn ? 'Crown your shake: Whipped cream, cookies and cherries on top:' : 'تتويج المشروب: الكريمة والبسكويت والكرز على القمة:'}
+                    </span>
+                    <span className="text-xs text-brand-red font-bold">
+                      {selectedToppings.length} {isEn ? 'selected' : 'محددة'}
+                    </span>
                   </div>
                   {shakeToppings.length === 0 ? (
                     <div className="py-12 text-center text-text-muted bg-white/[0.02] border border-dashed border-white/10 rounded-2xl p-6">
                       <Sparkles size={24} className="text-brand-red opacity-60 mx-auto mb-2" />
-                      <p className="font-bold text-sm text-text-light mb-1">لم يتم إضافة عناصر توبينج بعد</p>
-                      <p className="text-xs text-text-muted">أضف توبينج من شاشة "إدارة الإضافات" في POS واختر قسم "4. التوبينج (Topping)"</p>
+                      <p className="font-bold text-sm text-text-light mb-1">
+                        {isEn ? 'No toppings added yet' : 'لم يتم إضافة عناصر توبينج بعد'}
+                      </p>
+                      <p className="text-xs text-text-muted">
+                        {isEn ? 'Add toppings from POS Add-ons and set role to "4. Topping"' : 'أضف توبينج من شاشة "إدارة الإضافات" في POS واختر قسم "4. التوبينج (Topping)"'}
+                      </p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -630,9 +696,9 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                                   <span className="text-amber-400 font-black">★</span>
                                 </div>
                               )}
-                              <span className="font-bold text-sm text-text-light truncate">{t.name}</span>
+                              <span className="font-bold text-sm text-text-light truncate">{getItemName(t)}</span>
                             </div>
-                            <div className="flex items-center gap-2 shrink-0 mr-2">
+                            <div className="flex items-center gap-2 shrink-0 mx-2">
                               <span className={`text-xs ${priceInfo.className}`}>{priceInfo.text}</span>
                               <div className={`w-5 h-5 rounded-md flex items-center justify-center border ${isSelected ? 'bg-brand-red border-brand-red text-white' : 'border-white/20'}`}>
                                 {isSelected && <Check size={13} />}
@@ -650,9 +716,11 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
             {/* Bottom Sticky Action Bar */}
             <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between gap-4">
               <div>
-                <span className="text-[11px] text-text-muted block">السعر الإجمالي المخصص:</span>
+                <span className="text-[11px] text-text-muted block">
+                  {isEn ? 'Total Customized Price:' : 'السعر الإجمالي المخصص:'}
+                </span>
                 <span className="text-2xl font-black text-white">
-                  {totalPrice} <span className="text-sm font-bold text-brand-red">ج.م</span>
+                  {totalPrice} <span className="text-sm font-bold text-brand-red">{curr}</span>
                 </span>
               </div>
 
@@ -664,12 +732,12 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                 {isSuccessShake ? (
                   <>
                     <Check size={18} className="text-green-300" />
-                    <span>تمت الإضافة للسلة!</span>
+                    <span>{isEn ? 'Added to Cart!' : 'تمت الإضافة للسلة!'}</span>
                   </>
                 ) : (
                   <>
                     <ShoppingBag size={18} />
-                    <span>إضافة المشروب للطلب</span>
+                    <span>{isEn ? 'Add Drink to Order' : 'إضافة المشروب للطلب'}</span>
                   </>
                 )}
               </button>
