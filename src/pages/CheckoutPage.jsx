@@ -1360,6 +1360,15 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
           await set(ref(db, `GroupOrders/${groupOrderId}/status`), 'completed');
           await set(ref(db, `GroupOrders/${groupOrderId}/orderId`), displayOrderId);
           localStorage.removeItem('crispy_group_order_id');
+          localStorage.removeItem('crispy_group_guest_name');
+          const cleanPhone = (formData.customerPhone || userPhone || '').replace(/\D/g, '');
+          if (cleanPhone) {
+            update(ref(db, `UserCarts/${cleanPhone}`), {
+              activeGroupOrderId: null,
+              groupGuestName: null,
+              updatedAt: Date.now()
+            }).catch(() => {});
+          }
         } catch (e) {
           console.warn('GroupOrder finalize failed:', e);
         }

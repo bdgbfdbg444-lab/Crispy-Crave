@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 import { db } from '../firebase';
-import { ref, get, set, push, remove, onValue, off } from 'firebase/database';
+import { ref, get, set, push, remove, onValue, off, update } from 'firebase/database';
 import { getActiveTableSession, setTableSession, invalidateTableSession as purgeTableSession } from '../utils/dineInSecurity';
 
 const CartContext = createContext();
@@ -105,6 +105,14 @@ export const CartProvider = ({ children }) => {
         localStorage.removeItem('crispy_order_type');
       }
     } catch (e) {}
+
+    const cleanPhone = activeUserPhoneRef.current;
+    if (cleanPhone && type && type !== 'DineIn') {
+      update(ref(db, `UserCarts/${cleanPhone}`), {
+        orderType: type,
+        updatedAt: Date.now()
+      }).catch(() => {});
+    }
   };
 
   const initTableSession = (tbl) => {
@@ -229,10 +237,21 @@ export const CartProvider = ({ children }) => {
     const cartRef = ref(db, `UserCarts/${cleanPhone}`);
 
     // Initial fetch on login
-    get(cartRef).then((snap) => {
+    get(cartRef).then(async (snap) => {
+      let cloudGroupOrderId = null;
+      let cloudGuestName = null;
+
       if (snap.exists()) {
         const cloudData = snap.val();
         const cloudItems = Array.isArray(cloudData?.items) ? cloudData.items : [];
+        cloudGroupOrderId = cloudData?.activeGroupOrderId || null;
+        cloudGuestName = cloudData?.groupGuestName || null;
+
+        // Restore order type if saved in cloud (unless inside an active DineIn table QR session)
+        if (cloudData?.orderType && !getActiveTableSession()?.table) {
+          setOrderTypeState(cloudData.orderType);
+          try { localStorage.setItem('crispy_order_type', cloudData.orderType); } catch(e) {}
+        }
 
         setCartItems((localItems) => {
           // If local cart is empty (e.g. newly opened browser or cleared cache), load cloud cart!
@@ -242,7 +261,7 @@ export const CartProvider = ({ children }) => {
 
           // If local cart has items, merge intelligently without duplicate product configurations
           if (cloudItems.length === 0) {
-            set(cartRef, { items: localItems, updatedAt: Date.now() }).catch(() => {});
+            update(cartRef, { items: localItems, updatedAt: Date.now() }).catch(() => {});
             return localItems;
           }
 
@@ -259,23 +278,73 @@ export const CartProvider = ({ children }) => {
           });
 
           // Update cloud with merged cart
-          set(cartRef, { items: merged, updatedAt: Date.now() }).catch(() => {});
+          update(cartRef, { items: merged, updatedAt: Date.now() }).catch(() => {});
           return merged;
         });
       } else {
         // No cloud cart exists yet. If we have local items, upload them immediately
         setCartItems((localItems) => {
           if (localItems && localItems.length > 0) {
-            set(cartRef, { items: localItems, updatedAt: Date.now() }).catch(() => {});
+            update(cartRef, { items: localItems, updatedAt: Date.now() }).catch(() => {});
           }
           return localItems;
         });
+      }
+
+      // Fallback check: If no activeGroupOrderId was recorded in cloudData, check if user is host of an open GroupOrder
+      if (!cloudGroupOrderId) {
+        try {
+          const allGroupsSnap = await get(ref(db, 'GroupOrders'));
+          if (allGroupsSnap.exists()) {
+            const allGroups = allGroupsSnap.val();
+            const hostGroupEntry = Object.entries(allGroups).find(([id, g]) => 
+              g?.status === 'open' && g?.hostPhone && getCleanPhone(g.hostPhone) === cleanPhone
+            );
+            if (hostGroupEntry) {
+              cloudGroupOrderId = hostGroupEntry[0];
+              cloudGuestName = hostGroupEntry[1]?.hostName || 'المنظم';
+            }
+          }
+        } catch (e) {
+          console.warn('[CartSync] Fallback group check error:', e);
+        }
+      }
+
+      // If active group order was found, activate it on this device!
+      if (cloudGroupOrderId) {
+        try {
+          const gSnap = await get(ref(db, `GroupOrders/${cloudGroupOrderId}`));
+          if (gSnap.exists() && gSnap.val()?.status === 'open') {
+            setGroupOrderIdState(cloudGroupOrderId);
+            try { localStorage.setItem('crispy_group_order_id', cloudGroupOrderId); } catch(e) {}
+            if (cloudGuestName) {
+              setCurrentGuestNameState(cloudGuestName);
+              try { localStorage.setItem('crispy_group_guest_name', cloudGuestName); } catch(e) {}
+            }
+            setGroupData(gSnap.val());
+
+            // Ensure cloud has it saved
+            update(cartRef, {
+              activeGroupOrderId: cloudGroupOrderId,
+              groupGuestName: cloudGuestName || 'ضيف',
+              updatedAt: Date.now()
+            }).catch(() => {});
+          } else {
+            // Group order is closed/expired
+            update(cartRef, {
+              activeGroupOrderId: null,
+              groupGuestName: null
+            }).catch(() => {});
+          }
+        } catch (e) {
+          console.warn('[CartSync] Group verify error:', e);
+        }
       }
     }).catch((err) => {
       console.warn('[CartSync] Cloud cart fetch error:', err);
     });
 
-    // Real-time listener for remote cart changes (e.g. user modified cart in another tab/browser)
+    // Real-time listener for remote cart and group order changes (e.g. user acted on another device)
     const listener = onValue(cartRef, (snap) => {
       if (isSyncingFromCloudRef.current) return;
       if (snap.exists()) {
@@ -286,6 +355,34 @@ export const CartProvider = ({ children }) => {
           setTimeout(() => {
             isSyncingFromCloudRef.current = false;
           }, 300);
+        }
+
+        // Sync orderType if changed on another device
+        if (data.orderType && !getActiveTableSession()?.table) {
+          setOrderTypeState(data.orderType);
+          try { localStorage.setItem('crispy_order_type', data.orderType); } catch(e) {}
+        }
+
+        // Realtime sync for activeGroupOrderId across devices
+        if (data.activeGroupOrderId) {
+          const targetId = data.activeGroupOrderId;
+          const gRef = ref(db, `GroupOrders/${targetId}`);
+          get(gRef).then((gSnap) => {
+            if (gSnap.exists() && gSnap.val()?.status === 'open') {
+              setGroupOrderIdState(targetId);
+              try { localStorage.setItem('crispy_group_order_id', targetId); } catch(e) {}
+              if (data.groupGuestName) {
+                setCurrentGuestNameState(data.groupGuestName);
+                try { localStorage.setItem('crispy_group_guest_name', data.groupGuestName); } catch(e) {}
+              }
+              setGroupData(gSnap.val());
+            }
+          }).catch(() => {});
+        } else if (data.activeGroupOrderId === null) {
+          // Cleared remotely
+          setGroupOrderIdState(null);
+          setGroupData(null);
+          try { localStorage.removeItem('crispy_group_order_id'); } catch(e) {}
         }
       }
     });
@@ -302,7 +399,7 @@ export const CartProvider = ({ children }) => {
 
     const cartRef = ref(db, `UserCarts/${cleanPhone}`);
     const timeout = setTimeout(() => {
-      set(cartRef, {
+      update(cartRef, {
         items: cartItems,
         updatedAt: Date.now()
       }).catch((err) => {
@@ -461,7 +558,7 @@ export const CartProvider = ({ children }) => {
     setCartItems([]);
     const cleanPhone = activeUserPhoneRef.current;
     if (cleanPhone) {
-      set(ref(db, `UserCarts/${cleanPhone}`), {
+      update(ref(db, `UserCarts/${cleanPhone}`), {
         items: [],
         updatedAt: Date.now()
       }).catch(() => {});
@@ -471,10 +568,11 @@ export const CartProvider = ({ children }) => {
   const startGroupOrder = async (hostName) => {
     const code = 'GRP-' + Math.random().toString(36).substring(2, 7).toUpperCase();
     const groupRef = ref(db, `GroupOrders/${code}`);
+    const cleanPhone = activeUserPhoneRef.current;
     const initialData = {
       id: code,
       hostName: hostName.trim(),
-      hostPhone: userPhone || '',
+      hostPhone: cleanPhone || userPhone || '',
       createdAt: Date.now(),
       status: 'open',
       items: {}
@@ -484,6 +582,15 @@ export const CartProvider = ({ children }) => {
     setGroupOrderId(code);
     setGroupData(initialData);
     setIsCartOpen(true);
+
+    // Sync to user's cloud account so all devices immediately open this group order!
+    if (cleanPhone) {
+      update(ref(db, `UserCarts/${cleanPhone}`), {
+        activeGroupOrderId: code,
+        groupGuestName: hostName.trim(),
+        updatedAt: Date.now()
+      }).catch(() => {});
+    }
     return code;
   };
 
@@ -496,6 +603,16 @@ export const CartProvider = ({ children }) => {
       setGroupOrderId(cleanCode);
       setGroupData(snap.val());
       setIsCartOpen(true);
+
+      // Sync to user's cloud account
+      const cleanPhone = activeUserPhoneRef.current;
+      if (cleanPhone) {
+        update(ref(db, `UserCarts/${cleanPhone}`), {
+          activeGroupOrderId: cleanCode,
+          groupGuestName: guestName.trim(),
+          updatedAt: Date.now()
+        }).catch(() => {});
+      }
       return true;
     } else {
       alert('عذراً، كود الغرفة غير صحيح أو أن الطلب الجماعي غير متاح.');
@@ -508,10 +625,21 @@ export const CartProvider = ({ children }) => {
     setGroupData(null);
     try {
       localStorage.removeItem('crispy_group_order_id');
+      localStorage.removeItem('crispy_group_guest_name');
       const url = new URL(window.location.href);
       url.searchParams.delete('group');
       window.history.replaceState({}, '', url.toString());
     } catch (e) {}
+
+    // Clear from cloud account so other devices also exit
+    const cleanPhone = activeUserPhoneRef.current;
+    if (cleanPhone) {
+      update(ref(db, `UserCarts/${cleanPhone}`), {
+        activeGroupOrderId: null,
+        groupGuestName: null,
+        updatedAt: Date.now()
+      }).catch(() => {});
+    }
   };
 
   const syncCartWithMenu = (menuData) => {
