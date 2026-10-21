@@ -271,14 +271,6 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
               <Sparkles size={20} />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-brand-red bg-brand-red/10 px-2 py-0.5 rounded">
-                  THE BLACK BOX
-                </span>
-                <span className="text-xs text-text-muted">
-                  | {isEn ? 'Exclusive Customizer Studio' : 'استوديو التخصيص الحصري'}
-                </span>
-              </div>
               <h2 className="text-lg sm:text-xl font-black text-text-light">
                 {isEn ? (baseProduct?.nameEn || baseProduct?.name || 'Build Your Milkshake') : (baseProduct?.name || baseProduct?.nameEn || 'اصنع مشروبك بنفسك')}
               </h2>
@@ -401,16 +393,6 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
                 )}
               </div>
             </div>
-
-            {/* Barista Tasting Note */}
-            <div className="p-3 rounded-xl bg-brand-red/5 border border-brand-red/20 text-[11px] text-text-muted leading-relaxed">
-              <span className="text-brand-red font-bold block mb-0.5">
-                {isEn ? 'THE BLACK BOX BARISTA NOTE:' : 'ملاحظة باريستا THE BLACK BOX:'}
-              </span>
-              {isEn 
-                ? 'Your shake is freshly crafted with premium ice cream, authentic syrups and handcrafted toppings upon receiving your order.' 
-                : 'يتم تحضير المشروب طازجاً من الآيس كريم الفاخر مع الصوصات الأصلية والتتويج فور استلام طلبك.'}
-            </div>
           </div>
 
           {/* ===================== RIGHT: CLEAN LUXURY STEP SELECTOR ===================== */}
@@ -448,26 +430,26 @@ export default function ShakeLabModal({ isOpen, onClose, baseProduct, menuData }
               )}
 
               {/* SEGMENTED NAVIGATION TABS */}
-              <div className="grid grid-cols-4 gap-1 sm:gap-2 mb-6 bg-black-primary/70 p-1.5 rounded-2xl border border-white/10">
+              <div className="grid grid-cols-4 gap-1 sm:gap-2 mb-6 bg-black-primary/70 p-1 sm:p-1.5 rounded-2xl border border-white/10">
                 {[
                   { id: 'base', label: isEn ? 'Base' : 'القاعدة', count: selectedBase ? 1 : 0 },
-                  { id: 'sauces', label: isEn ? 'Sauces' : 'الصوصات', count: selectedSauces.length },
-                  { id: 'crunch', label: isEn ? 'Crunches' : 'المقرمشات', count: selectedCrunches.length },
-                  { id: 'toppings', label: isEn ? 'Toppings' : 'التوبينج', count: selectedToppings.length }
+                  { id: 'sauces', label: isEn ? 'Sauce' : 'صوصات', count: selectedSauces.length },
+                  { id: 'crunch', label: isEn ? 'Crunch' : 'مقرمشات', count: selectedCrunches.length },
+                  { id: 'toppings', label: isEn ? 'Topping' : 'توبينج', count: selectedToppings.length }
                 ].map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-xs font-bold transition-all relative ${
+                    className={`flex items-center justify-center gap-1 sm:gap-1.5 py-2 sm:py-2.5 px-1 sm:px-2 rounded-xl text-[11px] sm:text-xs font-bold transition-all relative ${
                       activeTab === tab.id
                         ? 'bg-gradient-to-r from-brand-red to-red-600 text-white shadow-lg shadow-brand-red/30'
                         : 'text-text-muted hover:text-white hover:bg-white/5'
                     }`}
                   >
-                    <span className="truncate">{tab.label}</span>
+                    <span className="whitespace-nowrap leading-none">{tab.label}</span>
                     {tab.count > 0 && (
-                      <span className={`text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold ${
-                        activeTab === tab.id ? 'bg-black/35 text-white' : 'bg-brand-red/20 text-brand-red'
+                      <span className={`text-[9px] sm:text-[10px] min-w-[15px] h-[15px] sm:w-4 sm:h-4 px-0.5 rounded-full flex items-center justify-center font-black shrink-0 ${
+                        activeTab === tab.id ? 'bg-black/40 text-white' : 'bg-brand-red/20 text-brand-red'
                       }`}>
                         {tab.count}
                       </span>
