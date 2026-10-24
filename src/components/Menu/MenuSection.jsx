@@ -278,16 +278,18 @@ export default function MenuSection({ menuData, onProductClick }) {
 
       </div>
 
-      {/* Shake Lab Modal */}
+      {/* Shake Lab Modal with unique key per product */}
       <ShakeLabModal 
+        key={`shake_${selectedCustomizableProduct?.id || 'default'}`}
         isOpen={isShakeLabOpen} 
         onClose={() => setIsShakeLabOpen(false)} 
         baseProduct={selectedCustomizableProduct || (activeCatData?.products ? Object.values(activeCatData.products)[0] : null)}
         menuData={menuData}
       />
     
-      {/* Burger Lab Modal */}
+      {/* Burger Lab Modal with unique key per product */}
       <BurgerLabModal 
+        key={`burger_${selectedCustomizableProduct?.id || 'default'}`}
         isOpen={isBurgerLabOpen} 
         onClose={() => setIsBurgerLabOpen(false)} 
         baseProduct={selectedCustomizableProduct || (activeCatData?.products ? Object.values(activeCatData.products)[0] : null)}

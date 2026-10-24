@@ -97,8 +97,12 @@ export default function ProductModal({ product, category, menuData, isOpen, onCl
   const processedModifiers = selectedModifiers.map((mod) => {
     let isFree = false;
     let chargedPrice = mod.price || 0;
+    const isBase = (mod.customizerRole || '').toLowerCase() === 'base';
 
-    if (mod.group === 'Free') {
+    if (isBase) {
+      isFree = true;
+      chargedPrice = 0;
+    } else if (mod.group === 'Free') {
       if (freeModifiersUsed < freeLimit) {
         isFree = true;
         chargedPrice = 0;

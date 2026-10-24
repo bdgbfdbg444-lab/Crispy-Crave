@@ -516,6 +516,29 @@ export const CartProvider = ({ children }) => {
     setCartItems(prev => prev.filter((_, i) => i !== index));
   };
 
+  const updateCartItem = (index, updatedProduct) => {
+    if (isGroupOrder) {
+      const item = groupItemsList[index];
+      if (item?.groupItemKey) {
+        update(ref(db, `GroupOrders/${groupOrderId}/items/${item.groupItemKey}`), {
+          product: updatedProduct,
+          updatedAt: Date.now()
+        }).catch(() => {});
+      }
+      return;
+    }
+    setCartItems(prev => {
+      const copy = [...prev];
+      if (copy[index]) {
+        copy[index] = {
+          ...copy[index],
+          product: updatedProduct
+        };
+      }
+      return copy;
+    });
+  };
+
   const updateQuantity = (index, delta) => {
     if (isGroupOrder) {
       const item = groupItemsList[index];
@@ -775,6 +798,7 @@ export const CartProvider = ({ children }) => {
       setCartItems, 
       addToCart, 
       removeFromCart, 
+      updateCartItem,
       updateQuantity, 
       clearCart,
       syncCartWithMenu,

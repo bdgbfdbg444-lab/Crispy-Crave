@@ -3,13 +3,31 @@ import React, { useEffect, useState } from 'react';
 import { APP_CONFIG } from '../../config/appConfig';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingBag, X, Plus, Minus, Trash2, ArrowLeft, Truck, Sparkles, CheckCircle2, Users } from 'lucide-react';
+import { ShoppingBag, X, Plus, Minus, Trash2, ArrowLeft, Truck, Sparkles, CheckCircle2, Users, Pencil } from 'lucide-react';
+import BurgerLabModal from '../Customizer/BurgerLabModal';
+import ShakeLabModal from '../Customizer/ShakeLabModal';
+import { getCustomizerType } from '../Menu/ProductCard';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import SmartUpsellBar from '../Menu/SmartUpsellBar';
 
 export default function CartSidebar({ websiteData, menuData }) {
   const { lang } = useLanguage();
+  const [editingCartItem, setEditingCartItem] = useState(null);
+
+  const findBaseProduct = (productId) => {
+    if (!menuData || !productId) return null;
+    const cats = menuData.Categories || menuData.categories || {};
+    for (const cat of Object.values(cats)) {
+      const prods = cat.Products || cat.products || {};
+      for (const p of Object.values(prods)) {
+        if (p.id?.toString() === productId?.toString()) {
+          return p;
+        }
+      }
+    }
+    return null;
+  };
   const { currentUser, customerData } = useAuth();
   const {
     cartItems,
@@ -18,6 +36,7 @@ export default function CartSidebar({ websiteData, menuData }) {
     closeCart,
     continueShopping,
     removeFromCart,
+    updateCartItem,
     updateQuantity,
     cartTotal,
     isGroupOrder,
@@ -326,6 +345,20 @@ export default function CartSidebar({ websiteData, menuData }) {
                               </div>
                             )}
 
+                            {/* Edit Button for customizable items */}
+                            {Boolean(item.product?.isCustomBurger || item.product?.isCustomShake || item.product?.isCustomMeal || item.product?.isCustomizable || (item.product?.selectedModifiers && item.product.selectedModifiers.length > 0)) && (
+                              <div className="mb-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingCartItem({ item, index })}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-brand-red/15 hover:bg-brand-red text-brand-red hover:text-white border border-brand-red/30 text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
+                                >
+                                  <Pencil size={12} />
+                                  <span>{lang === 'en' ? 'Edit Ingredients' : 'تعديل المكونات'}</span>
+                                </button>
+                              </div>
+                            )}
+
                             <div className="mt-auto flex items-center justify-between">
                               <span className="font-bold text-brand-red">
                                 {(item.product.calculatedPrice || item.product.sellingPrice) + (item.product.finalModifiersPrice || 0)} {lang === 'en' ? 'EGP' : 'ج.م'}
@@ -416,6 +449,37 @@ export default function CartSidebar({ websiteData, menuData }) {
               </div>
             )}
           </motion.div>
+
+          {/* Customizable Item Edit Modal */}
+          {editingCartItem && (
+            getCustomizerType(editingCartItem.item.product) === 'drink' ? (
+              <ShakeLabModal
+                key={`edit_shake_${editingCartItem.index}_${editingCartItem.item.product.id}`}
+                isOpen={true}
+                onClose={() => setEditingCartItem(null)}
+                baseProduct={findBaseProduct(editingCartItem.item.product.id) || editingCartItem.item.product}
+                menuData={menuData}
+                initialCustomization={editingCartItem.item.product}
+                onSaveEdit={(updatedProduct) => {
+                  updateCartItem(editingCartItem.index, updatedProduct);
+                  setEditingCartItem(null);
+                }}
+              />
+            ) : (
+              <BurgerLabModal
+                key={`edit_burger_${editingCartItem.index}_${editingCartItem.item.product.id}`}
+                isOpen={true}
+                onClose={() => setEditingCartItem(null)}
+                baseProduct={findBaseProduct(editingCartItem.item.product.id) || editingCartItem.item.product}
+                menuData={menuData}
+                initialCustomization={editingCartItem.item.product}
+                onSaveEdit={(updatedProduct) => {
+                  updateCartItem(editingCartItem.index, updatedProduct);
+                  setEditingCartItem(null);
+                }}
+              />
+            )
+          )}
         </>
       )}
     </AnimatePresence>
