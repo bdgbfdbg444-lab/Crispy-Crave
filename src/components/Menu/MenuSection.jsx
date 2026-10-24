@@ -38,7 +38,10 @@ const SkeletonLoader = () => (
 
 export default function MenuSection({ menuData, onProductClick }) {
   const { lang, t } = useLanguage();
-  const { orderType, setIsOrderTypeModalOpen, tableNumber } = useCart();
+  const { orderType, setIsOrderTypeModalOpen, tableNumber, isGroupOrder, isGroupHost, groupOrderId } = useCart();
+  const urlParams = new URLSearchParams(window.location.search);
+  const hasGroupParam = Boolean(urlParams.get('group')) || window.location.hash.includes('group=');
+  const isGuestInGroup = (isGroupOrder || groupOrderId || hasGroupParam) && !isGroupHost;
   if (!menuData || !menuData.categories) {
     return <SkeletonLoader />;
   }
@@ -99,13 +102,19 @@ export default function MenuSection({ menuData, onProductClick }) {
           </div>
 
           {!tableNumber && (
-            <button 
-              type="button"
-              onClick={() => setIsOrderTypeModalOpen(true)}
-              className="text-xs font-bold text-brand-red hover:text-white px-3.5 py-1.5 rounded-xl border border-brand-red/30 hover:bg-brand-red transition-all cursor-pointer shadow-sm"
-            >
-              {lang === 'en' ? 'Change' : 'تغيير'}
-            </button>
+            isGuestInGroup ? (
+              <span className="text-[11px] font-bold text-amber-400/90 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-xl">
+                {lang === 'en' ? 'Set by Host 🔒' : 'محددة بالمنظم 🔒'}
+              </span>
+            ) : (
+              <button 
+                type="button"
+                onClick={() => setIsOrderTypeModalOpen(true)}
+                className="text-xs font-bold text-brand-red hover:text-white px-3.5 py-1.5 rounded-xl border border-brand-red/30 hover:bg-brand-red transition-all cursor-pointer shadow-sm"
+              >
+                {lang === 'en' ? 'Change' : 'تغيير'}
+              </button>
+            )
           )}
         </div>
 

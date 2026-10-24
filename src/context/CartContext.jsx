@@ -15,8 +15,13 @@ export const CartProvider = ({ children }) => {
   const [groupOrderId, setGroupOrderIdState] = useState(() => {
     try {
       const urlParams = new URLSearchParams(window.location.search);
-      const groupFromUrl = urlParams.get('group');
-      if (groupFromUrl) return groupFromUrl.toUpperCase();
+      let groupFromUrl = urlParams.get('group');
+      if (!groupFromUrl && window.location.hash.includes('?')) {
+        const hashQuery = window.location.hash.split('?')[1];
+        const hashParams = new URLSearchParams(hashQuery);
+        groupFromUrl = hashParams.get('group');
+      }
+      if (groupFromUrl) return groupFromUrl.trim().toUpperCase();
       return localStorage.getItem('crispy_group_order_id') || null;
     } catch (e) {
       return null;
@@ -97,6 +102,25 @@ export const CartProvider = ({ children }) => {
   const [isOrderTypeModalOpen, setIsOrderTypeModalOpen] = useState(false);
 
   const setOrderType = (type) => {
+    // If inside an active group order and not host, guests cannot change order type
+    if (groupOrderId && groupData && groupData.status === 'open') {
+      const isHost = Boolean(
+        (userPhone && groupData?.hostPhone === userPhone) ||
+        (groupData?.hostName && currentGuestName && groupData.hostName.trim().toLowerCase() === currentGuestName.trim().toLowerCase())
+      );
+      if (!isHost) {
+        console.warn("Guests cannot change group order type");
+        return;
+      }
+      // Broadcast updated order type to Firebase group order
+      if (type) {
+        update(ref(db, `GroupOrders/${groupOrderId}`), {
+          orderType: type,
+          updatedAt: Date.now()
+        }).catch(() => {});
+      }
+    }
+
     setOrderTypeState(type);
     try {
       if (type && type !== 'DineIn') {
@@ -174,6 +198,11 @@ export const CartProvider = ({ children }) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
         setGroupData(data);
+        // Automatically sync host's chosen order type
+        if (data.orderType) {
+          setOrderTypeState(data.orderType);
+          try { localStorage.setItem('crispy_order_type', data.orderType); } catch(e) {}
+        }
       } else {
         setGroupData(null);
         setGroupOrderIdState(null);
@@ -190,10 +219,28 @@ export const CartProvider = ({ children }) => {
   useEffect(() => {
     try {
       const urlParams = new URLSearchParams(window.location.search);
-      const groupFromUrl = urlParams.get('group');
+      let groupFromUrl = urlParams.get('group');
+      if (!groupFromUrl && window.location.hash.includes('?')) {
+        const hashQuery = window.location.hash.split('?')[1];
+        const hashParams = new URLSearchParams(hashQuery);
+        groupFromUrl = hashParams.get('group');
+      }
       if (groupFromUrl) {
         const upper = groupFromUrl.trim().toUpperCase();
         setGroupOrderId(upper);
+
+        // Pre-fetch group order info to adopt orderType immediately
+        get(ref(db, `GroupOrders/${upper}`)).then((snap) => {
+          if (snap.exists()) {
+            const data = snap.val();
+            setGroupData(data);
+            if (data.orderType) {
+              setOrderTypeState(data.orderType);
+              try { localStorage.setItem('crispy_order_type', data.orderType); } catch(e) {}
+            }
+          }
+        }).catch(() => {});
+
         if (!currentGuestName) {
           setIsGroupModalOpen(true);
         }
@@ -508,9 +555,15 @@ export const CartProvider = ({ children }) => {
   const removeFromCart = (index) => {
     if (isGroupOrder) {
       const item = groupItemsList[index];
-      if (item?.groupItemKey) {
-        remove(ref(db, `GroupOrders/${groupOrderId}/items/${item.groupItemKey}`)).catch(() => {});
+      if (!item?.groupItemKey) return;
+      const itemGuestClean = (item.guestName || item.product?.guestName || '').trim().toLowerCase();
+      const myNameClean = (currentGuestName || '').trim().toLowerCase();
+      const isMyItem = Boolean(myNameClean) && Boolean(itemGuestClean) && itemGuestClean === myNameClean;
+      if (!isMyItem) {
+        console.warn("Only the person who added this item can remove it.");
+        return;
       }
+      remove(ref(db, `GroupOrders/${groupOrderId}/items/${item.groupItemKey}`)).catch(() => {});
       return;
     }
     setCartItems(prev => prev.filter((_, i) => i !== index));
@@ -519,12 +572,18 @@ export const CartProvider = ({ children }) => {
   const updateCartItem = (index, updatedProduct) => {
     if (isGroupOrder) {
       const item = groupItemsList[index];
-      if (item?.groupItemKey) {
-        update(ref(db, `GroupOrders/${groupOrderId}/items/${item.groupItemKey}`), {
-          product: updatedProduct,
-          updatedAt: Date.now()
-        }).catch(() => {});
+      if (!item?.groupItemKey) return;
+      const itemGuestClean = (item.guestName || item.product?.guestName || '').trim().toLowerCase();
+      const myNameClean = (currentGuestName || '').trim().toLowerCase();
+      const isMyItem = Boolean(myNameClean) && Boolean(itemGuestClean) && itemGuestClean === myNameClean;
+      if (!isMyItem) {
+        console.warn("Only the person who added this item can edit it.");
+        return;
       }
+      update(ref(db, `GroupOrders/${groupOrderId}/items/${item.groupItemKey}`), {
+        product: updatedProduct,
+        updatedAt: Date.now()
+      }).catch(() => {});
       return;
     }
     setCartItems(prev => {
@@ -542,10 +601,16 @@ export const CartProvider = ({ children }) => {
   const updateQuantity = (index, delta) => {
     if (isGroupOrder) {
       const item = groupItemsList[index];
-      if (item?.groupItemKey) {
-        const newQuantity = Math.max(1, Math.min(99, (parseInt(item.quantity, 10) || 1) + delta));
-        set(ref(db, `GroupOrders/${groupOrderId}/items/${item.groupItemKey}/quantity`), newQuantity).catch(() => {});
+      if (!item?.groupItemKey) return;
+      const itemGuestClean = (item.guestName || item.product?.guestName || '').trim().toLowerCase();
+      const myNameClean = (currentGuestName || '').trim().toLowerCase();
+      const isMyItem = Boolean(myNameClean) && Boolean(itemGuestClean) && itemGuestClean === myNameClean;
+      if (!isMyItem) {
+        console.warn("Only the person who added this item can change its quantity.");
+        return;
       }
+      const newQuantity = Math.max(1, Math.min(99, (parseInt(item.quantity, 10) || 1) + delta));
+      set(ref(db, `GroupOrders/${groupOrderId}/items/${item.groupItemKey}/quantity`), newQuantity).catch(() => {});
       return;
     }
     setCartItems(prev => prev.map((item, i) => {
@@ -573,6 +638,10 @@ export const CartProvider = ({ children }) => {
 
   const clearCart = () => {
     if (isGroupOrder) {
+      if (!isGroupHost) {
+        console.warn("Guests cannot clear entire group cart");
+        return;
+      }
       if (groupOrderId) {
         remove(ref(db, `GroupOrders/${groupOrderId}/items`)).catch(() => {});
       }
@@ -598,6 +667,7 @@ export const CartProvider = ({ children }) => {
       hostPhone: cleanPhone || userPhone || '',
       createdAt: Date.now(),
       status: 'open',
+      orderType: orderType || 'delivery',
       items: {}
     };
     await set(groupRef, initialData);
@@ -622,9 +692,17 @@ export const CartProvider = ({ children }) => {
     const groupRef = ref(db, `GroupOrders/${cleanCode}`);
     const snap = await get(groupRef);
     if (snap.exists() && snap.val()?.status === 'open') {
+      const gData = snap.val();
       setCurrentGuestName(guestName.trim());
       setGroupOrderId(cleanCode);
-      setGroupData(snap.val());
+      setGroupData(gData);
+      
+      // Automatically adopt group's orderType
+      if (gData.orderType) {
+        setOrderTypeState(gData.orderType);
+        try { localStorage.setItem('crispy_order_type', gData.orderType); } catch(e) {}
+      }
+      setIsOrderTypeModalOpen(false);
       setIsCartOpen(true);
 
       // Sync to user's cloud account

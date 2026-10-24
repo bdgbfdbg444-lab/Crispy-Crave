@@ -7,11 +7,15 @@ import { useNavigate, useLocation } from 'react-router-dom';
 
 export default function OrderTypeModal() {
   const { lang } = useLanguage();
-  const { orderType, setOrderType, isOrderTypeModalOpen, setIsOrderTypeModalOpen, isDineInAvailable, tableNumber } = useCart();
+  const { orderType, setOrderType, isOrderTypeModalOpen, setIsOrderTypeModalOpen, isDineInAvailable, tableNumber, isGroupOrder, groupOrderId, isGroupHost } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
 
-  if (!isOrderTypeModalOpen) return null;
+  const urlParams = new URLSearchParams(window.location.search);
+  const hasGroupParam = Boolean(urlParams.get('group')) || window.location.hash.includes('group=');
+  const isGuestInGroup = (isGroupOrder || groupOrderId || hasGroupParam) && !isGroupHost;
+
+  if (!isOrderTypeModalOpen || isGuestInGroup) return null;
 
   const handleSelect = (type) => {
     setOrderType(type);

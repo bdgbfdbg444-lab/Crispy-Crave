@@ -8,7 +8,7 @@ import { getActiveTableSession, verifyDineInGpsProximity } from '../utils/dineIn
 export default function MenuPage({ menuData, websiteData }) {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const { orderType, setIsOrderTypeModalOpen, tableNumber, invalidateTableSession } = useCart();
+  const { orderType, setIsOrderTypeModalOpen, tableNumber, invalidateTableSession, isGroupOrder, isGroupHost, groupOrderId } = useCart();
 
   useEffect(() => {
     // 1. If table session is active, verify it has not expired
@@ -31,8 +31,12 @@ export default function MenuPage({ menuData, websiteData }) {
       }
     }
 
-    // 3. If visitor enters menu directly without picking order type yet, prompt them
-    if (!orderType && !tableNumber) {
+    // 3. If visitor enters menu directly without picking order type yet, prompt them (unless in a group order or invited to a group)
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasGroupParam = Boolean(urlParams.get('group')) || window.location.hash.includes('group=');
+    const isGuestInGroup = (isGroupOrder || groupOrderId || hasGroupParam) && !isGroupHost;
+
+    if (!orderType && !tableNumber && !isGuestInGroup) {
       setIsOrderTypeModalOpen(true);
     }
   }, [orderType, tableNumber, websiteData, invalidateTableSession]);

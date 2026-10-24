@@ -27,11 +27,20 @@ export default function GroupOrderModal() {
 
   const defaultHostName = customerData?.Name || currentUser?.displayName || currentGuestName || '';
   const [hostNameInput, setHostNameInput] = useState(() => defaultHostName);
-  const [joinCodeInput, setJoinCodeInput] = useState('');
+  const [joinCodeInput, setJoinCodeInput] = useState(() => groupOrderId || '');
   const [joinNameInput, setJoinNameInput] = useState(() => defaultHostName);
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState(() => currentUser ? 'create' : 'join');
+  const [activeTab, setActiveTab] = useState(() => (groupOrderId || !currentUser) ? 'join' : 'create');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (groupOrderId) {
+      setJoinCodeInput(groupOrderId);
+      if (!isGroupOrder) {
+        setActiveTab('join');
+      }
+    }
+  }, [groupOrderId, isGroupOrder]);
 
   useEffect(() => {
     if (!hostNameInput && (customerData?.Name || currentUser?.displayName)) {
@@ -302,6 +311,13 @@ export default function GroupOrderModal() {
                 )
               ) : (
                 <form onSubmit={handleJoin} className="space-y-4">
+                  {Boolean(groupOrderId) && (
+                    <div className="p-3 rounded-xl bg-brand-red/10 border border-brand-red/30 text-xs text-brand-red font-bold flex items-center justify-between">
+                      <span>{lang === 'en' ? 'Invited to Room:' : 'تمت دعوتك للغرفة:'}</span>
+                      <span className="font-mono text-white bg-black-surface px-2.5 py-0.5 rounded-lg border border-brand-red/20">{groupOrderId}</span>
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-xs font-bold text-text-muted mb-1.5">
                       {lang === 'en' ? 'Room Code:' : 'كود الغرفة (Room Code):'}

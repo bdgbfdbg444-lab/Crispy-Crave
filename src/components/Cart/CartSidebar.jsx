@@ -199,6 +199,14 @@ export default function CartSidebar({ websiteData, menuData }) {
                   <span>{lang === 'en' ? 'Your Name:' : 'اسمك على الساندوتش:'} <b className="text-text-light font-bold">{currentGuestName || (lang === 'en' ? 'Guest' : 'ضيف')}</b></span>
                   <span className="font-mono text-[11px] text-text-light font-bold bg-white/5 px-2 py-0.5 rounded border border-white/10">{groupOrderId}</span>
                 </div>
+                <div className="flex items-center justify-between text-[11px] text-text-muted mt-1.5 pt-1.5 border-t border-white/5">
+                  <span>{lang === 'en' ? 'Order Method (set by Host):' : 'طريقة الاستلام (محددة بالمنظم):'}</span>
+                  <span className="text-amber-400 font-bold">
+                    {orderType === 'delivery' 
+                      ? (lang === 'en' ? '🛵 Home Delivery' : '🛵 توصيل للمنزل') 
+                      : (lang === 'en' ? '🛍️ Takeaway / Pickup' : '🛍️ استلام من المطعم')}
+                  </span>
+                </div>
               </div>
             )}
 
@@ -291,100 +299,127 @@ export default function CartSidebar({ websiteData, menuData }) {
               ) : (
                 <div className="space-y-4">
                   <AnimatePresence>
-                    {cartItems.map((item, index) => (
-                      <motion.div 
-                        key={index}
-                        layout
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.9 }}
-                        className="bg-black-surface p-4 rounded-2xl shadow-sm border border-brand-red-dark/30 relative group"
-                      >
-                        <button 
-                          onClick={() => removeFromCart(index)}
-                          className="absolute top-4 left-4 text-text-muted hover:text-red-500 transition-colors"
+                    {cartItems.map((item, index) => {
+                      const itemGuestClean = (item.guestName || item.product?.guestName || '').trim().toLowerCase();
+                      const myNameClean = (currentGuestName || '').trim().toLowerCase();
+                      const isMyItem = !isGroupOrder || (Boolean(myNameClean) && Boolean(itemGuestClean) && itemGuestClean === myNameClean);
+                      const canModifyItem = isMyItem;
+
+                      return (
+                        <motion.div 
+                          key={item.groupItemKey || index}
+                          layout
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.9 }}
+                          className="bg-black-surface p-4 rounded-2xl shadow-sm border border-brand-red-dark/30 relative group"
                         >
-                          <Trash2 size={18} />
-                        </button>
-                        
-                        <div className="flex gap-4">
-                          {/* Item Image */}
-                          <div className="w-20 h-20 bg-black-primary rounded-xl overflow-hidden shrink-0">
-                            {item.product.imagePath ? (
-                              <img src={item.product.imagePath} alt={item.product.name} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-text-muted">{lang === 'en' ? 'No Image' : 'بدون صورة'}</div>
-                            )}
-                          </div>
+                          {/* Trash button: ONLY if canModifyItem */}
+                          {canModifyItem && (
+                            <button 
+                              type="button"
+                              onClick={() => removeFromCart(index)}
+                              className="absolute top-4 left-4 text-text-muted hover:text-red-500 transition-colors p-1 rounded-lg hover:bg-red-500/10 cursor-pointer"
+                              title={lang === 'en' ? 'Remove Item' : 'حذف الصنف'}
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          )}
                           
-                          {/* Item Details */}
-                          <div className="flex-grow flex flex-col">
-                            <h3 className="font-bold text-text-light text-lg leading-tight mb-1 pe-">{item.product.name}</h3>
+                          <div className="flex gap-4">
+                            {/* Item Image */}
+                            <div className="w-20 h-20 bg-black-primary rounded-xl overflow-hidden shrink-0">
+                              {item.product.imagePath ? (
+                                <img src={item.product.imagePath} alt={item.product.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-text-muted">{lang === 'en' ? 'No Image' : 'بدون صورة'}</div>
+                              )}
+                            </div>
                             
-                            {/* Group Order Guest Badge */}
-                            {(item.guestName || item.product?.guestName) && (
-                              <div className="mb-1.5">
-                                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-400 bg-blue-500/10 border border-blue-500/30 px-2.5 py-0.5 rounded-full">
-                                  
-                                  <span>{lang === 'en' ? 'For:' : 'لـ:'} {item.guestName || item.product?.guestName}</span>
-                                </span>
-                              </div>
-                            )}
-                            
-                            {item.product.isSoldByWeight && (
-                              <span className="text-sm text-text-muted mb-1">{lang === 'en' ? 'Weight:' : 'الوزن:'} {item.product.selectedWeight} {lang === 'en' ? 'g' : 'جرام'}</span>
-                            )}
-                            
-                            {item.product.selectedModifiers?.length > 0 && (
-                              <div className="text-xs text-text-muted mb-2">
-                                {item.product.selectedModifiers.map((mod, i) => (
-                                  <span key={i} className="inline-block bg-black-primary px-2 py-0.5 rounded-md me- mb-1">
-                                    {mod.name} {mod.chargedPrice > 0 && `(+${mod.chargedPrice})`}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-
-                            {/* Edit Button for customizable items */}
-                            {Boolean(item.product?.isCustomBurger || item.product?.isCustomShake || item.product?.isCustomMeal || item.product?.isCustomizable || (item.product?.selectedModifiers && item.product.selectedModifiers.length > 0)) && (
-                              <div className="mb-2">
-                                <button
-                                  type="button"
-                                  onClick={() => setEditingCartItem({ item, index })}
-                                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-brand-red/15 hover:bg-brand-red text-brand-red hover:text-white border border-brand-red/30 text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
-                                >
-                                  <Pencil size={12} />
-                                  <span>{lang === 'en' ? 'Edit Ingredients' : 'تعديل المكونات'}</span>
-                                </button>
-                              </div>
-                            )}
-
-                            <div className="mt-auto flex items-center justify-between">
-                              <span className="font-bold text-brand-red">
-                                {(item.product.calculatedPrice || item.product.sellingPrice) + (item.product.finalModifiersPrice || 0)} {lang === 'en' ? 'EGP' : 'ج.م'}
-                              </span>
+                            {/* Item Details */}
+                            <div className="flex-grow flex flex-col">
+                              <h3 className="font-bold text-text-light text-lg leading-tight mb-1 pe-6">{item.product.name}</h3>
                               
-                              {/* Quantity Controls */}
-                              <div className="flex items-center gap-2 bg-black-surface rounded-lg p-1">
-                                <button 
-                                  onClick={() => updateQuantity(index, -1)}
-                                  className="w-7 h-7 bg-black-surface rounded shadow-sm flex items-center justify-center hover:bg-black-primary"
-                                >
-                                  <Minus size={14} />
-                                </button>
-                                <span className="font-bold w-4 text-center text-sm">{item.quantity}</span>
-                                <button 
-                                  onClick={() => updateQuantity(index, 1)}
-                                  className="w-7 h-7 bg-black-surface rounded shadow-sm flex items-center justify-center hover:bg-black-primary"
-                                >
-                                  <Plus size={14} />
-                                </button>
+                              {/* Group Order Guest Badge */}
+                              {isGroupOrder && (item.guestName || item.product?.guestName) && (
+                                <div className="mb-1.5 flex items-center gap-1.5">
+                                  {isMyItem ? (
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
+                                      <span>✓</span>
+                                      <span>{lang === 'en' ? `Your Order (${item.guestName || currentGuestName})` : `طلبك أنت (${item.guestName || currentGuestName})`}</span>
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-400 bg-blue-500/10 border border-blue-500/30 px-2.5 py-0.5 rounded-full">
+                                      <span>👤</span>
+                                      <span>{lang === 'en' ? 'For:' : 'لـ:'} {item.guestName || item.product?.guestName}</span>
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              
+                              {item.product.isSoldByWeight && (
+                                <span className="text-sm text-text-muted mb-1">{lang === 'en' ? 'Weight:' : 'الوزن:'} {item.product.selectedWeight} {lang === 'en' ? 'g' : 'جرام'}</span>
+                              )}
+                              
+                              {item.product.selectedModifiers?.length > 0 && (
+                                <div className="text-xs text-text-muted mb-2">
+                                  {item.product.selectedModifiers.map((mod, i) => (
+                                    <span key={i} className="inline-block bg-black-primary px-2 py-0.5 rounded-md me-1 mb-1">
+                                      {mod.name} {mod.chargedPrice > 0 && `(+${mod.chargedPrice})`}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Edit Button for customizable items: ONLY if canModifyItem */}
+                              {canModifyItem && Boolean(item.product?.isCustomBurger || item.product?.isCustomShake || item.product?.isCustomMeal || item.product?.isCustomizable || (item.product?.selectedModifiers && item.product.selectedModifiers.length > 0)) && (
+                                <div className="mb-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingCartItem({ item, index })}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-brand-red/15 hover:bg-brand-red text-brand-red hover:text-white border border-brand-red/30 text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
+                                  >
+                                    <Pencil size={12} />
+                                    <span>{lang === 'en' ? 'Edit Ingredients' : 'تعديل المكونات'}</span>
+                                  </button>
+                                </div>
+                              )}
+
+                              <div className="mt-auto flex items-center justify-between">
+                                <span className="font-bold text-brand-red">
+                                  {(item.product.calculatedPrice || item.product.sellingPrice) + (item.product.finalModifiersPrice || 0)} {lang === 'en' ? 'EGP' : 'ج.م'}
+                                </span>
+                                
+                                {/* Quantity Controls: Interactive if canModifyItem, read-only if not */}
+                                {canModifyItem ? (
+                                  <div className="flex items-center gap-2 bg-black-surface rounded-lg p-1 border border-white/5">
+                                    <button 
+                                      type="button"
+                                      onClick={() => updateQuantity(index, -1)}
+                                      className="w-7 h-7 bg-black-surface rounded shadow-sm flex items-center justify-center hover:bg-black-primary text-text-muted hover:text-white cursor-pointer"
+                                    >
+                                      <Minus size={14} />
+                                    </button>
+                                    <span className="font-bold w-4 text-center text-sm">{item.quantity}</span>
+                                    <button 
+                                      type="button"
+                                      onClick={() => updateQuantity(index, 1)}
+                                      className="w-7 h-7 bg-black-surface rounded shadow-sm flex items-center justify-center hover:bg-black-primary text-text-muted hover:text-white cursor-pointer"
+                                    >
+                                      <Plus size={14} />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-xs font-bold text-text-muted flex items-center gap-1">
+                                    <span>{lang === 'en' ? `Qty: ${item.quantity}` : `الكمية: ${item.quantity}`}</span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
-                        </div>
-                      </motion.div>
-                    ))}
+                        </motion.div>
+                      );
+                    })}
                   </AnimatePresence>
 
                   {/* Smart Upsell & Cross-Selling Bar */}
