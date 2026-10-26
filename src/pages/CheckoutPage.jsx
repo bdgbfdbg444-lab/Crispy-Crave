@@ -1125,13 +1125,18 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
           // Non-blocking background registration of receipt
           try {
             const reqId = 'vrf_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-            set(ref(db, `ReceiptVerificationRequests/${reqId}`), {
-              imageUrl: paymentReceiptUrl,
-              expectedAmount: grandTotal,
-              walletNumber: walletNumber,
-              orderId: displayOrderId,
-              phone: formData.customerPhone || userPhone || 'unknown',
-              timestamp: new Date().toISOString()
+            const vrfToken = auth.currentUser ? await auth.currentUser.getIdToken().catch(() => '') : '';
+            fetch(`${APP_CONFIG.firebaseDbUrl}ReceiptVerificationRequests/${reqId}.json?auth=${vrfToken}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                imageUrl: paymentReceiptUrl,
+                expectedAmount: grandTotal,
+                walletNumber: walletNumber,
+                orderId: displayOrderId,
+                phone: formData.customerPhone || userPhone || 'unknown',
+                timestamp: new Date().toISOString()
+              })
             }).catch(() => {});
             
             aiVerdict = { scoreText: '⚪ في انتظار مراجعة الكاشير', verdict: 'pending' };
@@ -1258,10 +1263,20 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
         orderPayload.originalTotal = origDetails.originalTotal || 0;
         orderPayload.originalPaymentReceiptUrl = origDetails.paymentReceiptUrl || '';
 
-        // Push modification request to Firebase Orders node! (To bypass security rules)
+        // Push modification request to Firebase Orders node
         try {
-          const modRef = push(ref(db, 'OrderModificationRequests'));
-          await set(modRef, orderPayload);
+          if (!auth.currentUser) {
+            await signInAnonymously(auth);
+          }
+          const authToken = await auth.currentUser.getIdToken();
+          const modRes = await fetch(`${APP_CONFIG.firebaseDbUrl}OrderModificationRequests.json?auth=${authToken}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderPayload)
+          });
+          if (!modRes.ok) {
+            throw new Error(`فشل الخادم في حفظ التعديل (${modRes.status})`);
+          }
         } catch (err) {
           console.error("Firebase Error:", err);
           throw new Error(`فشل في إرسال طلب التعديل: ${err.message}`);
@@ -1276,16 +1291,31 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
         localStorage.removeItem('editingOrderDisplayId');
         
       } else {
-        // 2. Send to Firebase using SDK to include auth token
+        // 2. Send to Firebase using direct REST with verified Auth Token for maximum reliability
         let responseData = null;
         try {
           if (!auth.currentUser) {
             await signInAnonymously(auth);
           }
-          const newOrderRef = push(ref(db, 'Orders'));
-          await set(newOrderRef, orderPayload);
-          responseData = { name: newOrderRef.key };
+          const authToken = await auth.currentUser.getIdToken();
+          const orderRes = await fetch(`${APP_CONFIG.firebaseDbUrl}Orders.json?auth=${authToken}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderPayload)
+          });
+
+          if (orderRes.ok) {
+            responseData = await orderRes.json();
+          } else {
+            const errText = await orderRes.text().catch(() => '');
+            console.warn("REST submission returned status:", orderRes.status, errText);
+            // Fallback to JS SDK push/set if REST failed
+            const newOrderRef = push(ref(db, 'Orders'));
+            await set(newOrderRef, orderPayload);
+            responseData = { name: newOrderRef.key };
+          }
         } catch (err) {
+          console.error("Order submission error:", err);
           throw new Error(err.message || 'فشل في إرسال الطلب، يرجى التأكد من اتصالك بالانترنت.');
         }
 
@@ -1405,17 +1435,9 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
     } catch (error) {
       console.error("Error submitting order:", error);
       
-      let msg = "حدث خطأ غير متوقع أثناء إرسال الطلب، يرجى المحاولة مرة أخرى.";
-      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+      let msg = error.message || "حدث خطأ غير متوقع أثناء إرسال الطلب، يرجى المحاولة مرة أخرى.";
+      if (error.message && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError'))) {
         msg = "حصل خطأ في الاتصال، تأكد من الإنترنت وحاول تاني.";
-      } else if (error.message) {
-        // Use our custom thrown Arabic errors if available
-        // If it's a generic English error, fallback to the connection message
-        if (/[a-zA-Z]/.test(error.message) && !error.message.includes('فشل')) {
-           msg = "حصل خطأ في الاتصال، تأكد من الإنترنت وحاول تاني.";
-        } else {
-           msg = error.message;
-        }
       }
       
       setErrorMessage(msg);

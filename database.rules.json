@@ -3,742 +3,231 @@
     ".read": false,
     ".write": false,
     "menu": {
-      ".read": true
-    },
-    "WebsiteData": {
-      ".read": true
-    },
-    "WebsiteDraft": {
-      ".read": true
-    },
-    "StoreStatus": {
-      ".read": true
-    },
-    "Coupons": {
-      ".read": true
-    },
-    "ApprovedReviews": {
-      ".read": true
+      ".read": true,
+      ".write": false
     },
     "version": {
-      ".read": true
+      ".read": true,
+      ".write": false
     },
-    "Blacklist": {
-      "$phone": {
-        ".read": true
-      }
+    "Categories": {
+      ".read": true,
+      ".write": false
     },
-    "OrderTracking": {
-      "$orderId": {
-        ".read": true
-      }
+    "MenuItems": {
+      ".read": true,
+      ".write": false
     },
-    "PendingOtpRequests": {
-      "$reqId": {
-        ".write": "auth != null && !data.exists() && (newData.child(\"uid\").val() === auth.uid || newData.child(\"uid\").val() === \"guest_checkout\" || newData.child(\"uid\").val() === \"anon\")",
-        ".validate": "newData.hasChildren([\"phone\", \"uid\", \"createdAt\"])",
-        "phone": {
-          ".validate": "newData.isString()"
-        },
-        "uid": {
-          ".validate": "newData.isString()"
-        },
-        "createdAt": {
-          ".validate": "newData.isNumber() || newData.isString()"
-        },
-        "deviceId": {
-          ".validate": "newData.isString()"
-        },
-        "clientIp": {
-          ".validate": "newData.isString()"
-        },
-        "$other": {
-          ".validate": false
-        }
-      }
+    "Settings": {
+      ".read": true,
+      ".write": false
+    },
+    "WebSiteSettings": {
+      ".read": true,
+      ".write": false
+    },
+    "WebsiteData": {
+      ".read": true,
+      ".write": false
+    },
+    "Banners": {
+      ".read": true,
+      ".write": false
+    },
+    "_analytics": {
+      ".read": true,
+      ".write": true
+    },
+    "VisitorHistory": {
+      ".read": true,
+      ".write": true
+    },
+    "_incidents": {
+      ".read": true,
+      ".write": true
     },
     "Orders": {
+      ".read": false,
       "$orderId": {
-        ".write": "auth != null && !data.exists()",
-        ".validate": "newData.hasChildren([\"idempotencyKey\", \"trackingToken\", \"orderDate\", \"customerName\", \"customerPhone\", \"orderType\", \"subtotal\", \"totalAmount\", \"status\", \"items\"])",
-        "idempotencyKey": {
-          ".validate": "true"
-        },
-        "trackingToken": {
-          ".validate": "newData.isString()"
-        },
-        "orderDate": {
-          ".validate": "newData.isString()"
-        },
-        "customerName": {
-          ".validate": "newData.isString()"
-        },
-        "customerPhone": {
-          ".validate": "newData.isString()"
-        },
-        "notes": {
-          ".validate": "newData.isString()"
-        },
-        "orderType": {
-          ".validate": "newData.isString()"
-        },
-        "handoverCode": {
-          ".validate": "newData.isString()"
-        },
-        "deliveryAddress": {
-          ".validate": "newData.isString()"
-        },
-        "deliveryZone": {
-          ".validate": "newData.isString()"
-        },
-        "deliveryFee": {
-          ".validate": "newData.isNumber()"
-        },
-        "mapsUrl": {
-          ".validate": "newData.isString()"
-        },
-        "lat": {
-          ".validate": "newData.isNumber() || !newData.exists()"
-        },
-        "lng": {
-          ".validate": "newData.isNumber() || !newData.exists()"
-        },
-        "street": {
-          ".validate": "newData.isString()"
-        },
-        "building": {
-          ".validate": "newData.isString()"
-        },
-        "floor": {
-          ".validate": "newData.isString()"
-        },
-        "apartment": {
-          ".validate": "newData.isString()"
-        },
-        "landmark": {
-          ".validate": "newData.isString()"
-        },
-        "tableNumber": {
-          ".validate": "newData.isString()"
-        },
-        "subtotal": {
-          ".validate": "newData.isNumber()"
-        },
-        "taxPercentage": {
-          ".validate": "newData.isNumber()"
-        },
-        "taxAmount": {
-          ".validate": "newData.isNumber()"
-        },
-        "couponCode": {
-          ".validate": "newData.isString()"
-        },
-        "discountAmount": {
-          ".validate": "newData.isNumber()"
-        },
-        "totalAmount": {
-          ".validate": "newData.isNumber()"
-        },
-        "paymentMethod": {
-          ".validate": "newData.isString()"
-        },
-        "status": {
-          ".validate": "newData.val() === \"New\""
-        },
-        "displayOrderId": {
-          ".validate": "newData.isString()"
-        },
-        "paymentReceiptUrl": {
-          ".validate": "newData.isString()"
-        },
-        "items": {
-          "$index": {
-            ".validate": "newData.hasChildren([\"productId\", \"productName\", \"quantity\", \"unitPrice\"])",
-            "productId": {
-              ".validate": "newData.isNumber() || newData.isString()"
-            },
-            "productName": {
-              ".validate": "newData.isString()"
-            },
-            "quantity": {
-              ".validate": "newData.isNumber()"
-            },
-            "unitPrice": {
-              ".validate": "newData.isNumber()"
-            },
-            "modifierNotes": {
-              ".validate": "newData.isString()"
-            },
-            "weightInGrams": {
-              ".validate": "newData.isNumber()"
-            },
-            "$other": {
-              ".validate": false
-            }
-          }
-        },
-        "aiVerdict": {
-          ".validate": "true"
-        }
+        ".read": false,
+        ".write": "auth != null && !data.exists() && newData.exists()",
+        ".validate": "newData.hasChildren(['items', 'orderDate', 'customerPhone', 'displayOrderId']) && newData.child('customerPhone').isString() && newData.child('orderDate').isString()"
       }
     },
-    "OrderModificationRequests": {
-      "$modId": {
-        ".write": "auth != null && !data.exists()",
-        ".validate": "newData.hasChildren([\"idempotencyKey\", \"trackingToken\", \"orderDate\", \"customerName\", \"customerPhone\", \"orderType\", \"subtotal\", \"totalAmount\", \"status\", \"items\"])",
-        "idempotencyKey": {
-          ".validate": "true"
-        },
-        "trackingToken": {
-          ".validate": "newData.isString()"
-        },
-        "orderDate": {
-          ".validate": "newData.isString()"
-        },
-        "customerName": {
-          ".validate": "newData.isString()"
-        },
-        "customerPhone": {
-          ".validate": "newData.isString()"
-        },
-        "notes": {
-          ".validate": "newData.isString()"
-        },
-        "orderType": {
-          ".validate": "newData.isString()"
-        },
-        "handoverCode": {
-          ".validate": "newData.isString()"
-        },
-        "deliveryAddress": {
-          ".validate": "newData.isString()"
-        },
-        "deliveryZone": {
-          ".validate": "newData.isString()"
-        },
-        "deliveryFee": {
-          ".validate": "newData.isNumber()"
-        },
-        "mapsUrl": {
-          ".validate": "newData.isString()"
-        },
-        "lat": {
-          ".validate": "newData.isNumber() || !newData.exists()"
-        },
-        "lng": {
-          ".validate": "newData.isNumber() || !newData.exists()"
-        },
-        "street": {
-          ".validate": "newData.isString()"
-        },
-        "building": {
-          ".validate": "newData.isString()"
-        },
-        "floor": {
-          ".validate": "newData.isString()"
-        },
-        "apartment": {
-          ".validate": "newData.isString()"
-        },
-        "landmark": {
-          ".validate": "newData.isString()"
-        },
-        "tableNumber": {
-          ".validate": "newData.isString()"
-        },
-        "subtotal": {
-          ".validate": "newData.isNumber()"
-        },
-        "taxPercentage": {
-          ".validate": "newData.isNumber()"
-        },
-        "taxAmount": {
-          ".validate": "newData.isNumber()"
-        },
-        "couponCode": {
-          ".validate": "newData.isString()"
-        },
-        "discountAmount": {
-          ".validate": "newData.isNumber()"
-        },
-        "totalAmount": {
-          ".validate": "newData.isNumber()"
-        },
-        "paymentMethod": {
-          ".validate": "newData.isString()"
-        },
-        "status": {
-          ".validate": "newData.val() === \"New\""
-        },
-        "displayOrderId": {
-          ".validate": "newData.isString()"
-        },
-        "paymentReceiptUrl": {
-          ".validate": "newData.isString()"
-        },
-        "items": {
-          "$index": {
-            ".validate": "newData.hasChildren([\"productId\", \"productName\", \"quantity\", \"unitPrice\"])",
-            "productId": {
-              ".validate": "newData.isNumber() || newData.isString()"
-            },
-            "productName": {
-              ".validate": "newData.isString()"
-            },
-            "quantity": {
-              ".validate": "newData.isNumber()"
-            },
-            "unitPrice": {
-              ".validate": "newData.isNumber()"
-            },
-            "modifierNotes": {
-              ".validate": "newData.isString()"
-            },
-            "weightInGrams": {
-              ".validate": "newData.isNumber()"
-            },
-            "$other": {
-              ".validate": false
-            }
-          }
-        },
-        "$other": {
-          ".validate": false
-        }
-      }
-    },
-    "ActiveHoldRequests": {
+    "DriverUpdates": {
+      ".read": false,
       "$orderId": {
-        ".write": "auth != null && (!data.exists() ? newData.child(\"uid\").val() === auth.uid : data.child(\"uid\").val() === auth.uid && (!newData.exists() || newData.child(\"uid\").val() === auth.uid))",
-        ".validate": "newData.hasChildren([\"OrderId\", \"ExpiresAt\", \"uid\"]) || !newData.exists()",
-        "OrderId": {
-          ".validate": "newData.isString()"
-        },
-        "CustomerName": {
-          ".validate": "newData.isString()"
-        },
-        "CustomerPhone": {
-          ".validate": "newData.isString()"
-        },
-        "StartedAt": {
-          ".validate": "newData.isNumber()"
-        },
-        "ExpiresAt": {
-          ".validate": "newData.isNumber()"
-        },
-        "uid": {
-          ".validate": "newData.isString()"
-        },
-        "$other": {
-          ".validate": false
-        }
+        ".read": false,
+        ".write": "(!data.exists() || data.exists())"
       }
     },
     "PublicTracking": {
-      "$token": {
+      ".read": false,
+      "$orderId": {
         ".read": true,
-        ".write": "auth != null && !data.exists()",
-        ".validate": "newData.hasChildren(['Status'])",
-        "EstimatedDelivery": {
-          ".validate": "newData.isString() && (!data.exists() || newData.val() === data.val())"
-        },
-        "LastUpdate": {
-          ".validate": "newData.isString() && (!data.exists() || newData.val() === data.val())"
-        },
-        "IsModifying": {
-          ".write": "auth != null && newData.exists()",
-          ".validate": "newData.isBoolean()"
-        },
-        "ModificationExpiresAt": {
-          ".write": "auth != null && newData.exists()",
-          ".validate": "newData.isNumber() || newData.isString()"
-        },
-        "ModificationCount": {
-          ".write": "auth != null && newData.exists()",
-          ".validate": "newData.isNumber()"
-        },
-        "ModificationExpired": {
-          ".write": "auth != null && newData.exists()",
-          ".validate": "newData.isBoolean()"
-        }
+        ".write": "auth != null && (!data.exists() || data.exists())"
       }
     },
-    "UsedCoupons": {
-      "$code": {
-        "$phone": {
-          ".write": "auth != null && !data.exists()",
-          ".validate": "newData.val() === true"
-        }
+    "OrderTracking": {
+      ".read": false,
+      "$orderId": {
+        ".read": false,
+        ".write": false
       }
     },
-    "_visitors": {
-      "history": {
-        ".indexOn": [
-          "snapshot/LastSeenAt"
-        ]
+    "CancellationRequests": {
+      ".read": false,
+      "$requestId": {
+        ".read": false,
+        ".write": "auth != null && !data.exists() && newData.exists() && (!root.child('StoreStatus').exists() || root.child('StoreStatus').child('isOpen').val() != false) && (!root.child('Blacklist').child(newData.child('customerPhone').val()).exists() || root.child('Blacklist').child(newData.child('customerPhone').val()).child('isBlacklisted').val() != true)",
+        ".validate": "newData.hasChildren(['orderDate', 'customerPhone', 'displayOrderId']) && newData.child('customerPhone').isString() && newData.child('customerPhone').val().matches(/^01[0125][0-9]{8}$/) && newData.child('orderDate').isString()"
       }
     },
-    "PendingReviews": {
-      "$reviewId": {
-        ".write": "auth != null && !data.exists()",
-        ".validate": "newData.hasChildren([\"customerName\", \"rating\", \"comment\", \"status\", \"createdAt\"])",
-        "customerName": {
-          ".validate": "newData.isString()"
-        },
-        "rating": {
-          ".validate": "newData.isNumber()"
-        },
-        "comment": {
-          ".validate": "newData.isString()"
-        },
-        "imageUrl": {
-          ".validate": "newData.isString() || !newData.exists()"
-        },
-        "status": {
-          ".validate": "newData.val() === \"Pending\""
-        },
-        "createdAt": {
-          ".validate": "newData.isString()"
-        },
-        "$other": {
-          ".validate": false
-        }
-      }
-    },
-    "VipCardsTokens": {
-      ".read": true,
-      "$token": {
+    "ActiveHoldRequests": {
+      ".read": false,
+      "$orderId": {
         ".read": true,
-        ".write": true
+        ".write": "auth != null && ((!data.exists() && newData.exists() && newData.hasChildren(['OrderId', 'CustomerPhone', 'StartedAt', 'ExpiresAt'])) || (data.exists() && !newData.exists()))"
       }
     },
-    "VipClaimsByHardware": {
-      ".read": true,
-      "$hwId": {
-        ".read": true,
-        ".write": true
-      }
-    },
-    "VipPendingWhatsAppMessages": {
-      ".read": true,
-      "$msgId": {
-        ".read": true,
-        ".write": true
-      }
-    },
-    "PublicCustomers": {
-      ".read": true,
+    "OtpRateLimits": {
+      ".read": false,
       "$phone": {
-        ".read": true,
-        ".write": true,
-        ".validate": "newData.hasChildren(['Phone']) && newData.child('Phone').val() === $phone",
-        "uid": {
-          ".validate": "newData.isString()"
-        },
-        "Phone": {
-          ".validate": "newData.isString()"
-        },
-        "Name": {
-          ".validate": "newData.isString()"
-        },
-        "Address": {
-          ".validate": "newData.isString()"
-        },
-        "Email": {
-          ".validate": "newData.isString()"
-        },
-        "isVipFounder": {
-          ".validate": "newData.isBoolean()"
-        },
-        "vipCode": {
-          ".validate": "newData.isString()"
-        },
-        "vipPrize": {
-          ".validate": "newData.isString()"
-        },
-        "vipDiscountCode": {
-          ".validate": "newData.isString()"
-        },
-        "isVipRedeemed": {
-          ".validate": "newData.isBoolean()"
-        },
-        "vipRedeemedAt": {
-          ".validate": "newData.isString()"
-        },
-        "vipRedeemedBy": {
-          ".validate": "newData.isString()"
-        },
-        "vipDeviceId": {
-          ".validate": "newData.isString()"
-        },
-        "vipHardwareId": {
-          ".validate": "newData.isString()"
-        },
-        "vipIp": {
-          ".validate": "newData.isString()"
-        },
-        "vipClaimedAt": {
-          ".validate": "newData.isString()"
-        },
-        "addresses": {
-          "$index": {
-            ".validate": "newData.hasChildren([\"id\", \"fullAddress\", \"zone\"])",
-            "id": {
-              ".validate": "newData.isString()"
-            },
-            "label": {
-              ".validate": "newData.isString() || !newData.exists()"
-            },
-            "fullAddress": {
-              ".validate": "newData.isString()"
-            },
-            "zone": {
-              ".validate": "newData.isString()"
-            },
-            "street": {
-              ".validate": "newData.isString() || !newData.exists()"
-            },
-            "building": {
-              ".validate": "newData.isString() || !newData.exists()"
-            },
-            "floor": {
-              ".validate": "newData.isString() || !newData.exists()"
-            },
-            "apartment": {
-              ".validate": "newData.isString() || !newData.exists()"
-            },
-            "landmark": {
-              ".validate": "newData.isString() || !newData.exists()"
-            },
-            "lat": {
-              ".validate": "newData.isNumber() || !newData.exists()"
-            },
-            "lng": {
-              ".validate": "newData.isNumber() || !newData.exists()"
-            },
-            "isDefault": {
-              ".validate": "newData.isBoolean() || !newData.exists()"
-            },
-            "isOutOfZone": {
-              ".validate": "newData.isBoolean() || !newData.exists()"
-            },
-            "$other": {
-              ".validate": true
-            }
-          }
-        },
-        "Zone": {
-          ".validate": "newData.isString()"
-        },
-        "zone": {
-          ".validate": "newData.isString()"
-        },
-        "TotalOrders": {
-          ".validate": "newData.isNumber()"
-        },
-        "TotalSpent": {
-          ".validate": "newData.isNumber()"
-        },
-        "LastOrderDate": {
-          ".validate": "newData.isString()"
-        },
-        "cart": {
-          ".validate": "true"
-        },
-        "CreatedAt": {
-          ".validate": "newData.isString()"
-        },
-        "RegisteredDate": {
-          ".validate": "newData.isString()"
-        },
-        "$other": {
-          ".validate": true
-        }
+        ".read": false,
+        ".write": "$phone.matches(/^01[0125][0-9]{8}$/) && (!data.exists() || (now - data.child('lastRequestedAt').val() >= 120000))",
+        ".validate": "newData.hasChild('lastRequestedAt') && newData.child('lastRequestedAt').isNumber() && newData.child('lastRequestedAt').val() <= now"
       }
     },
-    "UidToPhone": {
-      "$uid": {
-        ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === $uid && !data.exists()",
-        ".validate": "newData.isString()"
-      }
-    },
-    "VisitorHistory": {
-      "$sessionId": {
-        ".write": "newData.exists()",
-        ".validate": "newData.hasChildren([\"ip\", \"location\", \"deviceType\", \"startTime\", \"lastSeen\", \"history\"])",
-        "ip": {
-          ".validate": "newData.isString()"
-        },
-        "location": {
-          ".validate": "newData.isString()"
-        },
-        "deviceType": {
-          ".validate": "newData.isString()"
-        },
-        "startTime": {
-          ".validate": "newData.isString()"
-        },
-        "lastSeen": {
-          ".validate": "newData.isString()"
-        },
-        "history": {
-          "$index": {
-            ".validate": "newData.hasChildren([\"page\", \"time\"])",
-            "page": {
-              ".validate": "newData.isString()"
-            },
-            "time": {
-              ".validate": "newData.isString()"
-            },
-            "$other": {
-              ".validate": false
-            }
-          }
-        },
-        "$other": {
-          ".validate": false
-        }
-      }
-    },
-    "_analytics": {
-      "online": {
-        "$sessionId": {
-          ".write": "!newData.exists() || newData.hasChildren([\"page\", \"timestamp\"])",
-          ".validate": "!newData.exists() || newData.hasChildren([\"page\", \"startTime\", \"timestamp\", \"deviceType\", \"ip\", \"location\"])",
-          "page": {
-            ".validate": "newData.isString()"
-          },
-          "startTime": {
-            ".validate": "newData.isString()"
-          },
-          "timestamp": {
-            ".validate": "newData.isString()"
-          },
-          "isOrdering": {
-            ".validate": "newData.isBoolean()"
-          },
-          "deviceType": {
-            ".validate": "newData.isString()"
-          },
-          "ip": {
-            ".validate": "newData.isString()"
-          },
-          "location": {
-            ".validate": "newData.isString()"
-          },
-          "history": {
-            "$index": {
-              ".validate": "newData.hasChildren([\"page\", \"time\"])",
-              "page": {
-                ".validate": "newData.isString()"
-              },
-              "time": {
-                ".validate": "newData.isString()"
-              },
-              "$other": {
-                ".validate": false
-              }
-            }
-          },
-          "$other": {
-            ".validate": false
-          },
-          "ua": {
-            ".validate": "newData.isString()"
-          }
-        }
-      },
-      "daily": {
-        "$date": {
-          ".write": "newData.exists() && newData.hasChildren()",
-          "totalPageViews": {
-            ".validate": "newData.isNumber()"
-          },
-          "uniqueVisitors": {
-            ".validate": "newData.isNumber()"
-          },
-          "hourly": {
-            "$hour": {
-              "pageViews": {
-                ".validate": "newData.isNumber()"
-              },
-              "$other": {
-                ".validate": false
-              }
-            }
-          },
-          "$other": {
-            ".validate": false
-          }
-        }
-      }
-    },
-    "CateringRequests": {
+    "PendingOtpRequests": {
+      ".read": false,
       "$reqId": {
-        ".read": "auth != null",
-        ".write": "!data.exists()"
-      }
-    },
-    "CateringRateLimits": {
-      "$safeIp": {
-        ".read": true,
-        ".write": true
-      }
-    },
-    "UserCarts": {
-      "$phone": {
-        ".read": "auth != null",
-        ".write": "auth != null"
+        ".read": false,
+        ".write": "auth != null && !data.exists() && newData.exists() && newData.hasChildren(['phone', 'uid', 'createdAt'])"
       }
     },
     "CustomerLoginEmails": {
+      ".read": true,
+      "$phone": {
+        ".write": "auth != null && root.child('UidToPhone').child(auth.uid).val() === $phone"
+      }
+    },
+    "PublicCustomers": {
+      ".read": false,
+      "$phone": {
+        ".read": "auth != null && root.child('UidToPhone').child(auth.uid).val() === $phone",
+        ".write": "auth != null && root.child('UidToPhone').child(auth.uid).val() === $phone",
+        ".validate": "$phone.matches(/^01[0125][0-9]{8}$/)"
+      }
+    },
+    "UidToPhone": {
+      ".read": false,
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "UsedReceipts": {
+      ".read": false,
+      "$hash": {
+        ".read": true,
+        ".write": "auth != null && !data.exists() && newData.val() === true"
+      }
+    },
+    "Coupons": {
+      ".read": false,
+      "$code": {
+        ".read": true,
+        ".write": false
+      }
+    },
+    "UsedCoupons": {
+      ".read": false,
+      "$code": {
+        ".read": false,
+        "$phone": {
+          ".read": true,
+          ".write": "auth != null && !data.exists() && newData.val() === true"
+        }
+      }
+    },
+    "Blacklist": {
+      ".read": false,
       "$phone": {
         ".read": true,
-        ".write": "auth != null && (!data.exists() || root.child('UidToPhone').child(auth.uid).val() === $phone)",
-        ".validate": "newData.isString()"
+        ".write": false
+      }
+    },
+    "ApprovedReviews": {
+      ".read": true,
+      ".write": false
+    },
+    "PendingReviews": {
+      ".read": false,
+      "$reviewId": {
+        ".read": false,
+        ".write": "auth != null && !data.exists() && newData.exists() && newData.hasChildren(['customerName', 'rating', 'comment']) && newData.child('rating').isNumber() && newData.child('rating').val() >= 1 && newData.child('rating').val() <= 5 && newData.child('comment').val().length <= 500"
+      }
+    },
+    "PendingPins": {
+      ".read": false,
+      ".write": false
+    },
+    "StoreStatus": {
+      ".read": true,
+      ".write": false
+    },
+    "PendingOtpVerifications": {
+      ".read": false,
+      "$reqId": {
+        ".read": false,
+        ".write": "auth != null && auth.uid === newData.child('uid').val() && !data.exists() && newData.exists() && newData.hasChildren(['phone', 'code', 'uid', 'createdAt'])"
+      }
+    },
+    "OtpVerifications": {
+      ".read": false,
+      ".write": false
+    },
+    "OrderModificationRequests": {
+      ".read": false,
+      "$requestId": {
+        ".read": false,
+        ".write": "auth != null && !data.exists() && newData.exists()",
+        ".validate": "newData.hasChildren(['items', 'orderDate', 'customerPhone', 'displayOrderId']) && newData.child('customerPhone').isString() && newData.child('orderDate').isString()"
+      }
+    },
+    "ReceiptVerificationRequests": {
+      ".read": false,
+      "$reqId": {
+        ".read": false,
+        ".write": "auth != null && !data.exists() && newData.exists()"
       }
     },
     "OtpValidations": {
       ".read": false,
       "$reqId": {
         ".read": false,
-        ".write": "!data.exists() && newData.hasChildren(['guess', 'phone'])",
-        "guess": {
-          ".validate": "newData.isString() && newData.val().length >= 4 && newData.val().length <= 8"
-        },
-        "phone": {
-          ".validate": "newData.isString()"
-        }
+        ".write": "auth != null && newData.exists() && newData.hasChildren(['guess', 'phone', 'uid'])"
       }
-    },
-    "ReceiptVerificationRequests": {
-      ".read": "auth != null",
-      ".write": "auth != null"
-    },
-    "ReceiptVerdicts": {
-      "$reqId": {
-        ".read": "auth != null",
-        ".write": "auth != null"
-      }
-    },
-    "UsedTransactionIds": {
-      ".read": "auth != null",
-      ".write": "auth != null"
     },
     "OtpResults": {
       ".read": false,
       "$reqId": {
-        ".read": true,
+        ".read": "auth != null",
         ".write": false
       }
     },
-    "ActiveOTPs": {
-      ".read": false,
-      ".write": false
+    "GroupOrders": {
+      ".read": true,
+      "$groupId": {
+        ".read": true,
+        ".write": true
+      }
     },
-    "_systemState": {
-      ".read": true
+    "UserCarts": {
+      "$phone": {
+        ".read": true,
+        ".write": true
+      }
     }
   }
 }
