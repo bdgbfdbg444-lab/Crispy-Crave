@@ -197,9 +197,12 @@ export default function GroupOrderModal() {
               {/* Leave Room Button */}
               <button
                 type="button"
-                onClick={() => {
-                  if (confirm(lang === 'en' ? 'Are you sure you want to leave this group order?' : 'هل أنت متأكد من مغادرة الطلب الجماعي؟')) {
-                    leaveGroupOrder();
+                onClick={async () => {
+                  const confirmMsg = isGroupHost
+                    ? (lang === 'en' ? 'Are you sure you want to cancel and close this group order for all members?' : 'هل أنت متأكد من إلغاء وإغلاق هذا الطلب الجماعي للجميع؟')
+                    : (lang === 'en' ? 'Are you sure you want to leave this group order?' : 'هل أنت متأكد من مغادرة الطلب الجماعي؟');
+                  if (confirm(confirmMsg)) {
+                    await leaveGroupOrder();
                     setIsGroupModalOpen(false);
                   }
                 }}

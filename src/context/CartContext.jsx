@@ -8,6 +8,38 @@ const CartContext = createContext();
 
 export const useCart = () => useContext(CartContext);
 
+// Helper to clean 'group' parameter from both window.location.search and window.location.hash
+export const cleanGroupUrl = () => {
+  try {
+    const url = new URL(window.location.href);
+    let changed = false;
+
+    // 1. Remove from search params (e.g. ?group=GRP-XXXX)
+    if (url.searchParams.has('group')) {
+      url.searchParams.delete('group');
+      changed = true;
+    }
+
+    // 2. Remove from hash params (e.g. #/menu?group=GRP-XXXX)
+    if (url.hash && url.hash.includes('?')) {
+      const [hashPath, hashQuery] = url.hash.split('?');
+      const hashParams = new URLSearchParams(hashQuery);
+      if (hashParams.has('group')) {
+        hashParams.delete('group');
+        const remaining = hashParams.toString();
+        url.hash = hashPath + (remaining ? `?${remaining}` : '');
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      window.history.replaceState({}, '', url.toString());
+    }
+  } catch (e) {
+    console.warn('[cleanGroupUrl] Error:', e);
+  }
+};
+
 export const CartProvider = ({ children }) => {
   const { userPhone } = useAuth();
 
@@ -197,6 +229,18 @@ export const CartProvider = ({ children }) => {
     const unsubscribe = onValue(groupRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
+        // If group is cancelled, closed, or completed, purge local group order immediately
+        if (data.status === 'cancelled' || data.status === 'closed' || data.status === 'completed') {
+          setGroupData(null);
+          setGroupOrderIdState(null);
+          setIsGroupModalOpen(false);
+          cleanGroupUrl();
+          try {
+            localStorage.removeItem('crispy_group_order_id');
+            localStorage.removeItem('crispy_group_guest_name');
+          } catch (e) {}
+          return;
+        }
         setGroupData(data);
         // Automatically sync host's chosen order type
         if (data.orderType) {
@@ -206,7 +250,12 @@ export const CartProvider = ({ children }) => {
       } else {
         setGroupData(null);
         setGroupOrderIdState(null);
-        try { localStorage.removeItem('crispy_group_order_id'); } catch(e) {}
+        setIsGroupModalOpen(false);
+        cleanGroupUrl();
+        try {
+          localStorage.removeItem('crispy_group_order_id');
+          localStorage.removeItem('crispy_group_guest_name');
+        } catch (e) {}
       }
     });
 
@@ -227,23 +276,42 @@ export const CartProvider = ({ children }) => {
       }
       if (groupFromUrl) {
         const upper = groupFromUrl.trim().toUpperCase();
-        setGroupOrderId(upper);
 
-        // Pre-fetch group order info to adopt orderType immediately
+        // Check if group is valid and currently open before adopting
         get(ref(db, `GroupOrders/${upper}`)).then((snap) => {
           if (snap.exists()) {
             const data = snap.val();
-            setGroupData(data);
-            if (data.orderType) {
-              setOrderTypeState(data.orderType);
-              try { localStorage.setItem('crispy_order_type', data.orderType); } catch(e) {}
+            if (data.status === 'open') {
+              setGroupOrderId(upper);
+              setGroupData(data);
+              if (data.orderType) {
+                setOrderTypeState(data.orderType);
+                try { localStorage.setItem('crispy_order_type', data.orderType); } catch(e) {}
+              }
+              if (!currentGuestName) {
+                setIsGroupModalOpen(true);
+              }
+            } else {
+              // Group exists but is closed/cancelled/completed
+              cleanGroupUrl();
+              setGroupOrderIdState(null);
+              setGroupData(null);
+              try {
+                localStorage.removeItem('crispy_group_order_id');
+                localStorage.removeItem('crispy_group_guest_name');
+              } catch (e) {}
             }
+          } else {
+            // Group does not exist
+            cleanGroupUrl();
+            setGroupOrderIdState(null);
+            setGroupData(null);
+            try {
+              localStorage.removeItem('crispy_group_order_id');
+              localStorage.removeItem('crispy_group_guest_name');
+            } catch (e) {}
           }
         }).catch(() => {});
-
-        if (!currentGuestName) {
-          setIsGroupModalOpen(true);
-        }
       }
     } catch (e) {}
   }, []);
@@ -377,11 +445,18 @@ export const CartProvider = ({ children }) => {
               updatedAt: Date.now()
             }).catch(() => {});
           } else {
-            // Group order is closed/expired
+            // Group order is closed/cancelled/expired
             update(cartRef, {
               activeGroupOrderId: null,
               groupGuestName: null
             }).catch(() => {});
+            try {
+              localStorage.removeItem('crispy_group_order_id');
+              localStorage.removeItem('crispy_group_guest_name');
+              cleanGroupUrl();
+            } catch (e) {}
+            setGroupOrderIdState((curr) => (curr === cloudGroupOrderId ? null : curr));
+            setGroupData((curr) => (curr?.id === cloudGroupOrderId ? null : curr));
           }
         } catch (e) {
           console.warn('[CartSync] Group verify error:', e);
@@ -721,25 +796,47 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  const leaveGroupOrder = () => {
-    setGroupOrderId(null);
+  const leaveGroupOrder = async () => {
+    const currentId = groupOrderId;
+    const isHost = isGroupHost;
+    const cleanPhone = activeUserPhoneRef.current;
+
+    // 1. Immediately reset all local states & storage
+    setGroupOrderIdState(null);
     setGroupData(null);
+    setCurrentGuestNameState('');
+    setIsGroupModalOpen(false);
+    cleanGroupUrl();
+
     try {
       localStorage.removeItem('crispy_group_order_id');
       localStorage.removeItem('crispy_group_guest_name');
-      const url = new URL(window.location.href);
-      url.searchParams.delete('group');
-      window.history.replaceState({}, '', url.toString());
     } catch (e) {}
 
-    // Clear from cloud account so other devices also exit
-    const cleanPhone = activeUserPhoneRef.current;
+    // 2. If Host, cancel and close the group in Firebase for everyone
+    if (isHost && currentId) {
+      try {
+        await update(ref(db, `GroupOrders/${currentId}`), {
+          status: 'cancelled',
+          cancelledAt: Date.now(),
+          updatedAt: Date.now()
+        });
+      } catch (err) {
+        console.error('[leaveGroupOrder] Error cancelling group order in Firebase:', err);
+      }
+    }
+
+    // 3. Clear activeGroupOrderId from user's cloud cart so other devices / refreshes don't restore it
     if (cleanPhone) {
-      update(ref(db, `UserCarts/${cleanPhone}`), {
-        activeGroupOrderId: null,
-        groupGuestName: null,
-        updatedAt: Date.now()
-      }).catch(() => {});
+      try {
+        await update(ref(db, `UserCarts/${cleanPhone}`), {
+          activeGroupOrderId: null,
+          groupGuestName: null,
+          updatedAt: Date.now()
+        });
+      } catch (err) {
+        console.error('[leaveGroupOrder] Error clearing cloud cart:', err);
+      }
     }
   };
 
@@ -754,12 +851,10 @@ export const CartProvider = ({ children }) => {
     setCurrentGuestNameState('');
     setGroupData(null);
     setIsGroupModalOpen(false);
+    cleanGroupUrl();
     try {
       localStorage.removeItem('crispy_group_order_id');
       localStorage.removeItem('crispy_group_guest_name');
-      const url = new URL(window.location.href);
-      url.searchParams.delete('group');
-      window.history.replaceState({}, '', url.toString());
     } catch (e) {}
 
     // 3. Reset Order Type & Table Sessions
