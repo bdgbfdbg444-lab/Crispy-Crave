@@ -152,6 +152,16 @@ export default function KdsPage() {
     }
   }, []);
 
+  // Auto redirect to Google if blocked
+  useEffect(() => {
+    if (deviceAuthState === 'blocked') {
+      const timer = setTimeout(() => {
+        window.location.replace('https://www.google.com');
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [deviceAuthState]);
+
   // Submit Pairing & Register Device
   const handleRegisterDevice = async (e) => {
     if (e) e.preventDefault();
@@ -548,44 +558,36 @@ export default function KdsPage() {
     );
   }
 
-  // View B: Blocked Device (Permanent Deny)
+  // View B: Blocked Device (Permanent Deny -> Immediate Redirect to Google)
   if (deviceAuthState === 'blocked') {
     return (
       <div className="min-h-screen bg-[#070709] text-white flex flex-col items-center justify-center p-4 sm:p-6" dir="rtl">
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-md bg-[#121216] border-2 border-red-600/80 rounded-3xl p-6 sm:p-8 shadow-2xl text-center relative overflow-hidden"
+          className="w-full max-w-sm bg-[#121216] border-2 border-red-600/80 rounded-3xl p-6 sm:p-8 shadow-2xl text-center relative overflow-hidden"
         >
-          <div className="absolute -right-16 -top-16 w-36 h-36 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
-          
-          <div className="w-20 h-20 rounded-2xl bg-red-600/20 border border-red-500/40 flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(239,68,68,0.35)]">
-            <Ban className="w-10 h-10 text-red-500 animate-pulse" />
+          <div className="w-16 h-16 rounded-2xl bg-red-600/20 border border-red-500/40 flex items-center justify-center mx-auto mb-4 shadow-[0_0_25px_rgba(239,68,68,0.35)]">
+            <Ban className="w-8 h-8 text-red-500 animate-pulse" />
           </div>
 
-          <span className="inline-block px-3 py-1 bg-red-600/20 text-red-400 border border-red-500/30 rounded-full text-[11px] font-black uppercase tracking-wider mb-2">
-            تم حظر الوصول نهائياً
-          </span>
-
-          <h2 className="text-2xl font-black text-white mb-2">تم حظر هذا الجهاز من قبل الإدارة</h2>
-          <p className="text-gray-400 text-xs sm:text-sm leading-relaxed mb-6">
-            تم رفض اعتماد هذا الجهاز وحظر بصمته الرقمية بواسطة إدارة المطعم في نظام الكاشير. لا يمكنك عرض أو استقبال أي طلبات من هذا المتصفح.
+          <h2 className="text-xl font-black text-white mb-2">تم حظر هذا الجهاز</h2>
+          <p className="text-gray-400 text-xs sm:text-sm leading-relaxed mb-5">
+            تم رفض اعتماد هذا الجهاز وحظره نهائياً من قبل الإدارة. لا تملك صلاحية الوصول.
           </p>
 
-          <div className="bg-black/60 rounded-2xl p-4 border border-red-950/60 text-right space-y-2 mb-6">
-            <div className="flex items-center justify-between text-xs text-gray-400 border-b border-gray-800 pb-2">
-              <span>معرف الجهاز المشفر:</span>
-              <span className="font-mono text-red-400 font-bold">{kdsDevice?.deviceId || 'UNKNOWN-DEVICE'}</span>
-            </div>
-            <div className="flex items-center justify-between text-xs text-gray-400">
-              <span>نوع الجهاز المسجل:</span>
-              <span className="text-gray-300 font-medium">{hardwareProfile.friendlyDevice}</span>
-            </div>
+          <div className="bg-red-950/40 border border-red-500/30 rounded-2xl p-3 text-center mb-5 animate-pulse">
+            <p className="text-xs text-red-300 font-bold mb-0.5">⚠️ تم إنهاء الجلسة</p>
+            <p className="text-[11px] text-gray-400">جاري تحويلك إلى Google...</p>
           </div>
 
-          <div className="text-[11px] text-gray-500">
-            إذا كنت تعتقد أن هذا الإجراء تم بالخطأ، يرجى التواصل مع إدارة الفرن أو مسؤول النظام.
-          </div>
+          <button
+            type="button"
+            onClick={() => window.location.replace('https://www.google.com')}
+            className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl transition-all cursor-pointer"
+          >
+            الخروج الآن (Google)
+          </button>
         </motion.div>
       </div>
     );
@@ -598,41 +600,39 @@ export default function KdsPage() {
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-lg bg-[#13141B] border-2 border-amber-500/50 rounded-3xl p-6 sm:p-8 shadow-2xl text-center relative overflow-hidden"
+          className="w-full max-w-md bg-[#13141B] border-2 border-amber-500/50 rounded-3xl p-6 sm:p-8 shadow-2xl text-center relative overflow-hidden"
         >
-          <div className="w-20 h-20 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(245,158,11,0.25)]">
-            <Clock className="w-10 h-10 text-amber-400 animate-spin" />
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mx-auto mb-4 shadow-[0_0_25px_rgba(245,158,11,0.25)]">
+            <Clock className="w-8 h-8 text-amber-400 animate-spin" />
           </div>
 
-          <span className="inline-block px-3 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full text-xs font-black mb-2">
-            في انتظار اعتماد المدير (Pending Approval)
+          <span className="inline-block px-3 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full text-xs font-black mb-2">
+            في انتظار اعتماد المدير (Pending)
           </span>
 
-          <h2 className="text-2xl font-black text-white mb-2">طلب تسجيل الجهاز قيد المراجعة</h2>
-          <p className="text-gray-300 text-xs sm:text-sm leading-relaxed mb-6">
-            تم استلام طلب اقتران شاشة المطبخ وحفظ بصمة الهاردوير بنجاح. يرجى من مسؤول الكاشير (POS) الضغط على زر <strong className="text-emerald-400">«موافقة / Approve»</strong> في قائمة شاشات المطبخ لتفعيل البث المباشر.
+          <h2 className="text-xl font-black text-white mb-2">طلب الاقتران قيد المراجعة</h2>
+          <p className="text-gray-300 text-xs sm:text-sm leading-relaxed mb-5">
+            تم إرسال طلب اقتران الشاشة. يرجى من مسؤول الكاشير (POS) الضغط على زر <strong className="text-emerald-400">«موافقة / Approve»</strong> في قائمة أجهزة المطبخ لتفعيل البث المباشر.
           </p>
 
-          <div className="bg-black/50 rounded-2xl p-4 sm:p-5 border border-amber-500/20 text-right space-y-3 mb-6">
+          <div className="bg-black/50 rounded-2xl p-4 border border-amber-500/20 text-right space-y-2 mb-5">
             <div className="flex items-center justify-between">
               <span className="text-xs text-gray-400">معرف الجهاز (Device ID):</span>
-              <span className="font-mono text-lg font-black text-amber-300 bg-amber-950/40 border border-amber-500/30 px-3 py-0.5 rounded-lg">
+              <span className="font-mono text-base font-black text-amber-300 bg-amber-950/40 border border-amber-500/30 px-2.5 py-0.5 rounded-lg">
                 {kdsDevice?.deviceId || 'KDS-INIT'}
               </span>
             </div>
-            <div className="flex items-center justify-between text-xs text-gray-400 border-t border-gray-800/80 pt-2">
-              <span>اسم الشاشة:</span>
-              <span className="text-gray-200 font-bold">{kdsDevice?.deviceName || 'شاشة المطبخ'}</span>
-            </div>
-            <div className="flex items-center justify-between text-xs text-gray-400 border-t border-gray-800/80 pt-2">
-              <span>نوع الجهاز والهاردوير:</span>
-              <span className="text-gray-300">{hardwareProfile.friendlyDevice} ({hardwareProfile.screenSpec})</span>
-            </div>
+            {kdsDevice?.deviceName && (
+              <div className="flex items-center justify-between text-xs text-gray-400 border-t border-gray-800/80 pt-2">
+                <span>اسم الشاشة:</span>
+                <span className="text-gray-200 font-bold">{kdsDevice.deviceName}</span>
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center justify-center gap-2 text-xs font-bold text-emerald-400 mb-6 bg-emerald-950/30 border border-emerald-500/30 py-2.5 px-4 rounded-xl animate-pulse">
+          <div className="flex items-center justify-center gap-2 text-xs font-bold text-emerald-400 mb-5 bg-emerald-950/30 border border-emerald-500/30 py-2 px-3 rounded-xl animate-pulse">
             <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-            <span>متصل لحظياً: ستعمل الشاشة وتستقبل الأوردرات تلقائياً فور موافقة الكاشير</span>
+            <span>متصل لحظياً: ستفتح الشاشة تلقائياً فور موافقة الكاشير</span>
           </div>
 
           <button
@@ -654,13 +654,13 @@ export default function KdsPage() {
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-md bg-[#13141B] border border-gray-800 rounded-3xl p-6 sm:p-8 shadow-2xl text-center"
+          className="w-full max-w-sm bg-[#13141B] border border-gray-800 rounded-3xl p-6 sm:p-8 shadow-2xl text-center"
         >
           <div className="w-16 h-16 rounded-2xl bg-brand-red/20 border border-brand-red/40 flex items-center justify-center mx-auto mb-4 shadow-[0_0_20px_rgba(230,57,70,0.3)]">
             <Key className="w-8 h-8 text-brand-red" />
           </div>
 
-          <h2 className="text-2xl font-black mb-1">اقتران شاشة المطبخ</h2>
+          <h2 className="text-xl font-black mb-1">اقتران شاشة المطبخ</h2>
           <p className="text-gray-400 text-xs sm:text-sm mb-5">تأكيد تسجيل الجهاز وربطه بـ The Black Box KDS</p>
 
           {authError && (
@@ -689,20 +689,9 @@ export default function KdsPage() {
                 type="text"
                 value={stationNameInput}
                 onChange={(e) => setStationNameInput(e.target.value)}
-                placeholder={`مثال: شاشة البرجر واللحوم (${hardwareProfile.friendlyDevice})`}
+                placeholder="مثال: شاشة المطبخ 1 (البرجر واللحوم)"
                 className="w-full py-3 px-4 bg-black border border-gray-700 rounded-xl text-sm font-medium text-white focus:outline-none focus:border-brand-red"
               />
-            </div>
-
-            <div className="bg-black/40 rounded-xl p-3 border border-gray-800 text-xs text-gray-400 space-y-1">
-              <div className="flex items-center justify-between">
-                <span>نوع الجهاز:</span>
-                <span className="text-gray-200 font-bold">{hardwareProfile.friendlyDevice}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>أبعاد الشاشة:</span>
-                <span className="text-gray-300 font-mono">{hardwareProfile.screenSpec}</span>
-              </div>
             </div>
 
             <button
@@ -743,19 +732,15 @@ export default function KdsPage() {
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-md bg-[#13141B] border border-gray-800 rounded-3xl p-6 sm:p-8 shadow-2xl text-center"
+          className="w-full max-w-sm bg-[#13141B] border border-gray-800 rounded-3xl p-6 sm:p-8 shadow-2xl text-center"
         >
-          <div className="w-16 h-16 rounded-2xl bg-brand-red/15 border border-brand-red/30 flex items-center justify-center mx-auto mb-5 shadow-[0_0_20px_rgba(230,57,70,0.25)]">
+          <div className="w-16 h-16 rounded-2xl bg-brand-red/15 border border-brand-red/30 flex items-center justify-center mx-auto mb-4 shadow-[0_0_20px_rgba(230,57,70,0.25)]">
             <Lock className="w-8 h-8 text-brand-red animate-pulse" />
           </div>
 
-          <span className="inline-block px-3 py-0.5 bg-gray-800 text-gray-300 border border-gray-700 rounded-full text-[11px] font-bold mb-2">
-            شاشة مشفرة بنظام Zero-Trust KDS
-          </span>
-
-          <h2 className="text-xl sm:text-2xl font-black mb-1 tracking-wide">شاشة المطبخ مقفلة</h2>
+          <h2 className="text-xl sm:text-2xl font-black mb-1 tracking-wide">شاشة المطبخ (KDS)</h2>
           <p className="text-gray-400 text-xs sm:text-sm mb-6 leading-relaxed">
-            لا يمكن الوصول إلى شاشة المطبخ إلا برابط اقتران صادر ومعتمد من كاشير المطعم (POS).
+            هذه الشاشة مخصصة لطاقم المطبخ فقط وتتطلب تفعيل مسبق.
           </p>
 
           {authError && (
@@ -769,28 +754,11 @@ export default function KdsPage() {
             <button
               type="button"
               onClick={() => setDeviceAuthState('pairing')}
-              className="w-full py-3.5 bg-gradient-to-r from-brand-red to-orange-600 hover:brightness-110 active:scale-95 text-white font-black text-sm rounded-xl transition-all shadow-lg shadow-brand-red/25 flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-3.5 bg-brand-red hover:bg-brand-red-dark active:scale-95 text-white font-black text-sm rounded-xl transition-all shadow-lg shadow-brand-red/25 flex items-center justify-center gap-2 cursor-pointer"
             >
               <Key size={18} />
-              <span>إدخال كود اقتران الشاشة</span>
+              <span>إدخال كود التفعيل</span>
             </button>
-
-            <div className="p-4 bg-black/40 rounded-2xl border border-gray-800/80 text-right text-xs text-gray-400 space-y-2">
-              <div className="font-bold text-gray-300 flex items-center gap-1.5">
-                <HelpCircle size={14} className="text-brand-red" />
-                <span>كيف أقوم بربط هذه الشاشة؟</span>
-              </div>
-              <p className="leading-relaxed text-[11px] text-gray-400">
-                1. افتح برنامج الكاشير على جهاز الكمبيوتر.<br/>
-                2. توجه إلى «لوحة التحكم وإعدادات النظام» ثم قسم «شاشات المطبخ وأجهزة KDS».<br/>
-                3. اضغط «توليد رابط اقتران جديد» وامسح رمز الـ QR بكاميرا هذا التابلت، أو انسخ الرابط وافتحه هنا.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-6 pt-4 border-t border-gray-800/80 text-[11px] text-gray-500 flex items-center justify-between">
-            <span>بصمة الجهاز: {hardwareProfile.fingerprintHash}</span>
-            <span>{hardwareProfile.friendlyDevice}</span>
           </div>
         </motion.div>
       </div>
