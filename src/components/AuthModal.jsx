@@ -265,6 +265,14 @@ export default function AuthModal({ isOpen, onClose, onSuccess, zonesList = [] }
           return setError(localCheck.message);
         }
 
+        const isLive = await checkWhatsAppGatewayLive();
+        if (!isLive) {
+          setLoading(false);
+          return setError(lang === 'en'
+            ? '⚠️ WhatsApp service is currently offline (restaurant closed or system maintenance). Please contact the restaurant directly.'
+            : '⚠️ خدمة كود الواتساب غير متاحة حالياً نظراً لإغلاق المطعم أو أعمال الصيانة. يُرجى الاتصال بالمطعم هاتفياً.');
+        }
+
         if (!auth.currentUser) await signInAnonymously(auth);
 
         const reqId = `otp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -326,6 +334,14 @@ export default function AuthModal({ isOpen, onClose, onSuccess, zonesList = [] }
       if (!localCheck.allowed) {
         setLoading(false);
         return setError(localCheck.message);
+      }
+
+      const isLive = await checkWhatsAppGatewayLive();
+      if (!isLive) {
+        setLoading(false);
+        return setError(lang === 'en'
+          ? '⚠️ WhatsApp service is currently offline (restaurant closed or system maintenance). Please contact the restaurant directly.'
+          : '⚠️ خدمة كود الواتساب غير متاحة حالياً نظراً لإغلاق المطعم أو أعمال الصيانة. يُرجى الاتصال بالمطعم هاتفياً.');
       }
 
       if (!auth.currentUser) await signInAnonymously(auth);
