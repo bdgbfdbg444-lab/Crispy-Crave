@@ -2,13 +2,22 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Flame, Clock, CheckCircle2, Lock, Unlock, Volume2, VolumeX, 
-  RotateCcw, AlertTriangle, Utensils, Bike, ShoppingBag, Eye, RefreshCw, ChevronRight, Check
+  RotateCcw, AlertTriangle, Utensils, Bike, ShoppingBag, Eye, RefreshCw, ChevronRight, Check,
+  ShieldCheck, ShieldAlert, Ban, QrCode, Key, Cpu, MonitorSmartphone, Laptop, Smartphone, HelpCircle, Loader2
 } from 'lucide-react';
 import { db } from '../firebase';
 import { ref, onValue, update } from 'firebase/database';
 import { APP_CONFIG } from '../config/appConfig';
-
-const KITCHEN_PIN = '9080'; // Default Secure Kitchen PIN
+import {
+  getLocalKdsCredentials,
+  saveLocalKdsCredentials,
+  clearLocalKdsCredentials,
+  generateHardwareProfile,
+  validatePairingToken,
+  registerKdsDevice,
+  listenToKdsDeviceAuth,
+  startKdsDeviceHeartbeat
+} from '../utils/kdsDeviceSecurity';
 
 // Helper to format elapsed kitchen time cleanly
 function formatElapsed(mins) {
@@ -57,26 +66,21 @@ function playKitchenChime() {
 }
 
 export default function KdsPage() {
-  // 1. PIN Authentication
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    try {
-      const urlParams = new URLSearchParams(window.location.search);
-      const hashParams = new URLSearchParams(window.location.hash.split('?')[1] || '');
-      const pinParam = urlParams.get('pin') || hashParams.get('pin');
-      if (pinParam === KITCHEN_PIN) {
-        localStorage.setItem('kds_auth', 'true');
-        return true;
-      }
-      return localStorage.getItem('kds_auth') === 'true';
-    } catch {
-      return false;
-    }
-  });
+  // -------------------------------------------------------------
+  // 1. Zero-Trust Hardware Device Security States
+  // -------------------------------------------------------------
+  // 'loading' | 'unregistered' | 'pairing' | 'pending' | 'blocked' | 'approved'
+  const [deviceAuthState, setDeviceAuthState] = useState('loading');
+  const [kdsDevice, setKdsDevice] = useState(null);
+  const [authError, setAuthError] = useState('');
+  const [pairingTokenInput, setPairingTokenInput] = useState('');
+  const [stationNameInput, setStationNameInput] = useState('');
+  const [isSubmittingPairing, setIsSubmittingPairing] = useState(false);
+  const [hardwareProfile, setHardwareProfile] = useState(() => generateHardwareProfile());
 
-  const [pinInput, setPinInput] = useState('');
-  const [pinError, setPinError] = useState(false);
-
-  // 2. KDS State
+  // -------------------------------------------------------------
+  // 2. KDS Workspace States
+  // -------------------------------------------------------------
   const [activeTab, setActiveTab] = useState('active'); // 'active' | 'ready'
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [ordersMap, setOrdersMap] = useState({});
@@ -90,9 +94,126 @@ export default function KdsPage() {
     return () => clearInterval(timer);
   }, []);
 
-  // 3. Realtime Firebase Orders & OrderTracking Listener
+  // -------------------------------------------------------------
+  // 3. Device Initialization & Realtime Firebase Auth Listener
+  // -------------------------------------------------------------
   useEffect(() => {
-    if (!isAuthenticated) return;
+    const profile = generateHardwareProfile();
+    setHardwareProfile(profile);
+
+    // Check if pairing token exists in URL or hash query
+    let tokenFromUrl = '';
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const hashSplit = window.location.hash.split('?')[1] || '';
+      const hashParams = new URLSearchParams(hashSplit);
+      tokenFromUrl = urlParams.get('pair') || hashParams.get('pair') || urlParams.get('token') || hashParams.get('token') || '';
+    } catch { }
+
+    const creds = getLocalKdsCredentials();
+
+    if (creds && creds.deviceId) {
+      setDeviceAuthState('loading');
+      // Device already has local credentials -> listen in real-time to Firebase
+      const unsubscribeAuth = listenToKdsDeviceAuth(creds.deviceId, (result) => {
+        if (result.status === 'approved') {
+          setDeviceAuthState('approved');
+          setKdsDevice(result.device);
+          setAuthError('');
+        } else if (result.status === 'pending') {
+          setDeviceAuthState('pending');
+          setKdsDevice(result.device);
+          setAuthError('');
+        } else if (result.status === 'blocked') {
+          setDeviceAuthState('blocked');
+          setKdsDevice(result.device);
+          setAuthError(result.error || '');
+        } else if (result.status === 'unregistered') {
+          setDeviceAuthState('unregistered');
+          setKdsDevice(null);
+          setAuthError(result.error || '');
+        } else {
+          setDeviceAuthState(result.status || 'unregistered');
+          setAuthError(result.error || '');
+        }
+      });
+
+      const stopHeartbeat = startKdsDeviceHeartbeat(creds.deviceId);
+
+      return () => {
+        unsubscribeAuth();
+        stopHeartbeat();
+      };
+    } else if (tokenFromUrl) {
+      setPairingTokenInput(tokenFromUrl.trim().toUpperCase());
+      setDeviceAuthState('pairing');
+    } else {
+      setDeviceAuthState('unregistered');
+    }
+  }, []);
+
+  // Submit Pairing & Register Device
+  const handleRegisterDevice = async (e) => {
+    if (e) e.preventDefault();
+    const cleanToken = pairingTokenInput.trim().toUpperCase();
+    if (!cleanToken) {
+      setAuthError('يرجى إدخال كود التفعيل أو مسح رابط الاقتران.');
+      return;
+    }
+
+    setIsSubmittingPairing(true);
+    setAuthError('');
+
+    try {
+      const registered = await registerKdsDevice(cleanToken, stationNameInput.trim());
+      setKdsDevice({
+        deviceId: registered.deviceId,
+        deviceName: registered.deviceName,
+        status: 'pending'
+      });
+      setDeviceAuthState('pending');
+
+      // Start real-time listener for the new device
+      listenToKdsDeviceAuth(registered.deviceId, (result) => {
+        if (result.status === 'approved') {
+          setDeviceAuthState('approved');
+          setKdsDevice(result.device);
+          setAuthError('');
+        } else if (result.status === 'blocked') {
+          setDeviceAuthState('blocked');
+          setKdsDevice(result.device);
+          setAuthError(result.error || '');
+        } else if (result.status === 'pending') {
+          setDeviceAuthState('pending');
+          setKdsDevice(result.device);
+        }
+      });
+
+      startKdsDeviceHeartbeat(registered.deviceId);
+    } catch (err) {
+      setAuthError(err?.message || 'فشل تسجيل واقتران الجهاز.');
+    } finally {
+      setIsSubmittingPairing(false);
+    }
+  };
+
+  // Disconnect / Unlink Device
+  const handleUnlinkDevice = () => {
+    if (window.confirm('هل أنت متأكد من رغبتك في إلغاء ربط هذه الشاشة؟ سيتطلب الأمر كود تفعيل جديد من الكاشير لإعادة تشغيلها.')) {
+      clearLocalKdsCredentials();
+      setDeviceAuthState('unregistered');
+      setKdsDevice(null);
+      setPairingTokenInput('');
+      setStationNameInput('');
+      setAuthError('');
+    }
+  };
+
+  // -------------------------------------------------------------
+  // 4. Realtime Firebase Orders Listener (Runs ONLY When Approved!)
+  // -------------------------------------------------------------
+  useEffect(() => {
+    if (deviceAuthState !== 'approved') return;
 
     // Listen to OrderTracking node
     const trackingRef = ref(db, 'OrderTracking');
@@ -138,40 +259,7 @@ export default function KdsPage() {
       unsubscribeTracking();
       unsubscribeOrders();
     };
-  }, [isAuthenticated]);
-
-  // Handle PIN Submission
-  const handlePinSubmit = (e) => {
-    if (e) e.preventDefault();
-    if (pinInput.trim() === KITCHEN_PIN) {
-      localStorage.setItem('kds_auth', 'true');
-      setIsAuthenticated(true);
-      setPinError(false);
-      setPinInput('');
-    } else {
-      setPinError(true);
-      setPinInput('');
-    }
-  };
-
-  const handlePinDigit = (digit) => {
-    if (pinInput.length < 6) {
-      const next = pinInput + digit;
-      setPinInput(next);
-      if (next === KITCHEN_PIN) {
-        localStorage.setItem('kds_auth', 'true');
-        setIsAuthenticated(true);
-        setPinError(false);
-        setPinInput('');
-      }
-    }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('kds_auth');
-    setIsAuthenticated(false);
-    setPinInput('');
-  };
+  }, [deviceAuthState]);
 
   // Convert raw map to array of normalized orders
   const ordersList = useMemo(() => {
@@ -230,6 +318,8 @@ export default function KdsPage() {
 
   // Sound chime when a new active order arrives
   useEffect(() => {
+    if (deviceAuthState !== 'approved') return;
+
     const currentActiveIds = new Set(
       ordersList
         .filter(o => ['inkitchen', 'new', 'pending', 'preparing'].includes(o.status) && o.items?.length > 0 && o.elapsedMins <= 1440)
@@ -255,9 +345,9 @@ export default function KdsPage() {
     }
 
     previousOrderIdsRef.current = currentActiveIds;
-  }, [ordersList, soundEnabled]);
+  }, [ordersList, soundEnabled, deviceAuthState]);
 
-  // Separate Active and Ready orders (Filter to genuine kitchen orders with items from last 24h)
+  // Separate Active and Ready orders
   const activeOrders = useMemo(() => {
     return ordersList
       .filter(o => 
@@ -441,92 +531,282 @@ export default function KdsPage() {
     }
   };
 
-  // Render Lock Screen if not authenticated
-  if (!isAuthenticated) {
+  // -------------------------------------------------------------
+  // 5. SECURITY VIEWS (Zero-Trust Lock / Pairing / Pending / Blocked)
+  // -------------------------------------------------------------
+
+  // View A: Loading Spinner
+  if (deviceAuthState === 'loading') {
     return (
-      <div className="min-h-screen bg-[#0A0A0C] text-white flex flex-col items-center justify-center p-4" dir="rtl">
+      <div className="min-h-screen bg-[#0A0A0C] text-white flex flex-col items-center justify-center p-6" dir="rtl">
+        <div className="w-16 h-16 rounded-3xl bg-brand-red/10 border border-brand-red/30 flex items-center justify-center mb-4 shadow-[0_0_25px_rgba(230,57,70,0.2)]">
+          <Loader2 className="w-8 h-8 text-brand-red animate-spin" />
+        </div>
+        <h2 className="text-xl font-black mb-1">التحقق من الأمان وتشفير الجهاز...</h2>
+        <p className="text-gray-400 text-xs">The Black Box • Secure Kitchen Display System</p>
+      </div>
+    );
+  }
+
+  // View B: Blocked Device (Permanent Deny)
+  if (deviceAuthState === 'blocked') {
+    return (
+      <div className="min-h-screen bg-[#070709] text-white flex flex-col items-center justify-center p-4 sm:p-6" dir="rtl">
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-sm bg-[#141418] border border-gray-800 rounded-3xl p-6 sm:p-8 shadow-2xl text-center"
+          className="w-full max-w-md bg-[#121216] border-2 border-red-600/80 rounded-3xl p-6 sm:p-8 shadow-2xl text-center relative overflow-hidden"
         >
-          <div className="w-16 h-16 rounded-2xl bg-brand-red/15 border border-brand-red/30 flex items-center justify-center mx-auto mb-5 shadow-[0_0_20px_rgba(230,57,70,0.25)]">
-            <Lock className="w-8 h-8 text-brand-red animate-pulse" />
+          <div className="absolute -right-16 -top-16 w-36 h-36 bg-red-600/10 rounded-full blur-3xl pointer-events-none" />
+          
+          <div className="w-20 h-20 rounded-2xl bg-red-600/20 border border-red-500/40 flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(239,68,68,0.35)]">
+            <Ban className="w-10 h-10 text-red-500 animate-pulse" />
           </div>
 
-          <h2 className="text-xl sm:text-2xl font-black mb-1 tracking-wide">شاشة المطبخ الذكية (KDS)</h2>
-          <p className="text-gray-400 text-xs sm:text-sm mb-6">يرجى إدخال رمز المرور السري الخاص بالمطبخ للوصول</p>
+          <span className="inline-block px-3 py-1 bg-red-600/20 text-red-400 border border-red-500/30 rounded-full text-[11px] font-black uppercase tracking-wider mb-2">
+            تم حظر الوصول نهائياً
+          </span>
 
-          <form onSubmit={handlePinSubmit} className="space-y-4">
-            <input 
-              type="password"
-              inputMode="numeric"
-              maxLength={6}
-              value={pinInput}
-              onChange={(e) => setPinInput(e.target.value)}
-              placeholder="••••"
-              className={`w-full py-4 text-center text-3xl font-black tracking-[0.5em] bg-black border-2 rounded-2xl text-white focus:outline-none transition-all ${
-                pinError ? 'border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)]' : 'border-gray-700 focus:border-brand-red'
-              }`}
-              autoFocus
-            />
+          <h2 className="text-2xl font-black text-white mb-2">تم حظر هذا الجهاز من قبل الإدارة</h2>
+          <p className="text-gray-400 text-xs sm:text-sm leading-relaxed mb-6">
+            تم رفض اعتماد هذا الجهاز وحظر بصمته الرقمية بواسطة إدارة المطعم في نظام الكاشير. لا يمكنك عرض أو استقبال أي طلبات من هذا المتصفح.
+          </p>
 
-            {pinError && (
-              <p className="text-red-400 text-xs font-bold animate-shake">
-                ⚠️ رمز المرور غير صحيح، يرجى المحاولة مرة أخرى
-              </p>
-            )}
-
-            {/* Touch Number Pad for Tablet */}
-            <div className="grid grid-cols-3 gap-2.5 pt-2">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                <button
-                  key={num}
-                  type="button"
-                  onClick={() => handlePinDigit(num.toString())}
-                  className="py-3.5 bg-[#1C1C22] hover:bg-[#282832] active:scale-95 text-xl font-bold rounded-xl transition-all border border-gray-800 text-gray-200"
-                >
-                  {num}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => setPinInput('')}
-                className="py-3.5 bg-red-950/40 hover:bg-red-900/60 text-red-300 font-bold rounded-xl transition-all border border-red-900/40 text-sm"
-              >
-                مسح
-              </button>
-              <button
-                type="button"
-                onClick={() => handlePinDigit('0')}
-                className="py-3.5 bg-[#1C1C22] hover:bg-[#282832] active:scale-95 text-xl font-bold rounded-xl transition-all border border-gray-800 text-gray-200"
-              >
-                0
-              </button>
-              <button
-                type="submit"
-                className="py-3.5 bg-brand-red hover:bg-brand-red-dark active:scale-95 text-white font-black rounded-xl transition-all shadow-lg shadow-brand-red/30 flex items-center justify-center"
-              >
-                <Check size={20} />
-              </button>
+          <div className="bg-black/60 rounded-2xl p-4 border border-red-950/60 text-right space-y-2 mb-6">
+            <div className="flex items-center justify-between text-xs text-gray-400 border-b border-gray-800 pb-2">
+              <span>معرف الجهاز المشفر:</span>
+              <span className="font-mono text-red-400 font-bold">{kdsDevice?.deviceId || 'UNKNOWN-DEVICE'}</span>
             </div>
-          </form>
+            <div className="flex items-center justify-between text-xs text-gray-400">
+              <span>نوع الجهاز المسجل:</span>
+              <span className="text-gray-300 font-medium">{hardwareProfile.friendlyDevice}</span>
+            </div>
+          </div>
 
-          <div className="mt-6 pt-4 border-t border-gray-800/80 text-[11px] text-gray-500">
-            The Black Box • Kitchen Operating System
+          <div className="text-[11px] text-gray-500">
+            إذا كنت تعتقد أن هذا الإجراء تم بالخطأ، يرجى التواصل مع إدارة الفرن أو مسؤول النظام.
           </div>
         </motion.div>
       </div>
     );
   }
 
+  // View C: Pending Approval (Waiting for POS Admin Approval)
+  if (deviceAuthState === 'pending') {
+    return (
+      <div className="min-h-screen bg-[#070709] text-white flex flex-col items-center justify-center p-4 sm:p-6" dir="rtl">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-lg bg-[#13141B] border-2 border-amber-500/50 rounded-3xl p-6 sm:p-8 shadow-2xl text-center relative overflow-hidden"
+        >
+          <div className="w-20 h-20 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(245,158,11,0.25)]">
+            <Clock className="w-10 h-10 text-amber-400 animate-spin" />
+          </div>
+
+          <span className="inline-block px-3 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full text-xs font-black mb-2">
+            في انتظار اعتماد المدير (Pending Approval)
+          </span>
+
+          <h2 className="text-2xl font-black text-white mb-2">طلب تسجيل الجهاز قيد المراجعة</h2>
+          <p className="text-gray-300 text-xs sm:text-sm leading-relaxed mb-6">
+            تم استلام طلب اقتران شاشة المطبخ وحفظ بصمة الهاردوير بنجاح. يرجى من مسؤول الكاشير (POS) الضغط على زر <strong className="text-emerald-400">«موافقة / Approve»</strong> في قائمة شاشات المطبخ لتفعيل البث المباشر.
+          </p>
+
+          <div className="bg-black/50 rounded-2xl p-4 sm:p-5 border border-amber-500/20 text-right space-y-3 mb-6">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-400">معرف الجهاز (Device ID):</span>
+              <span className="font-mono text-lg font-black text-amber-300 bg-amber-950/40 border border-amber-500/30 px-3 py-0.5 rounded-lg">
+                {kdsDevice?.deviceId || 'KDS-INIT'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs text-gray-400 border-t border-gray-800/80 pt-2">
+              <span>اسم الشاشة:</span>
+              <span className="text-gray-200 font-bold">{kdsDevice?.deviceName || 'شاشة المطبخ'}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs text-gray-400 border-t border-gray-800/80 pt-2">
+              <span>نوع الجهاز والهاردوير:</span>
+              <span className="text-gray-300">{hardwareProfile.friendlyDevice} ({hardwareProfile.screenSpec})</span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-center gap-2 text-xs font-bold text-emerald-400 mb-6 bg-emerald-950/30 border border-emerald-500/30 py-2.5 px-4 rounded-xl animate-pulse">
+            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span>متصل لحظياً: ستعمل الشاشة وتستقبل الأوردرات تلقائياً فور موافقة الكاشير</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleUnlinkDevice}
+            className="text-xs text-gray-400 hover:text-red-400 underline transition-colors"
+          >
+            إلغاء الطلب والربط بكود آخر
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // View D: Pairing Setup (URL has token or user clicked pair)
+  if (deviceAuthState === 'pairing') {
+    return (
+      <div className="min-h-screen bg-[#070709] text-white flex flex-col items-center justify-center p-4 sm:p-6" dir="rtl">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-md bg-[#13141B] border border-gray-800 rounded-3xl p-6 sm:p-8 shadow-2xl text-center"
+        >
+          <div className="w-16 h-16 rounded-2xl bg-brand-red/20 border border-brand-red/40 flex items-center justify-center mx-auto mb-4 shadow-[0_0_20px_rgba(230,57,70,0.3)]">
+            <Key className="w-8 h-8 text-brand-red" />
+          </div>
+
+          <h2 className="text-2xl font-black mb-1">اقتران شاشة المطبخ</h2>
+          <p className="text-gray-400 text-xs sm:text-sm mb-5">تأكيد تسجيل الجهاز وربطه بـ The Black Box KDS</p>
+
+          {authError && (
+            <div className="mb-4 p-3 bg-red-950/50 border border-red-500/40 rounded-xl text-xs font-bold text-red-300 text-right flex items-start gap-2">
+              <AlertTriangle size={15} className="shrink-0 text-red-400 mt-0.5" />
+              <span>{authError}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleRegisterDevice} className="space-y-4 text-right">
+            <div>
+              <label className="block text-xs font-bold text-gray-300 mb-1.5">كود الاقتران والتفعيل (Pairing Token):</label>
+              <input
+                type="text"
+                value={pairingTokenInput}
+                onChange={(e) => setPairingTokenInput(e.target.value.toUpperCase())}
+                placeholder="KDS-PAIR-XXXX-XXXX"
+                className="w-full py-3 px-4 bg-black border border-gray-700 rounded-xl font-mono text-center text-sm font-bold text-amber-300 focus:outline-none focus:border-amber-400"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-300 mb-1.5">اسم الشاشة أو المحطة بالمطبخ:</label>
+              <input
+                type="text"
+                value={stationNameInput}
+                onChange={(e) => setStationNameInput(e.target.value)}
+                placeholder={`مثال: شاشة البرجر واللحوم (${hardwareProfile.friendlyDevice})`}
+                className="w-full py-3 px-4 bg-black border border-gray-700 rounded-xl text-sm font-medium text-white focus:outline-none focus:border-brand-red"
+              />
+            </div>
+
+            <div className="bg-black/40 rounded-xl p-3 border border-gray-800 text-xs text-gray-400 space-y-1">
+              <div className="flex items-center justify-between">
+                <span>نوع الجهاز:</span>
+                <span className="text-gray-200 font-bold">{hardwareProfile.friendlyDevice}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>أبعاد الشاشة:</span>
+                <span className="text-gray-300 font-mono">{hardwareProfile.screenSpec}</span>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmittingPairing}
+              className="w-full py-3.5 bg-brand-red hover:bg-brand-red-dark disabled:bg-gray-700 active:scale-95 text-white font-black text-sm rounded-xl transition-all shadow-lg shadow-brand-red/30 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {isSubmittingPairing ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  <span>جاري تسجيل الجهاز...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 size={18} />
+                  <span>إرسال طلب الاعتماد للكاشير</span>
+                </>
+              )}
+            </button>
+          </form>
+
+          <button
+            type="button"
+            onClick={() => setDeviceAuthState('unregistered')}
+            className="mt-4 text-xs text-gray-400 hover:text-white"
+          >
+            الرجوع إلى شاشة القفل الرئيسية
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // View E: Unregistered (Zero-Trust Lock Screen)
+  if (deviceAuthState === 'unregistered') {
+    return (
+      <div className="min-h-screen bg-[#070709] text-white flex flex-col items-center justify-center p-4 sm:p-6" dir="rtl">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-md bg-[#13141B] border border-gray-800 rounded-3xl p-6 sm:p-8 shadow-2xl text-center"
+        >
+          <div className="w-16 h-16 rounded-2xl bg-brand-red/15 border border-brand-red/30 flex items-center justify-center mx-auto mb-5 shadow-[0_0_20px_rgba(230,57,70,0.25)]">
+            <Lock className="w-8 h-8 text-brand-red animate-pulse" />
+          </div>
+
+          <span className="inline-block px-3 py-0.5 bg-gray-800 text-gray-300 border border-gray-700 rounded-full text-[11px] font-bold mb-2">
+            شاشة مشفرة بنظام Zero-Trust KDS
+          </span>
+
+          <h2 className="text-xl sm:text-2xl font-black mb-1 tracking-wide">شاشة المطبخ مقفلة</h2>
+          <p className="text-gray-400 text-xs sm:text-sm mb-6 leading-relaxed">
+            لا يمكن الوصول إلى شاشة المطبخ إلا برابط اقتران صادر ومعتمد من كاشير المطعم (POS).
+          </p>
+
+          {authError && (
+            <div className="mb-4 p-3 bg-red-950/50 border border-red-500/40 rounded-xl text-xs font-bold text-red-300 text-right flex items-start gap-2">
+              <AlertTriangle size={15} className="shrink-0 text-red-400 mt-0.5" />
+              <span>{authError}</span>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => setDeviceAuthState('pairing')}
+              className="w-full py-3.5 bg-gradient-to-r from-brand-red to-orange-600 hover:brightness-110 active:scale-95 text-white font-black text-sm rounded-xl transition-all shadow-lg shadow-brand-red/25 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Key size={18} />
+              <span>إدخال كود اقتران الشاشة</span>
+            </button>
+
+            <div className="p-4 bg-black/40 rounded-2xl border border-gray-800/80 text-right text-xs text-gray-400 space-y-2">
+              <div className="font-bold text-gray-300 flex items-center gap-1.5">
+                <HelpCircle size={14} className="text-brand-red" />
+                <span>كيف أقوم بربط هذه الشاشة؟</span>
+              </div>
+              <p className="leading-relaxed text-[11px] text-gray-400">
+                1. افتح برنامج الكاشير على جهاز الكمبيوتر.<br/>
+                2. توجه إلى «لوحة التحكم وإعدادات النظام» ثم قسم «شاشات المطبخ وأجهزة KDS».<br/>
+                3. اضغط «توليد رابط اقتران جديد» وامسح رمز الـ QR بكاميرا هذا التابلت، أو انسخ الرابط وافتحه هنا.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-gray-800/80 text-[11px] text-gray-500 flex items-center justify-between">
+            <span>بصمة الجهاز: {hardwareProfile.fingerprintHash}</span>
+            <span>{hardwareProfile.friendlyDevice}</span>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // -------------------------------------------------------------
+  // 6. APPROVED KDS WORKSPACE (Live Interactive Kitchen System)
+  // -------------------------------------------------------------
   return (
     <div className="min-h-screen bg-[#0C0D11] text-white flex flex-col font-sans select-none overflow-x-hidden" dir="rtl">
       
       {/* Top Navigation Bar */}
       <header className="bg-[#14151B] border-b border-gray-800/80 px-4 md:px-6 py-3 flex items-center justify-between gap-4 sticky top-0 z-30 shadow-lg">
         
-        {/* Left: Brand & Live Status */}
+        {/* Left: Brand, Device Badge & Live Status */}
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-brand-red flex items-center justify-center font-black text-white shadow-[0_0_15px_rgba(230,57,70,0.4)]">
             <Flame size={22} />
@@ -539,7 +819,14 @@ export default function KdsPage() {
                 متصل لحظياً
               </span>
             </h1>
-            <p className="text-gray-400 text-xs hidden md:block">The Black Box • Gourmet Kitchen</p>
+            <div className="flex items-center gap-2 text-xs text-gray-400">
+              <span className="text-emerald-400 font-bold flex items-center gap-1">
+                <ShieldCheck size={13} />
+                <span>{kdsDevice?.deviceName || 'شاشة المطبخ'}</span>
+              </span>
+              <span className="text-gray-600">•</span>
+              <span className="font-mono text-[11px] text-gray-500">{kdsDevice?.deviceId}</span>
+            </div>
           </div>
         </div>
 
@@ -547,7 +834,7 @@ export default function KdsPage() {
         <div className="flex items-center bg-[#0C0D11] p-1 rounded-xl border border-gray-800">
           <button
             onClick={() => setActiveTab('active')}
-            className={`px-4 sm:px-6 py-2 rounded-lg font-black text-xs sm:text-sm flex items-center gap-2 transition-all ${
+            className={`px-4 sm:px-6 py-2 rounded-lg font-black text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'active'
                 ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/30'
                 : 'text-gray-400 hover:text-white'
@@ -563,7 +850,7 @@ export default function KdsPage() {
 
           <button
             onClick={() => setActiveTab('ready')}
-            className={`px-4 sm:px-6 py-2 rounded-lg font-black text-xs sm:text-sm flex items-center gap-2 transition-all ${
+            className={`px-4 sm:px-6 py-2 rounded-lg font-black text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'ready'
                 ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
                 : 'text-gray-400 hover:text-white'
@@ -578,11 +865,11 @@ export default function KdsPage() {
           </button>
         </div>
 
-        {/* Right: Sound toggle, Clock & Lock */}
-        <div className="flex items-center gap-3">
+        {/* Right: Sound toggle, Clock & Security Actions */}
+        <div className="flex items-center gap-2.5">
           <button
             onClick={() => setSoundEnabled(!soundEnabled)}
-            className={`p-2.5 rounded-xl border transition-all ${
+            className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
               soundEnabled
                 ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
                 : 'bg-gray-800 border-gray-700 text-gray-400'
@@ -600,9 +887,9 @@ export default function KdsPage() {
           </div>
 
           <button
-            onClick={handleLogout}
-            className="p-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-700 transition-colors"
-            title="قفل شاشة المطبخ"
+            onClick={handleUnlinkDevice}
+            className="p-2.5 rounded-xl bg-gray-800 hover:bg-red-950/60 hover:text-red-400 text-gray-300 border border-gray-700 hover:border-red-500/40 transition-colors cursor-pointer"
+            title="إلغاء ربط هذا الجهاز / قفل الشاشة"
           >
             <Lock size={18} />
           </button>
@@ -669,7 +956,7 @@ export default function KdsPage() {
                             type="button"
                             onClick={() => handleMarkServed(order)}
                             title="إتمام فوري / أرشفة"
-                            className="p-1.5 bg-black/40 hover:bg-black/70 text-gray-300 hover:text-white rounded-lg transition-colors"
+                            className="p-1.5 bg-black/40 hover:bg-black/70 text-gray-300 hover:text-white rounded-lg transition-colors cursor-pointer"
                           >
                             <Check size={14} />
                           </button>
