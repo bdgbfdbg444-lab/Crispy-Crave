@@ -109,6 +109,8 @@ export default function KdsPage() {
           return merged;
         });
       }
+    }, (err) => {
+      console.warn('Firebase OrderTracking listener error:', err?.message || err);
     });
 
     // Also listen to incoming Orders node
@@ -128,6 +130,8 @@ export default function KdsPage() {
           return merged;
         });
       }
+    }, (err) => {
+      console.warn('Firebase Orders listener error:', err?.message || err);
     });
 
     return () => {
@@ -179,12 +183,13 @@ export default function KdsPage() {
       
       // Parse OrderDate
       let orderDate = new Date();
-      if (val.OrderDate) {
-        orderDate = new Date(val.OrderDate);
-      } else if (val.CreatedAt || val.createdAt) {
-        orderDate = new Date(val.CreatedAt || val.createdAt);
-      } else if (val.LastUpdate) {
-        orderDate = new Date(val.LastUpdate);
+      const rawDate = val.OrderDate || val.CreatedAt || val.createdAt || val.LastUpdate;
+      if (rawDate) {
+        const iso = String(rawDate).includes(' ') && !String(rawDate).includes('T')
+          ? String(rawDate).replace(' ', 'T')
+          : String(rawDate);
+        const parsed = new Date(iso);
+        if (!isNaN(parsed.getTime())) orderDate = parsed;
       }
 
       // Elapsed Minutes
@@ -227,7 +232,7 @@ export default function KdsPage() {
   useEffect(() => {
     const currentActiveIds = new Set(
       ordersList
-        .filter(o => ['inkitchen', 'new', 'pending', 'preparing'].includes(o.status))
+        .filter(o => ['inkitchen', 'new', 'pending', 'preparing'].includes(o.status) && o.items?.length > 0 && o.elapsedMins <= 1440)
         .map(o => o.id)
     );
 
@@ -252,16 +257,24 @@ export default function KdsPage() {
     previousOrderIdsRef.current = currentActiveIds;
   }, [ordersList, soundEnabled]);
 
-  // Separate Active and Ready orders
+  // Separate Active and Ready orders (Filter to genuine kitchen orders with items from last 24h)
   const activeOrders = useMemo(() => {
     return ordersList
-      .filter(o => ['inkitchen', 'new', 'pending', 'preparing'].includes(o.status))
+      .filter(o => 
+        ['inkitchen', 'new', 'pending', 'preparing'].includes(o.status) &&
+        o.items && o.items.length > 0 &&
+        o.elapsedMins <= 1440
+      )
       .sort((a, b) => a.orderDate - b.orderDate);
   }, [ordersList]);
 
   const readyOrders = useMemo(() => {
     return ordersList
-      .filter(o => o.status === 'ready')
+      .filter(o => 
+        o.status === 'ready' &&
+        o.items && o.items.length > 0 &&
+        o.elapsedMins <= 1440
+      )
       .sort((a, b) => b.orderDate - a.orderDate);
   }, [ordersList]);
 

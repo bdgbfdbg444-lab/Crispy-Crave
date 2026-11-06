@@ -47,7 +47,7 @@
       ".write": true
     },
     "Orders": {
-      ".read": false,
+      ".read": true,
       "$orderId": {
         ".read": false,
         ".write": "auth != null && !data.exists() && newData.exists()",
@@ -62,17 +62,17 @@
       }
     },
     "PublicTracking": {
-      ".read": false,
+      ".read": true,
       "$orderId": {
         ".read": true,
-        ".write": "auth != null && (!data.exists() || data.exists())"
+        ".write": true
       }
     },
     "OrderTracking": {
-      ".read": false,
+      ".read": true,
       "$orderId": {
-        ".read": false,
-        ".write": false
+        ".read": true,
+        ".write": true
       }
     },
     "CancellationRequests": {
