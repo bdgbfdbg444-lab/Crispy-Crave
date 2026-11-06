@@ -820,7 +820,37 @@ export default function TrackOrderPage({ menuData }) {
         </div>
       ) : (
       <div className="bg-black-surface/50 w-full max-w-md p-8 rounded-3xl border-2 border-white/5 shadow-2xl mb-8">
-        <h3 className="text-xl font-bold text-text-light mb-8 text-center">{lang === 'en' ? 'Track Order Status:' : 'تتبع حالة الطلب:'}</h3>
+        <h3 className="text-xl font-bold text-text-light mb-4 text-center">{lang === 'en' ? 'Track Order Status:' : 'تتبع حالة الطلب:'}</h3>
+
+        {/* Estimated Arrival / Ready Time Clock */}
+        {(() => {
+          const targetDeliveryTime = orderData?.TargetDeliveryTime || orderData?.targetDeliveryTime || orderDetails?.targetDeliveryTime;
+          const targetMinutes = Number(orderData?.TargetDeliveryMinutes || orderData?.targetDeliveryMinutes || orderDetails?.targetDeliveryMinutes || 40);
+          const rawDate = orderData?.CreatedAt || orderData?.OrderDate || orderDetails?.orderDate;
+          const orderDateObj = rawDate ? new Date(rawDate) : new Date();
+          const targetDate = targetDeliveryTime ? new Date(targetDeliveryTime) : new Date(orderDateObj.getTime() + targetMinutes * 60000);
+          const remainingMinutes = Math.max(0, Math.round((targetDate.getTime() - Date.now()) / 60000));
+          const formattedClock = targetDate.toLocaleTimeString(lang === 'ar' ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' });
+
+          if (mappedStatus === 'Completed' || mappedStatus === 'Cancelled') return null;
+
+          return (
+            <div className="mb-6 p-4 bg-gradient-to-r from-orange-950/40 via-amber-950/20 to-black/40 border border-orange-500/40 rounded-2xl text-center">
+              <div className="flex items-center justify-center gap-1.5 text-orange-400 font-bold text-xs mb-1">
+                <Clock size={16} className="animate-pulse" />
+                <span>{(orderType || '').toLowerCase() === 'delivery' ? (lang === 'en' ? 'Estimated Delivery Time' : 'الموعد المتوقع لوصول الوجبة') : (lang === 'en' ? 'Estimated Kitchen Ready Time' : 'الموعد المتوقع لجاهزية الطلب')}</span>
+              </div>
+              <div className="text-2xl font-black text-orange-200 font-mono tracking-wide my-0.5">
+                {formattedClock}
+              </div>
+              <p className="text-[11px] text-gray-400">
+                {remainingMinutes > 0
+                  ? (lang === 'en' ? `Approximately ~${remainingMinutes} minutes remaining` : `متبقي حوالي ~${remainingMinutes} دقيقة`)
+                  : (lang === 'en' ? 'Any moment now!' : 'في أي لحظة الآن! 🛵')}
+              </p>
+            </div>
+          );
+        })()}
 
           {mappedStatus === 'OutForDelivery' && isOwner && orderData?.DriverName && (
               <div className="bg-[#DBEAFE] border border-[#3B82F6] rounded-xl p-4 mb-6 mt-4 mx-auto w-[90%] max-w-sm flex flex-col items-center justify-center gap-3">

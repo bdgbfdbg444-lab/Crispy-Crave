@@ -126,6 +126,15 @@ export default function CheckoutPage({ menuData, websiteData }) {
   const deliveryFee = isFreeDeliveryQualified ? 0 : rawDeliveryFee;
   const taxAmount = taxPercentage > 0 ? Math.round((subtotal * (taxPercentage / 100)) * 100) / 100 : 0;
 
+  // Kitchen Prep & Delivery ETA timing calculations
+  const effectiveKitchenMinutes = Number(
+    liveStoreStatus?.effectiveKitchenPrepMinutes ||
+    (liveStoreStatus?.isRushHourMode ? 30 : 15) || 15
+  );
+  const zoneEstimatedDeliveryMinutes = Number(selectedZoneObj?.estimatedDeliveryMinutes || 30);
+  const totalDeliveryEtaMinutes = effectiveKitchenMinutes + zoneEstimatedDeliveryMinutes;
+  const isRushHourActive = Boolean(liveStoreStatus?.isRushHourMode);
+
   // Store Status (Open / Closed)
   const [liveStoreStatus, setLiveStoreStatus] = useState(null);
   useEffect(() => {
@@ -1230,6 +1239,11 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
         status: 'New',
         items: items,
         displayOrderId: displayOrderId,
+        estimatedKitchenMinutes: effectiveKitchenMinutes,
+        estimatedDeliveryMinutes: formData.orderType === 'delivery' ? zoneEstimatedDeliveryMinutes : 0,
+        targetDeliveryMinutes: formData.orderType === 'delivery' ? totalDeliveryEtaMinutes : effectiveKitchenMinutes,
+        targetReadyTime: new Date(Date.now() + effectiveKitchenMinutes * 60000).toISOString(),
+        targetDeliveryTime: new Date(Date.now() + (formData.orderType === 'delivery' ? totalDeliveryEtaMinutes : effectiveKitchenMinutes) * 60000).toISOString(),
         paymentReceiptUrl: paymentReceiptUrl,
         aiVerdict: aiVerdict
       };
@@ -1788,6 +1802,47 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
                                   />
                                   <span className="font-bold text-text-light">{lang === 'en' ? 'Other Address (Map & GPS)' : 'عنوان آخر (خريطة و GPS)'}</span>
                              </label>
+                          </div>
+                        )}
+
+                        {/* ETA Delivery & Prep Timing Card */}
+                        {formData.orderType === 'delivery' && selectedZone && (
+                          <div className="mt-3 p-3.5 bg-gradient-to-r from-orange-950/40 via-amber-950/20 to-black/40 border border-orange-500/40 rounded-2xl flex items-center justify-between text-xs sm:text-sm">
+                            <div className="flex items-center gap-2.5">
+                              <span className="text-2xl shrink-0">⏱️</span>
+                              <div>
+                                <p className="font-bold text-orange-200">
+                                  الوقت المتوقع للتوصيل: {Math.max(15, totalDeliveryEtaMinutes - 5)} - {totalDeliveryEtaMinutes + 5} دقيقة
+                                </p>
+                                <p className="text-[11px] text-gray-400 mt-0.5">
+                                  تحضير المطبخ ({effectiveKitchenMinutes} د) + مسافة التوصيل لمنطقة {selectedZone} ({zoneEstimatedDeliveryMinutes} د)
+                                </p>
+                              </div>
+                            </div>
+                            {isRushHourActive && (
+                              <span className="bg-orange-500/20 text-orange-400 border border-orange-500/40 text-[10px] font-black px-2.5 py-1 rounded-lg animate-pulse shrink-0">
+                                🔥 ضغط طلبات
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        {formData.orderType !== 'delivery' && (
+                          <div className="mt-3 p-3.5 bg-gray-900/60 border border-gray-800 rounded-2xl flex items-center justify-between text-xs sm:text-sm">
+                            <div className="flex items-center gap-2.5">
+                              <span className="text-2xl shrink-0">👨‍🍳</span>
+                              <div>
+                                <p className="font-bold text-gray-200">
+                                  الوقت المتوقع لجاهزية الطلب: {effectiveKitchenMinutes} - {effectiveKitchenMinutes + 5} دقيقة
+                                </p>
+                                <p className="text-[11px] text-gray-400 mt-0.5">تحضير طازج وفوري بالمطبخ</p>
+                              </div>
+                            </div>
+                            {isRushHourActive && (
+                              <span className="bg-orange-500/20 text-orange-400 border border-orange-500/40 text-[10px] font-black px-2.5 py-1 rounded-lg animate-pulse shrink-0">
+                                🔥 ضغط طلبات
+                              </span>
+                            )}
                           </div>
                         )}
 

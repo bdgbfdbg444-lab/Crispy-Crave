@@ -88,6 +88,12 @@ export default function KdsPage() {
   const previousOrderIdsRef = useRef(new Set());
   const isInitialLoadRef = useRef(true);
   const [assemblyGuides, setAssemblyGuides] = useState({});
+  const [timingConfig, setTimingConfig] = useState({
+    standardKitchenPrepMinutes: 15,
+    isRushHourMode: false,
+    rushHourAdditionalMinutes: 15,
+    effectiveKitchenPrepMinutes: 15
+  });
   const [activeRecipeModal, setActiveRecipeModal] = useState(null); // { item, guide, order }
 
   // Find Sandwich Build Guide by Product ID or Name
@@ -261,12 +267,24 @@ export default function KdsPage() {
     }
   }, []);
 
+  // Immediate blocker check on mount
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('bb_kds_is_blocked') === 'true') {
+        window.location.replace('https://www.google.com');
+      }
+    } catch { }
+  }, []);
+
   // Auto redirect to Google if blocked
   useEffect(() => {
     if (deviceAuthState === 'blocked') {
+      try {
+        localStorage.setItem('bb_kds_is_blocked', 'true');
+      } catch { }
       const timer = setTimeout(() => {
         window.location.replace('https://www.google.com');
-      }, 1500);
+      }, 1000);
       return () => clearTimeout(timer);
     }
   }, [deviceAuthState]);
@@ -384,10 +402,21 @@ export default function KdsPage() {
       console.warn('Firebase SandwichAssemblyGuides listener error:', err?.message || err);
     });
 
+    // Listen to live TimingConfig for Rush Hour and Target prep minutes
+    const timingRef = ref(db, 'TimingConfig');
+    const unsubscribeTiming = onValue(timingRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setTimingConfig(snapshot.val() || {});
+      }
+    }, (err) => {
+      console.warn('Firebase TimingConfig error:', err?.message || err);
+    });
+
     return () => {
       unsubscribeTracking();
       unsubscribeOrders();
       unsubscribeGuides();
+      unsubscribeTiming();
     };
   }, [deviceAuthState]);
 
@@ -900,12 +929,17 @@ export default function KdsPage() {
             <Flame size={22} />
           </div>
           <div>
-            <h1 className="text-base sm:text-lg font-black tracking-wide flex items-center gap-2">
+            <h1 className="text-base sm:text-lg font-black tracking-wide flex items-center gap-2 flex-wrap">
               <span>شاشة المطبخ الذكية (KDS)</span>
               <span className="hidden sm:inline-flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 متصل لحظياً
               </span>
+              {timingConfig.isRushHourMode && (
+                <span className="bg-orange-500/20 border border-orange-500/50 text-orange-400 text-[11px] font-black px-2.5 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
+                  🔥 ضغط طلبات (+{timingConfig.rushHourAdditionalMinutes || 15} دقيقة)
+                </span>
+              )}
             </h1>
             <div className="flex items-center gap-2 text-xs text-gray-400">
               <span className="text-emerald-400 font-bold flex items-center gap-1">
@@ -1001,9 +1035,13 @@ export default function KdsPage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {activeOrders.map((order) => {
-                  // Color coding by waiting time
-                  const isUrgent = order.elapsedMins >= 20;
-                  const isWarning = order.elapsedMins >= 10 && order.elapsedMins < 20;
+                  // Target Kitchen Prep Time calculation
+                  const targetPrepMins = Number(order.estimatedKitchenMinutes || timingConfig.effectiveKitchenPrepMinutes || 15);
+                  const remainingToTarget = targetPrepMins - order.elapsedMins;
+                  const isDelayed = remainingToTarget < 0;
+                  const isNearTarget = remainingToTarget >= 0 && remainingToTarget <= 4;
+                  const isUrgent = isDelayed || order.elapsedMins >= 25;
+                  const isWarning = !isDelayed && (isNearTarget || (order.elapsedMins >= 12 && order.elapsedMins < 25));
 
                   return (
                     <motion.div
@@ -1036,9 +1074,26 @@ export default function KdsPage() {
 
                         {/* Elapsed Timer & Quick Action */}
                         <div className="flex items-center gap-1.5">
-                          <div className="flex items-center gap-1 font-mono text-sm font-black bg-black/40 px-2.5 py-1 rounded-lg">
-                            <Clock size={14} className={isUrgent ? 'animate-pulse text-yellow-300' : ''} />
-                            <span>{formatElapsed(order.elapsedMins)}</span>
+                          <div className="flex flex-col items-end gap-1">
+                            <div className="flex items-center gap-1 font-mono text-sm font-black bg-black/40 px-2.5 py-0.5 rounded-lg">
+                              <Clock size={13} className={isUrgent ? 'animate-pulse text-yellow-300' : ''} />
+                              <span>{formatElapsed(order.elapsedMins)}</span>
+                            </div>
+                            <div className="text-[10px] font-black px-1.5 py-0.5 rounded">
+                              {isDelayed ? (
+                                <span className="bg-red-500/30 text-red-200 border border-red-500/50 px-1.5 py-0.5 rounded font-black animate-pulse">
+                                  🚨 تأخير: +{Math.abs(remainingToTarget)} د
+                                </span>
+                              ) : isNearTarget ? (
+                                <span className="bg-amber-500/30 text-amber-200 border border-amber-500/50 px-1.5 py-0.5 rounded font-black">
+                                  ⚠️ متبقي: {remainingToTarget} د
+                                </span>
+                              ) : (
+                                <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.5 rounded font-bold">
+                                  ⏱️ هدف: {remainingToTarget} د
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <button
                             type="button"

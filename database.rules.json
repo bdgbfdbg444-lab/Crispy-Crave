@@ -249,6 +249,10 @@
     "SandwichAssemblyGuides": {
       ".read": true,
       ".write": false
+    },
+    "TimingConfig": {
+      ".read": true,
+      ".write": false
     }
   }
 }
