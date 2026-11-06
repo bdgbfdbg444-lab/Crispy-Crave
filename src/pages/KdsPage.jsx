@@ -278,24 +278,93 @@ export default function KdsPage() {
       .sort((a, b) => b.orderDate - a.orderDate);
   }, [ordersList]);
 
-  // Calculate Batch Cooking Items
-  const batchItems = useMemo(() => {
-    const map = {};
+  // Calculate Batch Cooking Items (Active Cooking vs Held Waiting)
+  const { batchItems, heldBatchItems } = useMemo(() => {
+    const firedMap = {};
+    const heldMap = {};
     activeOrders.forEach(o => {
-      o.items.forEach(item => {
-        const isHeld = item.isHeld || String(item.fireStatus || '').toLowerCase() === 'hold';
-        if (isHeld) return; // Don't batch cook held items until fired
+      (o.items || []).forEach(item => {
+        const isHeld = item.isHeld === true || String(item.fireStatus || '').toLowerCase() === 'hold';
         const name = (item.productName || item.product?.name || item.name || 'صنف').trim();
         const qty = Number(item.quantity) || 1;
-        if (!map[name]) {
-          map[name] = { name, count: 0, ordersCount: 0 };
+        const targetMap = isHeld ? heldMap : firedMap;
+        if (!targetMap[name]) {
+          targetMap[name] = { name, count: 0, ordersCount: 0 };
         }
-        map[name].count += qty;
-        map[name].ordersCount += 1;
+        targetMap[name].count += qty;
+        targetMap[name].ordersCount += 1;
       });
     });
-    return Object.values(map).sort((a, b) => b.count - a.count);
+    return {
+      batchItems: Object.values(firedMap).sort((a, b) => b.count - a.count),
+      heldBatchItems: Object.values(heldMap).sort((a, b) => b.count - a.count)
+    };
   }, [activeOrders]);
+
+  // Action: Fire all held items in an order (إطلاق الوجبات للطهي الفوري)
+  const handleFireOrder = async (order) => {
+    try {
+      const updatedItems = (order.items || []).map(item => ({
+        ...item,
+        isHeld: false,
+        fireStatus: 'Fired'
+      }));
+
+      const updates = {};
+      updates[`OrderTracking/${order.id}/Items`] = updatedItems;
+      if (order.orderKey) {
+        updates[`Orders/${order.orderKey}/items`] = updatedItems;
+      }
+      // Instant push notification for Desktop POS
+      updates[`KitchenUpdates/${order.id}`] = {
+        OrderNumber: order.id,
+        Action: 'FireMains',
+        FireStatus: 'Fired',
+        Timestamp: new Date().toISOString()
+      };
+
+      await update(ref(db), updates);
+      if (soundEnabled) playKitchenChime();
+    } catch (e) {
+      alert('خطأ أثناء إطلاق الوجبات: ' + e.message);
+    }
+  };
+
+  // Action: Toggle a single item hold/fire status
+  const handleToggleItemHold = async (order, itemIdx) => {
+    try {
+      const updatedItems = (order.items || []).map((item, i) => {
+        if (i !== itemIdx) return item;
+        const currentHeld = item.isHeld === true || String(item.fireStatus || '').toLowerCase() === 'hold';
+        return {
+          ...item,
+          isHeld: !currentHeld,
+          fireStatus: !currentHeld ? 'Hold' : 'Fired'
+        };
+      });
+
+      const toggledItem = updatedItems[itemIdx];
+
+      const updates = {};
+      updates[`OrderTracking/${order.id}/Items`] = updatedItems;
+      if (order.orderKey) {
+        updates[`Orders/${order.orderKey}/items`] = updatedItems;
+      }
+      updates[`KitchenUpdates/${order.id}`] = {
+        OrderNumber: order.id,
+        Action: 'ToggleItemHold',
+        ItemIndex: itemIdx,
+        ItemName: order.items[itemIdx]?.productName || '',
+        FireStatus: toggledItem?.fireStatus || 'Fired',
+        Timestamp: new Date().toISOString()
+      };
+
+      await update(ref(db), updates);
+      if (soundEnabled && toggledItem?.fireStatus === 'Fired') playKitchenChime();
+    } catch (e) {
+      alert('خطأ أثناء تعديل حالة الصنف: ' + e.message);
+    }
+  };
 
   // Action: Mark as Ready (triggers customer phone buzzer & instant POS sync!)
   const handleMarkReady = async (order) => {
@@ -606,14 +675,29 @@ export default function KdsPage() {
                                   {qty}x
                                 </span>
                               </div>
-
-                              {/* Hold (معلق) Badge */}
-                              {isHeld && (
-                                <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold">
-                                  <Clock size={12} className="shrink-0 text-amber-400" />
-                                  <span>⏳ معلق (Hold) - لا تطهو الآن</span>
-                                </div>
-                              )}
+                              {/* Hold (معلق) Interactive Badge */}
+                              <div className="mt-1">
+                                {isHeld ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleItemHold(order, idx)}
+                                    title="انقر لإطلاق هذا الصنف للطهي الفوري"
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-bold hover:bg-amber-500/30 transition-all cursor-pointer"
+                                  >
+                                    <Clock size={12} className="text-amber-400" />
+                                    <span>⏳ معلق (Hold) - انقر للطهي 🚀</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleItemHold(order, idx)}
+                                    title="انقر لتعليق هذا الصنف مؤقتاً"
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold text-gray-500 hover:text-amber-400 hover:bg-gray-800/60 transition-all cursor-pointer"
+                                  >
+                                    <span>🔥 جارٍ التحضير (انقر للتعليق)</span>
+                                  </button>
+                                )}
+                              </div>
 
                               {/* Modifiers / Customizations */}
                               {(note || (Array.isArray(addOns) && addOns.length > 0)) && (
@@ -631,8 +715,18 @@ export default function KdsPage() {
                         })}
                       </div>
 
-                      {/* Action Button: Mark Ready (Triggers Pager Alert) */}
+                      {/* Action Button: Mark Ready (Triggers Pager Alert) & Fire Mains */}
                       <div className="p-3 bg-[#111218] border-t border-gray-800">
+                        {order.items && order.items.some(i => i.isHeld === true || String(i.fireStatus || '').toLowerCase() === 'hold') && (
+                          <button
+                            type="button"
+                            onClick={() => handleFireOrder(order)}
+                            className="w-full mb-2.5 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 active:scale-[0.98] text-gray-950 font-black text-sm rounded-xl transition-all shadow-lg shadow-orange-950/60 flex items-center justify-center gap-2 cursor-pointer"
+                          >
+                            <Flame size={18} className="text-gray-950 animate-pulse" />
+                            <span>إطلاق الوجبات ({order.items.filter(i => i.isHeld === true || String(i.fireStatus || '').toLowerCase() === 'hold').length}) للطهي الفوري 🚀</span>
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => handleMarkReady(order)}
@@ -718,23 +812,55 @@ export default function KdsPage() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto divide-y divide-gray-800/80 space-y-2">
-            {batchItems.length === 0 ? (
-              <div className="py-12 text-center text-gray-500 text-xs">
-                لا توجد أصناف مطلوبة حالياً
+          <div className="flex-1 overflow-y-auto space-y-4">
+            {/* Active Items to Cook */}
+            <div>
+              <div className="text-[11px] font-bold text-emerald-400 mb-2 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>أصناف جارية للطهي الآن ({batchItems.reduce((s, x) => s + x.count, 0)})</span>
               </div>
-            ) : (
-              batchItems.map((bi, idx) => (
-                <div key={idx} className="pt-2 flex items-center justify-between gap-3">
-                  <div>
-                    <h3 className="font-bold text-sm text-gray-200">{bi.name}</h3>
-                    <p className="text-[11px] text-gray-500">مطلوب في ({bi.ordersCount}) أوردرات</p>
-                  </div>
-                  <span className="w-9 h-9 rounded-xl bg-amber-500 text-white font-black text-base flex items-center justify-center shrink-0 shadow-md shadow-amber-500/20">
-                    {bi.count}
-                  </span>
+              {batchItems.length === 0 ? (
+                <div className="py-6 text-center text-gray-500 text-xs bg-gray-900/40 rounded-xl border border-gray-800/50">
+                  لا توجد أصناف قيد الطهي حالياً
                 </div>
-              ))
+              ) : (
+                <div className="divide-y divide-gray-800/80 space-y-2">
+                  {batchItems.map((bi, idx) => (
+                    <div key={idx} className="pt-2 flex items-center justify-between gap-3">
+                      <div>
+                        <h3 className="font-bold text-sm text-gray-200">{bi.name}</h3>
+                        <p className="text-[11px] text-gray-500">مطلوب في ({bi.ordersCount}) أوردرات</p>
+                      </div>
+                      <span className="w-9 h-9 rounded-xl bg-amber-500 text-gray-950 font-black text-base flex items-center justify-center shrink-0 shadow-md shadow-amber-500/20">
+                        {bi.count}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Held Items Waiting for Fire */}
+            {heldBatchItems.length > 0 && (
+              <div className="pt-3 border-t border-gray-800/80">
+                <div className="text-[11px] font-bold text-amber-400 mb-2 flex items-center gap-1.5">
+                  <Clock size={12} className="text-amber-400" />
+                  <span>أصناف معلقة بانتظار الإطلاق ({heldBatchItems.reduce((s, x) => s + x.count, 0)})</span>
+                </div>
+                <div className="divide-y divide-gray-800/80 space-y-2">
+                  {heldBatchItems.map((bi, idx) => (
+                    <div key={idx} className="pt-2 flex items-center justify-between gap-3 opacity-80">
+                      <div>
+                        <h3 className="font-bold text-sm text-amber-200/90">{bi.name}</h3>
+                        <p className="text-[11px] text-gray-500">معلق في ({bi.ordersCount}) أوردرات</p>
+                      </div>
+                      <span className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold text-sm flex items-center justify-center shrink-0">
+                        {bi.count}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </div>
