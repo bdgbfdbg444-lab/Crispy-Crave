@@ -16,8 +16,8 @@ export default function Hero({ websiteData }) {
 
   const bgMedia = websiteData?.heroMediaUrl;
   const isVideo = Boolean(bgMedia && (bgMedia.toLowerCase().endsWith('.mp4') || bgMedia.toLowerCase().endsWith('.webm') || bgMedia.toLowerCase().endsWith('.mov') || bgMedia.toLowerCase().endsWith('.avi')));
-  const headline = (lang === 'en' && websiteData?.heroHeadlineEn ? websiteData?.heroHeadlineEn : websiteData?.heroHeadline) ?? 'THE BLACK BOX';
-  const subtitle = (lang === 'en' && websiteData?.heroSubtitleEn ? websiteData?.heroSubtitleEn : websiteData?.heroSubtitle) ?? "SMOKED BRISKET & GOURMET BURGERS • ELITE STREET FOOD\nبرجر ولحم بريسكيت مدخن • مأكولات الشارع الراقية";
+  const headline = ((lang === 'en' && websiteData?.heroHeadlineEn && !websiteData.heroHeadlineEn.startsWith('http')) ? websiteData.heroHeadlineEn : (websiteData?.heroHeadline && !websiteData.heroHeadline.startsWith('http') ? websiteData.heroHeadline : 'THE BLACK BOX')) || 'THE BLACK BOX';
+  const subtitle = (lang === 'en' ? websiteData?.heroSubtitleEn : websiteData?.heroSubtitle) || "برجر ولحم بريسكيت مدخن • مأكولات الشارع الراقية";
 
   // Video plays immediately on mobile and desktop
   const [isMobile, setIsMobile] = useState(() => {

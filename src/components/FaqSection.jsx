@@ -8,16 +8,47 @@ export default function FaqSection({ websiteData }) {
   const { lang } = useLanguage();
   const [openIndex, setOpenIndex] = useState(0); // First one open by default
 
+  const DEFAULT_FAQS = [
+    {
+      question: lang === 'en' ? "What is Brisket?" : "ما هو البريسكت؟",
+      answer: lang === 'en' ? "We use premium beef cuts and slow-smoke them for up to 16 hours to achieve juicy, melt-in-your-mouth texture with rich smoky flavor." : "نستخدم أجود أنواع اللحوم، وندخن البريسكت ببطء لمدة تصل إلى 16 ساعة، لنحصل على لحم طري بنكهة دخانية غنية."
+    },
+    {
+      question: lang === 'en' ? "What is Nashville Chicken?" : "ما هو دجاج ناشفيل؟",
+      answer: lang === 'en' ? "Crispy fried chicken prepared Nashville-style, seasoned with fiery spices and dipped in signature hot oil for an unforgettable bold taste." : "دجاج مقلي ومقرمش على الطريقة الأمريكية الكلاسيكية لمدينة ناشفيل، متبل بخلطة بهارات حارة ومغموس بصوص الزيت الحار المميز لنكهة فريدة لا تُنسى."
+    },
+    {
+      question: lang === 'en' ? "Can I customize my order?" : "هل يمكنني تخصيص طلبي؟",
+      answer: lang === 'en' ? "Absolutely! You can choose your bun (brioche), toppings, heat level, and favorite signature sauces for any item." : "بالتأكيد! يمكنك اختيار نوع الخبز (بريوش)، والإضافات، ودرجة الحرارة، والصوصات المفضلة لديك مع كل وجبة."
+    },
+    {
+      question: lang === 'en' ? "Is your meat fresh or frozen?" : "هل اللحوم لديكم طازجة أم مجمدة؟",
+      answer: lang === 'en' ? "All meat used in our brisket and smash burgers is 100% fresh, never frozen, sourced from top-tier certified suppliers." : "جميع اللحوم التي نستخدمها في البريسكت أو السماش برجر هي لحوم بلدي طازجة 100% غير مجمدة، ونعتمد على أفضل الموردين لضمان الجودة."
+    },
+    {
+      question: lang === 'en' ? "Do you offer party and gathering boxes?" : "هل تقدمون وجبات مخصصة أو بوكسات للحفلات؟",
+      answer: lang === 'en' ? "Yes! We have dedicated Gathering Boxes in the menu serving 4 to 10 guests, offering great value for celebrations." : "بالتأكيد! لدينا قسم خاص بـ 'بوكسات التجمعات' في المنيو يكفي من 4 إلى 10 أشخاص، ويكون أوفر بكثير ومثالي للعزومات والتجمعات."
+    }
+  ];
+
   let faqsToDisplay = [];
   if (websiteData && websiteData.faqData) {
     try {
       const parsed = JSON.parse(websiteData.faqData);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        faqsToDisplay = parsed.map(f => ({ question: lang === 'en' && (f.QuestionEn || f.questionEn) ? (f.QuestionEn || f.questionEn) : (f.Question || f.question), answer: lang === 'en' && (f.AnswerEn || f.answerEn) ? (f.AnswerEn || f.answerEn) : (f.Answer || f.answer) }));
+        faqsToDisplay = parsed.map(f => ({ 
+          question: lang === 'en' && (f.QuestionEn || f.questionEn) ? (f.QuestionEn || f.questionEn) : (f.Question || f.question), 
+          answer: lang === 'en' && (f.AnswerEn || f.answerEn) ? (f.AnswerEn || f.answerEn) : (f.Answer || f.answer) 
+        }));
       }
     } catch (e) {
       console.error("Error parsing FaqData", e);
     }
+  }
+
+  // Guard against missing FAQs or corrupted encoding with ??? marks
+  if (!faqsToDisplay.length || faqsToDisplay.some(f => !f.question || f.question.includes('???') || f.question.includes('??'))) {
+    faqsToDisplay = DEFAULT_FAQS;
   }
 
   const toggleFaq = (index) => {

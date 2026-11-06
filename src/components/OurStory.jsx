@@ -50,7 +50,7 @@ export default function OurStory({ websiteData }) {
   }, []);
   
   // Use data from Firebase or fallback to empty strings
-  const storyText = (lang === 'en' && websiteData?.ourStoryTextEn ? websiteData?.ourStoryTextEn : websiteData?.ourStoryText) ?? "بدأت رحلتنا من شغف تقديم اللحوم المدخنة بالطرق التقليدية الأصيلة. نحن نؤمن بأن التفاصيل الصغيرة تصنع فرقاً كبيراً ولذلك نأخذ وقتنا في كل خطوة. من اختيار أجود أنواع اللحوم وحتى تقديمها لك.";
+  const storyText = (lang === 'en' ? websiteData?.ourStoryTextEn : websiteData?.ourStoryText) || (lang === 'en' ? "Our journey began with a passion for authentic slow-smoked BBQ and artisanal smash burgers. We believe small details make the biggest difference, taking our time with every step—from selecting premium fresh meats to hours of slow-smoking over natural hickory wood." : "بدأت رحلتنا من شغف تقديم اللحوم المدخنة بالطرق التقليدية الأصيلة والسماش برجر الفاخر. نحن نؤمن بأن التفاصيل الصغيرة تصنع فرقاً كبيراً، ولذلك نأخذ وقتنا في كل خطوة؛ من اختيار أجود أنواع اللحوم الطازجة وحتى تدخينها ببطء لساعات طويلة على خشب الهيكوري الطبيعي لنقدم لكم تجربة استثنائية لا تُنسى.");
   const bRollUrl = websiteData?.bRollVideoUrl;
   const signatureImage = websiteData?.signatureDishImageUrl;
 
