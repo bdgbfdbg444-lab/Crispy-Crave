@@ -13,6 +13,55 @@ import { useAuth } from '../context/AuthContext';
 
 const FIREBASE_URL = 'https://crispy-c9702-default-rtdb.europe-west1.firebasedatabase.app';
 
+// Helper to generate all common formats and aliases of an order ID (e.g. 18 -> ORD-0018, 0018-ORD, 0018, 18)
+function getCandidateOrderKeys(rawId) {
+  const clean = (rawId || '').replace(/#/g, '').trim();
+  if (!clean) return [];
+  const set = new Set();
+  set.add(clean);
+  if (clean.startsWith('trk_')) return [clean];
+
+  const digitMatch = clean.match(/\d+/);
+  if (digitMatch) {
+    const digits = digitMatch[0];
+    const num = parseInt(digits, 10);
+    if (!isNaN(num)) {
+      const p4 = String(num).padStart(4, '0');
+      const plain = String(num);
+      set.add('ORD-' + p4);
+      set.add('ORD-' + plain);
+      set.add(p4 + '-ORD');
+      set.add(plain + '-ORD');
+      set.add(p4);
+      set.add(plain);
+    }
+  }
+
+  const upper = clean.toUpperCase();
+  set.add(upper);
+  if (upper.startsWith('ORD-')) {
+    const rest = upper.substring(4);
+    set.add(rest);
+    const n = parseInt(rest, 10);
+    if (!isNaN(n)) {
+      set.add(String(n));
+      set.add(String(n).padStart(4, '0'));
+      set.add(String(n).padStart(4, '0') + '-ORD');
+    }
+  } else if (upper.endsWith('-ORD')) {
+    const rest = upper.replace(/-ORD$/, '');
+    set.add('ORD-' + rest);
+    const n = parseInt(rest, 10);
+    if (!isNaN(n)) {
+      set.add('ORD-' + String(n).padStart(4, '0'));
+      set.add(String(n));
+      set.add(String(n).padStart(4, '0'));
+    }
+  }
+
+  return Array.from(set);
+}
+
 // Web Audio API Synth Pager Buzzer (Works on all mobile devices with 0 dependencies)
 function playPagerChimeSound() {
   try {
@@ -130,28 +179,132 @@ export default function TrackOrderPage({ menuData }) {
     }, 450);
   };
 
+  // Unlock Web Audio on first touch/click
   useEffect(() => {
-    const safeOrderId = (orderId || '').replace(/#/g, '').trim();
-    if (!safeOrderId) {
+    const unlockAudio = () => {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          const ctx = new AudioCtx();
+          if (ctx.state === 'suspended') ctx.resume();
+        }
+      } catch (e) {}
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
+    };
+    window.addEventListener('click', unlockAudio);
+    window.addEventListener('touchstart', unlockAudio);
+    return () => {
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
+    };
+  }, []);
+
+  // Multi-Candidate Smart Live Tracking Listener (Works with 18, 0018, 0018-ORD, ORD-0018, etc.)
+  useEffect(() => {
+    const rawId = (orderId || '').replace(/#/g, '').trim();
+    if (!rawId) {
       setLoading(false);
       return;
     }
 
-    const trackingRef = ref(db, `PublicTracking/${safeOrderId}`);
-    
-    const unsubscribe = onValue(trackingRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        setOrderData(data);
-      }
-      setLoading(false);
-    }, (error) => {
-      console.error('Error fetching public tracking data', error);
-      setLoading(false);
+    const candidates = getCandidateOrderKeys(rawId);
+    let isMounted = true;
+    const unsubscribes = [];
+    let hasMatched = false;
+
+    // Attach listeners for a confirmed candidate key
+    const bindToKey = (key) => {
+      if (hasMatched) return;
+      hasMatched = true;
+
+      // 1. Live PublicTracking listener
+      const pRef = ref(db, `PublicTracking/${key}`);
+      const unsubP = onValue(pRef, (snap) => {
+        if (!isMounted) return;
+        const val = snap.val();
+        if (val) {
+          setOrderData(prev => ({
+            ...prev,
+            ...val,
+            matchedKey: key,
+            OrderNumber: val.OrderNumber || prev?.OrderNumber || key,
+            DisplayOrderId: val.DisplayOrderId || prev?.DisplayOrderId || key
+          }));
+          setLoading(false);
+        }
+      });
+      unsubscribes.push(() => off(pRef, 'value', unsubP));
+
+      // 2. Also listen to OrderTracking to enrich TableNumber, Items, Total
+      const otRef = ref(db, `OrderTracking/${key}`);
+      const unsubOt = onValue(otRef, (snap) => {
+        if (!isMounted) return;
+        const otVal = snap.val();
+        if (otVal) {
+          setOrderData(prev => ({
+            ...prev,
+            ...otVal,
+            Status: prev?.Status || otVal.Status,
+            LastUpdate: prev?.LastUpdate || otVal.LastUpdate,
+            TableNumber: otVal.TableNumber || prev?.TableNumber,
+            Items: otVal.Items || prev?.Items,
+            TotalAmount: otVal.TotalAmount !== undefined ? otVal.TotalAmount : prev?.TotalAmount,
+            OrderNumber: otVal.OrderNumber || prev?.OrderNumber || key,
+            DisplayOrderId: prev?.DisplayOrderId || otVal.OrderNumber || key
+          }));
+        }
+      });
+      unsubscribes.push(() => off(otRef, 'value', unsubOt));
+    };
+
+    // Parallel fast probing across candidate keys in PublicTracking & OrderTracking
+    let pendingChecks = candidates.length;
+    let anyFound = false;
+
+    candidates.forEach((cand) => {
+      const probeRef = ref(db, `PublicTracking/${cand}`);
+      const unsubProbe = onValue(probeRef, (snap) => {
+        if (!isMounted) return;
+        const val = snap.val();
+        if (val && !anyFound) {
+          anyFound = true;
+          bindToKey(cand);
+        }
+        pendingChecks--;
+        if (pendingChecks <= 0 && !anyFound) {
+          let otChecks = candidates.length;
+          candidates.forEach((c2) => {
+            const probeOt = ref(db, `OrderTracking/${c2}`);
+            onValue(probeOt, (otSnap) => {
+              if (!isMounted) return;
+              if (otSnap.val() && !anyFound) {
+                anyFound = true;
+                bindToKey(c2);
+              }
+              otChecks--;
+              if (otChecks <= 0 && !anyFound) {
+                setLoading(false);
+              }
+            }, { onlyOnce: true });
+          });
+        }
+      });
+      unsubscribes.push(() => off(probeRef, 'value', unsubProbe));
     });
 
+    const timer = setTimeout(() => {
+      if (isMounted && !hasMatched) {
+        setLoading(false);
+      }
+    }, 2000);
+
     return () => {
-      off(trackingRef, 'value', unsubscribe);
+      isMounted = false;
+      clearTimeout(timer);
+      unsubscribes.forEach(u => {
+        try { u(); } catch(e) {}
+      });
     };
   }, [orderId]);
 
@@ -413,21 +566,52 @@ export default function TrackOrderPage({ menuData }) {
     return (
       <div className="pt-24 min-h-screen bg-black-surface flex flex-col items-center justify-center p-6 text-center" style={{ direction: lang === "ar" ? "rtl" : "ltr" }}>
         <div className="max-w-md w-full bg-black-primary border border-brand-red/30 rounded-3xl p-8 shadow-2xl flex flex-col items-center">
-          <div className="w-20 h-20 bg-red-500/10 text-brand-red rounded-full flex items-center justify-center mb-6 border border-brand-red/30">
+          <div className="w-20 h-20 bg-red-500/10 text-brand-red rounded-full flex items-center justify-center mb-6 border border-brand-red/30 shadow-[0_0_20px_rgba(230,57,70,0.2)]">
             <AlertCircle size={44} />
           </div>
-          <h2 className="text-2xl font-display font-black text-text-light mb-3">
+          <h2 className="text-2xl font-display font-black text-text-light mb-2">
             {lang === "en" ? "Order Not Found" : "الطلب غير موجود"}
           </h2>
           <p className="text-text-muted leading-relaxed mb-6 text-sm">
             {lang === "en" 
-              ? `Order was not found. Please verify the tracking link or order number.`
-              : `عفواً، لم يتم العثور على أي بيانات لهذا الطلب. يرجى التأكد من كتابة الرقم الصحيح أو استخدام رابط التتبع.`}
+              ? `Could not find order (${safeOrderId}). Please enter your order number below to try again.`
+              : `لم يتم العثور على أوردر برقم (${safeOrderId}). اكتب رقم طلبك بالأسفل لإعادة البحث:`}
           </p>
+
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            if (lookupInput.trim()) {
+              navigate(`/track/${encodeURIComponent(lookupInput.trim().replace(/#/g, ''))}`);
+            }
+          }} className="w-full space-y-3 mb-4">
+            <input 
+              type="text"
+              placeholder={lang === 'en' ? 'e.g. 18 or ORD-0018' : 'مثال: 18 أو 0018 أو ORD-0018'}
+              value={lookupInput}
+              onChange={(e) => setLookupInput(e.target.value)}
+              className="w-full py-3.5 px-4 text-center text-xl font-black bg-black-surface border-2 border-brand-red/40 rounded-xl text-white focus:outline-none focus:border-brand-red transition-all"
+              autoFocus
+            />
+            <button 
+              type="submit"
+              disabled={!lookupInput.trim()}
+              className="w-full py-3.5 rounded-xl font-bold text-white bg-brand-red hover:bg-brand-red-dark transition-all shadow-md shadow-brand-red/20 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+            >
+              <Bell size={18} />
+              <span>{lang === 'en' ? 'Search Again 🔔' : 'إعادة البحث وتفعيل البيجر 🔔'}</span>
+            </button>
+          </form>
+
+          <p className="text-[11px] text-gray-500 mb-4">
+            {lang === 'en'
+              ? '💡 Tip: You can type just the number like 18 or 0018'
+              : '💡 نصيحة: يمكنك كتابة رقم الطلب فقط مثل 18 أو 0018'}
+          </p>
+
           <button 
             type="button"
             onClick={() => navigate("/menu")}
-            className="w-full py-4 rounded-xl font-bold text-text-light bg-brand-red hover:bg-brand-red-dark transition-all shadow-lg shadow-brand-red/30 cursor-pointer"
+            className="w-full py-3 rounded-xl font-medium text-gray-400 hover:text-white transition-all text-sm cursor-pointer"
           >
             {lang === "en" ? "Back to Menu" : "العودة للمنيو"}
           </button>
@@ -740,6 +924,32 @@ export default function TrackOrderPage({ menuData }) {
           </div>
         )}
 
+        {orderData?.TableNumber && (
+          <div className="flex items-center justify-between pb-2 border-b border-white/5">
+            <span className="text-text-muted flex items-center gap-2">
+              <Utensils size={15} className="text-brand-red" />
+              {lang === 'en' ? 'Table' : 'رقم الطاولة'}
+            </span>
+            <span className="font-bold text-text-light">
+              {orderData.TableNumber}
+            </span>
+          </div>
+        )}
+
+        {orderData?.Items && Array.isArray(orderData.Items) && orderData.Items.length > 0 && (
+          <div className="pt-2 pb-2 border-b border-white/5 space-y-1.5">
+            <span className="text-xs font-bold text-gray-400">
+              {lang === 'en' ? 'Ordered Items:' : 'الأصناف المطلوبة:'}
+            </span>
+            {orderData.Items.map((it, idx) => (
+              <div key={idx} className="flex justify-between items-center text-xs text-gray-300">
+                <span>{it.quantity}x {it.productName || it.name}</span>
+                {it.unitPrice > 0 && <span>{(it.quantity * it.unitPrice).toLocaleString()} ج.م</span>}
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="flex items-center justify-between pt-1">
           <span className="text-text-muted font-bold">
             {lang === 'en' ? 'Total Amount' : 'إجمالي الطلب'}
@@ -747,7 +957,9 @@ export default function TrackOrderPage({ menuData }) {
           <span className="text-lg font-black text-brand-red font-mono">
             {isOwner && customerDisplayTotal !== null 
               ? `${Number(customerDisplayTotal).toLocaleString()} ج.م` 
-              : (lang === 'en' ? 'Protected 🔒' : 'محمي للخصوصية 🔒')}
+              : (orderData?.TotalAmount > 0 
+                  ? `${Number(orderData.TotalAmount).toLocaleString()} ج.م`
+                  : (lang === 'en' ? 'Protected 🔒' : 'محمي للخصوصية 🔒'))}
           </span>
         </div>
       </div>

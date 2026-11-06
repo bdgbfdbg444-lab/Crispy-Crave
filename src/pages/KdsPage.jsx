@@ -373,6 +373,20 @@ export default function KdsPage() {
       updates[`OrderTracking/${order.id}/Status`] = 'Ready';
       updates[`PublicTracking/${order.id}/Status`] = 'Ready';
       updates[`PublicTracking/${order.id}/LastUpdate`] = new Date().toISOString();
+      // Sync aliases (e.g. 18, 0018, 0018-ORD) for customer digital pager
+      const digitMatch = String(order.id).match(/\d+/);
+      if (digitMatch) {
+        const num = parseInt(digitMatch[0], 10);
+        if (!isNaN(num)) {
+          const p4 = String(num).padStart(4, '0');
+          const plain = String(num);
+          const aliases = [p4, plain, `${p4}-ORD`, `${plain}-ORD`, `ORD-${p4}`, `ORD-${plain}`];
+          aliases.forEach(a => {
+            updates[`PublicTracking/${a}/Status`] = 'Ready';
+            updates[`PublicTracking/${a}/LastUpdate`] = new Date().toISOString();
+          });
+        }
+      }
       if (order.orderKey) {
         updates[`Orders/${order.orderKey}/Status`] = 'Ready';
       }
@@ -397,6 +411,20 @@ export default function KdsPage() {
       updates[`OrderTracking/${order.id}/Status`] = 'Completed';
       updates[`PublicTracking/${order.id}/Status`] = 'Completed';
       updates[`PublicTracking/${order.id}/LastUpdate`] = new Date().toISOString();
+      // Sync aliases (e.g. 18, 0018, 0018-ORD)
+      const digitMatchServed = String(order.id).match(/\d+/);
+      if (digitMatchServed) {
+        const num = parseInt(digitMatchServed[0], 10);
+        if (!isNaN(num)) {
+          const p4 = String(num).padStart(4, '0');
+          const plain = String(num);
+          const aliases = [p4, plain, `${p4}-ORD`, `${plain}-ORD`, `ORD-${p4}`, `ORD-${plain}`];
+          aliases.forEach(a => {
+            updates[`PublicTracking/${a}/Status`] = 'Completed';
+            updates[`PublicTracking/${a}/LastUpdate`] = new Date().toISOString();
+          });
+        }
+      }
       if (order.orderKey) {
         updates[`Orders/${order.orderKey}/Status`] = 'Completed';
       }
