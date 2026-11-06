@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MapPin, Navigation, Building2, Home, Layers, Check, AlertCircle, Search } from 'lucide-react';
+import { MapPin, Navigation, Building2, Home, Layers, Check, AlertCircle, Search, Info } from 'lucide-react';
 
 // Custom SVG Leaflet Pin Icon to avoid missing asset paths
 const pinIconSvg = `
