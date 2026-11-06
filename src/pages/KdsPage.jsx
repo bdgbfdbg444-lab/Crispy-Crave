@@ -283,6 +283,8 @@ export default function KdsPage() {
     const map = {};
     activeOrders.forEach(o => {
       o.items.forEach(item => {
+        const isHeld = item.isHeld || String(item.fireStatus || '').toLowerCase() === 'hold';
+        if (isHeld) return; // Don't batch cook held items until fired
         const name = (item.productName || item.product?.name || item.name || 'صنف').trim();
         const qty = Number(item.quantity) || 1;
         if (!map[name]) {
@@ -592,6 +594,7 @@ export default function KdsPage() {
                           const qty = Number(item.quantity) || 1;
                           const note = item.notes || item.Notes || '';
                           const addOns = item.addOns || item.selectedAddOns || item.SelectedAddOns || [];
+                          const isHeld = item.isHeld || String(item.fireStatus || '').toLowerCase() === 'hold';
 
                           return (
                             <div key={idx} className="pt-2.5 first:pt-0">
@@ -603,6 +606,14 @@ export default function KdsPage() {
                                   {qty}x
                                 </span>
                               </div>
+
+                              {/* Hold (معلق) Badge */}
+                              {isHeld && (
+                                <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs font-bold">
+                                  <Clock size={12} className="shrink-0 text-amber-400" />
+                                  <span>⏳ معلق (Hold) - لا تطهو الآن</span>
+                                </div>
+                              )}
 
                               {/* Modifiers / Customizations */}
                               {(note || (Array.isArray(addOns) && addOns.length > 0)) && (
