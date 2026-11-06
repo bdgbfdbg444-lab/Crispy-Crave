@@ -245,6 +245,10 @@
         ".read": true,
         ".write": true
       }
+    },
+    "SandwichAssemblyGuides": {
+      ".read": true,
+      ".write": false
     }
   }
 }

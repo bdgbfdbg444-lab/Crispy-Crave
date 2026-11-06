@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Flame, Clock, CheckCircle2, Lock, Unlock, Volume2, VolumeX, 
+  Flame, Clock, CheckCircle2, X, Lock, Unlock, Volume2, VolumeX, 
   RotateCcw, AlertTriangle, Utensils, Bike, ShoppingBag, Eye, RefreshCw, ChevronRight, Check,
   ShieldCheck, ShieldAlert, Ban, QrCode, Key, Cpu, MonitorSmartphone, Laptop, Smartphone, HelpCircle, Loader2
 } from 'lucide-react';
@@ -87,6 +87,115 @@ export default function KdsPage() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const previousOrderIdsRef = useRef(new Set());
   const isInitialLoadRef = useRef(true);
+  const [assemblyGuides, setAssemblyGuides] = useState({});
+  const [activeRecipeModal, setActiveRecipeModal] = useState(null); // { item, guide, order }
+
+  // Find Sandwich Build Guide by Product ID or Name
+  const findAssemblyGuide = (item) => {
+    if (!item || !assemblyGuides) return null;
+    const id = item.productId || item.ProductId || item.id || item.Id;
+    if (id && assemblyGuides[id]) return assemblyGuides[id];
+
+    const rawName = (item.productName || item.product?.name || item.name || '').trim().toLowerCase();
+    if (!rawName) return null;
+
+    return Object.values(assemblyGuides).find(g => {
+      if (!g || !g.productName) return false;
+      const gName = g.productName.trim().toLowerCase();
+      return gName === rawName || rawName.includes(gName) || gName.includes(rawName);
+    }) || null;
+  };
+
+  // Check if a layer is excluded or modified by customer request
+  const checkLayerModification = (layer, itemNotes) => {
+    if (!layer || !layer.name) return { isRemoved: false, isExtra: false, alertText: '' };
+    const notesLower = String(itemNotes || '').toLowerCase();
+    const layerNameLower = layer.name.toLowerCase();
+
+    // Check removal patterns: "بدون", "من غير", "لا تحط", "شيل", "no ", "without "
+    const removalKeywords = ['بدون', 'من غير', 'لا تحط', 'شيل', 'بلاش', 'no ', 'without '];
+    for (const kw of removalKeywords) {
+      if (notesLower.includes(kw)) {
+        const afterKw = notesLower.split(kw)[1]?.slice(0, 30) || '';
+        const tokens = layerNameLower.split(/[\s,،-]+/);
+        for (const token of tokens) {
+          if (token.length > 2 && afterKw.includes(token)) {
+            return { isRemoved: true, isExtra: false, alertText: '❌ ملغي بطلب العميل!' };
+          }
+        }
+      }
+    }
+
+    // Check extra/add patterns: "اكسترا", "إكسترا", "زيادة", "دبل", "extra", "double"
+    const extraKeywords = ['اكسترا', 'إكسترا', 'زيادة', 'دبل', 'extra', 'double'];
+    for (const kw of extraKeywords) {
+      if (notesLower.includes(kw)) {
+        const afterKw = notesLower.split(kw)[1]?.slice(0, 30) || '';
+        const tokens = layerNameLower.split(/[\s,،-]+/);
+        for (const token of tokens) {
+          if (token.length > 2 && afterKw.includes(token)) {
+            return { isRemoved: false, isExtra: true, alertText: '🔥 كمية إضافية (Extra) بطلب العميل!' };
+          }
+        }
+      }
+    }
+
+    return { isRemoved: false, isExtra: false, alertText: '' };
+  };
+
+  const getLayerVisuals = (type) => {
+    switch (String(type || '').toLowerCase()) {
+      case 'bun':
+        return {
+          icon: '🍞',
+          label: 'خبز',
+          badgeBg: 'bg-amber-900/40 text-amber-300 border-amber-600/50',
+          cardBg: 'bg-gradient-to-r from-amber-950/30 to-gray-900/50 border-amber-900/40'
+        };
+      case 'patty':
+        return {
+          icon: '🥩',
+          label: 'لحم / دجاج',
+          badgeBg: 'bg-rose-900/40 text-rose-300 border-rose-600/50',
+          cardBg: 'bg-gradient-to-r from-rose-950/30 to-gray-900/50 border-rose-900/40'
+        };
+      case 'cheese':
+        return {
+          icon: '🧀',
+          label: 'جبنة',
+          badgeBg: 'bg-yellow-900/40 text-yellow-300 border-yellow-600/50',
+          cardBg: 'bg-gradient-to-r from-yellow-950/30 to-gray-900/50 border-yellow-900/40'
+        };
+      case 'sauce':
+        return {
+          icon: '🥫',
+          label: 'صوص',
+          badgeBg: 'bg-orange-900/40 text-orange-300 border-orange-600/50',
+          cardBg: 'bg-gradient-to-r from-orange-950/30 to-gray-900/50 border-orange-900/40'
+        };
+      case 'veggie':
+        return {
+          icon: '🥬',
+          label: 'خضار طازج',
+          badgeBg: 'bg-emerald-900/40 text-emerald-300 border-emerald-600/50',
+          cardBg: 'bg-gradient-to-r from-emerald-950/30 to-gray-900/50 border-emerald-900/40'
+        };
+      case 'topping':
+        return {
+          icon: '🥒',
+          label: 'توبينج / مخلل',
+          badgeBg: 'bg-teal-900/40 text-teal-300 border-teal-600/50',
+          cardBg: 'bg-gradient-to-r from-teal-950/30 to-gray-900/50 border-teal-900/40'
+        };
+      default:
+        return {
+          icon: '✨',
+          label: 'مكون',
+          badgeBg: 'bg-gray-800 text-gray-300 border-gray-700',
+          cardBg: 'bg-gray-900/50 border-gray-800'
+        };
+    }
+  };
 
   // Clock tick
   useEffect(() => {
@@ -265,9 +374,20 @@ export default function KdsPage() {
       console.warn('Firebase Orders listener error:', err?.message || err);
     });
 
+    // Listen to SandwichAssemblyGuides node for chef recipes
+    const guidesRef = ref(db, 'SandwichAssemblyGuides');
+    const unsubscribeGuides = onValue(guidesRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setAssemblyGuides(snapshot.val() || {});
+      }
+    }, (err) => {
+      console.warn('Firebase SandwichAssemblyGuides listener error:', err?.message || err);
+    });
+
     return () => {
       unsubscribeTracking();
       unsubscribeOrders();
+      unsubscribeGuides();
     };
   }, [deviceAuthState]);
 
@@ -947,13 +1067,26 @@ export default function KdsPage() {
                           const note = item.notes || item.Notes || '';
                           const addOns = item.addOns || item.selectedAddOns || item.SelectedAddOns || [];
                           const isHeld = item.isHeld || String(item.fireStatus || '').toLowerCase() === 'hold';
+                          const guide = findAssemblyGuide(item);
 
                           return (
                             <div key={idx} className="pt-2.5 first:pt-0">
                               <div className="flex items-start justify-between gap-2">
-                                <span className="font-bold text-base text-gray-100 leading-snug">
-                                  {name}
-                                </span>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-bold text-base text-gray-100 leading-snug">
+                                    {name}
+                                  </span>
+                                  {guide && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setActiveRecipeModal({ item, guide, order })}
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px] font-bold hover:bg-amber-500/30 active:scale-95 transition-all cursor-pointer shadow-sm"
+                                      title="عرض طريقة وتكوين الساندوتش للشيف"
+                                    >
+                                      <span>🍔 تكوين</span>
+                                    </button>
+                                  )}
+                                </div>
                                 <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-md text-sm font-black shrink-0">
                                   {qty}x
                                 </span>
@@ -1149,6 +1282,210 @@ export default function KdsPage() {
         </div>
 
       </div>
+
+      {/* ------------------------------------------------------------- */}
+      {/* 6. Chef Recipe & Sandwich Build Modal                         */}
+      {/* ------------------------------------------------------------- */}
+      <AnimatePresence>
+        {activeRecipeModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 md:p-6"
+            onClick={() => setActiveRecipeModal(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.92, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 15 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="bg-[#12131A] border border-gray-700/80 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="p-4 md:p-5 bg-gradient-to-r from-gray-900 via-[#181924] to-gray-900 border-b border-gray-800 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-2xl shadow-inner">
+                    🍔
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl md:text-2xl font-black text-white tracking-wide">
+                        {activeRecipeModal.guide?.productName || activeRecipeModal.item?.productName || activeRecipeModal.item?.name}
+                      </h2>
+                      <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-md text-xs font-black">
+                        طلب #{activeRecipeModal.order?.id}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      دليل رص المكونات ومواصفات الطهي المعتمدة للشيف 👨‍🍳
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveRecipeModal(null)}
+                  className="w-10 h-10 rounded-xl bg-gray-800/80 hover:bg-gray-700 text-gray-400 hover:text-white flex items-center justify-center transition-all cursor-pointer"
+                  title="إغلاق"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-4 md:p-6 overflow-y-auto space-y-4 flex-1">
+                {/* Customer Special Notes & Customizations Warning */}
+                {(activeRecipeModal.item?.notes || activeRecipeModal.item?.Notes || (Array.isArray(activeRecipeModal.item?.addOns) && activeRecipeModal.item.addOns.length > 0)) && (
+                  <div className="bg-red-950/40 border-2 border-red-500/60 rounded-xl p-3.5 space-y-1.5 shadow-lg">
+                    <div className="flex items-center gap-2 text-red-400 font-black text-sm">
+                      <AlertTriangle size={18} className="animate-pulse" />
+                      <span>تنبيه هام للشيف: طلبات وتعديلات العميل الخاصة!</span>
+                    </div>
+                    {(activeRecipeModal.item?.notes || activeRecipeModal.item?.Notes) && (
+                      <div className="text-sm font-bold text-red-200 bg-red-900/30 px-3 py-1.5 rounded-lg border border-red-800/50">
+                        ⚠️ الملاحظة: «{activeRecipeModal.item.notes || activeRecipeModal.item.Notes}»
+                      </div>
+                    )}
+                    {Array.isArray(activeRecipeModal.item?.addOns) && activeRecipeModal.item.addOns.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {activeRecipeModal.item.addOns.map((ad, idx) => (
+                          <span key={idx} className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs px-2.5 py-1 rounded-lg font-bold">
+                            + {typeof ad === 'string' ? ad : ad.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Chef Specs & Timing Banner */}
+                {(activeRecipeModal.guide?.grillingTemp || activeRecipeModal.guide?.cookingTimeSeconds || activeRecipeModal.guide?.toastingTimeSeconds || activeRecipeModal.guide?.prepNotes) && (
+                  <div className="bg-gray-900/70 border border-gray-800 rounded-xl p-3.5 space-y-3">
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="bg-black/40 border border-gray-800 rounded-lg p-2">
+                        <div className="text-[11px] text-gray-400 font-semibold">حرارة الجريل</div>
+                        <div className="text-base font-black text-orange-400 mt-0.5">
+                          🔥 {activeRecipeModal.guide?.grillingTemp || 220}°C
+                        </div>
+                      </div>
+                      <div className="bg-black/40 border border-gray-800 rounded-lg p-2">
+                        <div className="text-[11px] text-gray-400 font-semibold">مدة طهي اللحم</div>
+                        <div className="text-base font-black text-cyan-400 mt-0.5">
+                          ⏱️ {activeRecipeModal.guide?.cookingTimeSeconds || 120} ث
+                        </div>
+                      </div>
+                      <div className="bg-black/40 border border-gray-800 rounded-lg p-2">
+                        <div className="text-[11px] text-gray-400 font-semibold">تحميص الخبز</div>
+                        <div className="text-base font-black text-amber-400 mt-0.5">
+                          🍞 {activeRecipeModal.guide?.toastingTimeSeconds || 30} ث
+                        </div>
+                      </div>
+                    </div>
+
+                    {activeRecipeModal.guide?.prepNotes && (
+                      <div className="bg-black/30 border border-gray-800/80 rounded-lg p-2.5 text-xs text-gray-300 leading-relaxed">
+                        <span className="font-bold text-amber-400 ml-1">تعليمات التحضير:</span>
+                        {activeRecipeModal.guide.prepNotes}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Sandwich Layers Visual Stack */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-gray-400 px-1">
+                    <span className="flex items-center gap-1.5 text-emerald-400">
+                      <span>⬇️ ابدأ بالرص من الخبز السفلي وصولاً للأعلى ⬆️</span>
+                    </span>
+                    <span>
+                      إجمالي ({activeRecipeModal.guide?.layers?.length || 0}) طبقات
+                    </span>
+                  </div>
+
+                  {Array.isArray(activeRecipeModal.guide?.layers) && activeRecipeModal.guide.layers.length > 0 ? (
+                    <div className="space-y-2">
+                      {activeRecipeModal.guide.layers.map((layer, lIdx) => {
+                        const mod = checkLayerModification(layer, activeRecipeModal.item?.notes || activeRecipeModal.item?.Notes);
+                        const visuals = getLayerVisuals(layer.type);
+
+                        return (
+                          <div
+                            key={lIdx}
+                            className={`p-3 rounded-xl border transition-all ${
+                              mod.isRemoved
+                                ? 'bg-red-950/40 border-red-500/70 opacity-75'
+                                : mod.isExtra
+                                ? 'bg-amber-950/40 border-amber-500/70 shadow-md'
+                                : visuals.cardBg
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3">
+                                <span className="w-8 h-8 rounded-lg bg-black/50 border border-gray-700/60 font-black text-sm flex items-center justify-center text-gray-200 shrink-0">
+                                  #{lIdx + 1}
+                                </span>
+                                <span className="text-2xl shrink-0" title={visuals.label}>
+                                  {visuals.icon}
+                                </span>
+                                <div>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className={`font-bold text-sm md:text-base ${
+                                      mod.isRemoved ? 'line-through text-red-300' : 'text-gray-100'
+                                    }`}>
+                                      {layer.name}
+                                    </span>
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${visuals.badgeBg}`}>
+                                      {visuals.label}
+                                    </span>
+                                  </div>
+                                  {layer.notes && !mod.isRemoved && (
+                                    <p className="text-xs text-gray-400 mt-0.5">
+                                      💡 {layer.notes}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Alert Badges */}
+                              {mod.isRemoved ? (
+                                <span className="bg-red-500/30 text-red-300 border border-red-500/50 text-xs font-black px-2.5 py-1 rounded-lg shrink-0">
+                                  {mod.alertText}
+                                </span>
+                              ) : mod.isExtra ? (
+                                <span className="bg-amber-500/30 text-amber-300 border border-amber-500/50 text-xs font-black px-2.5 py-1 rounded-lg shrink-0 animate-pulse">
+                                  {mod.alertText}
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500 text-sm bg-gray-900/40 rounded-xl border border-gray-800">
+                      لم يتم تسجيل طبقات تفصيلية لهذا الصنف في السيستم بعد.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 bg-gray-900/90 border-t border-gray-800 flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={() => setActiveRecipeModal(null)}
+                  className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-[0.98] text-white font-black text-sm rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Check size={18} />
+                  <span>فهمت الدليل، عودة للأوردرات ✓</span>
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
