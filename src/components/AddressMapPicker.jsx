@@ -18,6 +18,12 @@ const customIcon = L.divIcon({
   popupAnchor: [0, -36]
 });
 
+import { 
+  ALEXANDRIA_DISTRICTS, 
+  normalizeArabic, 
+  calculateDistanceKm, 
+  formatAddressDetails 
+} from '../utils/addressUtils';
 export * from '../utils/addressUtils';
 
 export default function AddressMapPicker({
@@ -249,8 +255,9 @@ export default function AddressMapPicker({
       attributionControl: false
     });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19
+    L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
     }).addTo(map);
 
     const marker = L.marker([initialLat, initialLng], {
@@ -276,6 +283,14 @@ export default function AddressMapPicker({
 
     mapInstanceRef.current = map;
     markerRef.current = marker;
+
+    if (!formData.zone && initialLat && initialLng) {
+      reverseGeocode(initialLat, initialLng);
+    }
+
+    if (!formData.zone && initialLat && initialLng) {
+      reverseGeocode(initialLat, initialLng);
+    }
 
     return () => {
       map.remove();
