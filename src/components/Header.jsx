@@ -5,6 +5,7 @@ import Logo from './Logo';
 import { useCart } from '../context/CartContext';
 import { useLanguage } from '../context/LanguageContext';
 import { APP_CONFIG } from '../config/appConfig';
+import StoreStatusTopBar from './StoreStatusTopBar';
 
 export default function Header() {
   const { cartItems, setIsCartOpen } = useCart();
@@ -95,6 +96,7 @@ export default function Header() {
   return (
     <>
       <header className="fixed top-0 left-0 w-full z-40 bg-black-primary/95 backdrop-blur-md border-b border-black-surface text-text-light">
+        <StoreStatusTopBar />
         <div className="container mx-auto px-6 h-16 md:h-20 flex items-center justify-between">
           
           {/* Logo */}

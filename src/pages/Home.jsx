@@ -21,7 +21,7 @@ export default function Home({ websiteData, menuData }) {
 
   return (
     <>
-      <Hero websiteData={websiteData} menuData={menuData} />
+      <Hero websiteData={websiteData} />
       <PressQuote websiteData={websiteData} />
       <SignatureDishes menuData={menuData} />
       <CateringSection websiteData={websiteData} />
