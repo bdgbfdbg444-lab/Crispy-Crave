@@ -496,3 +496,51 @@ export const validateDeliveryAddress = (addressText, lang = 'ar', isCashCod = fa
 
   return { isValid: true, error: '' };
 };
+
+/**
+ * Checks if a given point (lat, lng) is inside a closed polygon boundary using Ray-Casting algorithm.
+ * @param {{lat: number, lng: number} | [number, number]} point 
+ * @param {Array<{lat: number, lng: number}> | Array<[number, number]> | string} polygon 
+ * @returns {boolean}
+ */
+export const isPointInPolygon = (point, polygon) => {
+  if (!point || !polygon) return false;
+
+  let parsedPolygon = polygon;
+  if (typeof polygon === 'string') {
+    try {
+      parsedPolygon = JSON.parse(polygon);
+    } catch {
+      return false;
+    }
+  }
+
+  if (!Array.isArray(parsedPolygon) || parsedPolygon.length < 3) return false;
+
+  const ptLat = typeof point.lat === 'number' ? point.lat : (typeof point.latitude === 'number' ? point.latitude : parseFloat(point[0]));
+  const ptLng = typeof point.lng === 'number' ? point.lng : (typeof point.longitude === 'number' ? point.longitude : parseFloat(point[1]));
+
+  if (isNaN(ptLat) || isNaN(ptLng)) return false;
+
+  let inside = false;
+  for (let i = 0, j = parsedPolygon.length - 1; i < parsedPolygon.length; j = i++) {
+    const p1 = parsedPolygon[i];
+    const p2 = parsedPolygon[j];
+
+    const p1Lat = typeof p1.lat === 'number' ? p1.lat : (typeof p1.latitude === 'number' ? p1.latitude : parseFloat(p1[0]));
+    const p1Lng = typeof p1.lng === 'number' ? p1.lng : (typeof p1.longitude === 'number' ? p1.longitude : parseFloat(p1[1]));
+    const p2Lat = typeof p2.lat === 'number' ? p2.lat : (typeof p2.latitude === 'number' ? p2.latitude : parseFloat(p2[0]));
+    const p2Lng = typeof p2.lng === 'number' ? p2.lng : (typeof p2.longitude === 'number' ? p2.longitude : parseFloat(p2[1]));
+
+    if (isNaN(p1Lat) || isNaN(p1Lng) || isNaN(p2Lat) || isNaN(p2Lng)) continue;
+
+    const intersect = ((p1Lng > ptLng) !== (p2Lng > ptLng)) &&
+      (ptLat < ((p2Lat - p1Lat) * (ptLng - p1Lng)) / (p2Lng - p1Lng) + p1Lat);
+
+    if (intersect) {
+      inside = !inside;
+    }
+  }
+
+  return inside;
+};

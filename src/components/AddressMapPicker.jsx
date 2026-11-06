@@ -22,7 +22,8 @@ import {
   ALEXANDRIA_DISTRICTS, 
   normalizeArabic, 
   calculateDistanceKm, 
-  formatAddressDetails 
+  formatAddressDetails,
+  isPointInPolygon
 } from '../utils/addressUtils';
 export * from '../utils/addressUtils';
 
@@ -170,7 +171,17 @@ export default function AddressMapPicker({
 
         const normSearchPool = normalizeArabic(searchPool);
 
-        // Tier 1: Match by district knowledge base (subAreas & radius)
+        // Tier 0: Direct Polygon Geofencing boundary check (highest precision)
+        for (const z of zonesList) {
+          const polyRaw = z.polygonCoordinatesJson || z.polygonCoordinates;
+          if (polyRaw && isPointInPolygon({ lat, lng }, polyRaw)) {
+            zoneDetected = z.name;
+            break;
+          }
+        }
+
+        // Tier 1: Match by district knowledge base (subAreas & radius) if not matched by polygon
+        if (!zoneDetected) {
         for (const z of zonesList) {
           const normZName = normalizeArabic(z.name || '');
           
@@ -198,6 +209,8 @@ export default function AddressMapPicker({
               }
             }
           }
+        }
+
         }
 
         // Tier 2: Fallback to token text matching if not matched by district knowledge base
@@ -297,6 +310,47 @@ export default function AddressMapPicker({
       mapInstanceRef.current = null;
     };
   }, []);
+
+  
+  // Render delivery zone polygons on map
+  useEffect(() => {
+    if (!mapInstanceRef.current || !zonesList || zonesList.length === 0) return;
+    const map = mapInstanceRef.current;
+    const layers = [];
+
+    zonesList.forEach(z => {
+      const raw = z.polygonCoordinatesJson || z.polygonCoordinates;
+      if (!raw) return;
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (Array.isArray(parsed) && parsed.length >= 3) {
+          const latLngs = parsed.map(pt => [
+            typeof pt.lat === 'number' ? pt.lat : pt[0],
+            typeof pt.lng === 'number' ? pt.lng : pt[1]
+          ]);
+          const poly = L.polygon(latLngs, {
+            color: '#059669',
+            weight: 2,
+            opacity: 0.85,
+            fillColor: '#10B981',
+            fillOpacity: 0.15
+          }).addTo(map);
+          poly.bindTooltip(`📍 ${z.name || ''}`, {
+            permanent: false,
+            direction: 'center',
+            className: 'zone-map-tooltip'
+          });
+          layers.push(poly);
+        }
+      } catch (e) {
+        console.warn('Error rendering zone polygon:', e);
+      }
+    });
+
+    return () => {
+      layers.forEach(l => map.removeLayer(l));
+    };
+  }, [zonesList]);
 
   // Update map marker when coordinates change externally
   useEffect(() => {
