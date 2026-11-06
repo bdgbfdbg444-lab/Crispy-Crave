@@ -9,8 +9,16 @@ export function checkStoreOpenStatus(storeStatus, lang = 'ar') {
     return {
       isOpen: true,
       reason: 'open',
+      title: 'مفتوح الآن لاستقبال طلباتكم',
+      titleEn: 'Open Now for Orders',
       message: '',
-      messageEn: ''
+      messageEn: '',
+      openTimeDisplay: '',
+      closeTimeDisplay: '',
+      openDisplayAr: '',
+      closeDisplayAr: '',
+      openDisplayEn: '',
+      closeDisplayEn: ''
     };
   }
 
@@ -21,8 +29,16 @@ export function checkStoreOpenStatus(storeStatus, lang = 'ar') {
     return {
       isOpen: false,
       reason: 'manual_closed',
+      title: 'المطعم مغلق حالياً',
+      titleEn: 'Restaurant is Currently Closed',
       message: closedMsg,
-      messageEn: closedMsgEn
+      messageEn: closedMsgEn,
+      openTimeDisplay: '',
+      closeTimeDisplay: '',
+      openDisplayAr: '',
+      closeDisplayAr: '',
+      openDisplayEn: '',
+      closeDisplayEn: ''
     };
   }
 
@@ -32,8 +48,16 @@ export function checkStoreOpenStatus(storeStatus, lang = 'ar') {
     return {
       isOpen: true,
       reason: 'open',
+      title: 'مفتوح الآن لاستقبال طلباتكم',
+      titleEn: 'Open Now for Orders',
       message: '',
-      messageEn: ''
+      messageEn: '',
+      openTimeDisplay: '',
+      closeTimeDisplay: '',
+      openDisplayAr: '',
+      closeDisplayAr: '',
+      openDisplayEn: '',
+      closeDisplayEn: ''
     };
   }
 
@@ -81,35 +105,53 @@ export function checkStoreOpenStatus(storeStatus, lang = 'ar') {
     isWithinHours = curMinutes >= openMinutes || curMinutes <= closeMinutes;
   }
 
-  if (isWithinHours) {
-    return {
-      isOpen: true,
-      reason: 'open',
-      message: '',
-      messageEn: ''
-    };
-  }
-
   // Format nice human-readable times
-  const formatTimeDisplay = (mins) => {
+  const formatTimeDisplay = (mins, isLangEn = false) => {
     let h = Math.floor(mins / 60);
     const m = mins % 60;
     const isPm = h >= 12;
     h = h % 12 || 12;
     const mStr = m > 0 ? `:${m < 10 ? '0' : ''}${m}` : '';
-    return `${h}${mStr} ${isPm ? (lang === 'en' ? 'PM' : 'مساءً') : (lang === 'en' ? 'AM' : 'صباحاً')}`;
+    return `${h}${mStr} ${isPm ? (isLangEn ? 'PM' : 'مساءً') : (isLangEn ? 'AM' : 'صباحاً')}`;
   };
 
-  const openDisplay = formatTimeDisplay(openMinutes);
-  const closeDisplay = formatTimeDisplay(closeMinutes);
+  const openDisplayAr = formatTimeDisplay(openMinutes, false);
+  const closeDisplayAr = formatTimeDisplay(closeMinutes, false);
+  const openDisplayEn = formatTimeDisplay(openMinutes, true);
+  const closeDisplayEn = formatTimeDisplay(closeMinutes, true);
 
-  const schedClosedMsg = `المطعم مغلق حالياً وفقاً لمواعيد العمل الرسمية. نسعد باستقبال طلباتكم يومياً من الساعة ${openDisplay} حتى ${closeDisplay}.`;
-  const schedClosedMsgEn = `The restaurant is currently closed. Our daily working hours are from ${openDisplay} to ${closeDisplay}.`;
+  if (isWithinHours) {
+    return {
+      isOpen: true,
+      reason: 'open',
+      title: 'مفتوح الآن لاستقبال طلباتكم',
+      titleEn: 'Open Now for Orders',
+      message: `نسعد باستقبال طلباتكم يومياً حتى الساعة ${closeDisplayAr}`,
+      messageEn: `Accepting orders daily until ${closeDisplayEn}`,
+      openTimeDisplay: lang === 'en' ? openDisplayEn : openDisplayAr,
+      closeTimeDisplay: lang === 'en' ? closeDisplayEn : closeDisplayAr,
+      openDisplayAr,
+      closeDisplayAr,
+      openDisplayEn,
+      closeDisplayEn
+    };
+  }
+
+  const schedClosedMsg = `المطعم مغلق حالياً وفقاً لمواعيد العمل الرسمية. نسعد باستقبال طلباتكم يومياً من الساعة ${openDisplayAr} حتى ${closeDisplayAr}.`;
+  const schedClosedMsgEn = `The restaurant is currently closed. Our daily working hours are from ${openDisplayEn} to ${closeDisplayEn}.`;
 
   return {
     isOpen: false,
     reason: 'schedule_closed',
+    title: 'المطعم مغلق حالياً',
+    titleEn: 'Restaurant is Currently Closed',
     message: schedClosedMsg,
-    messageEn: schedClosedMsgEn
+    messageEn: schedClosedMsgEn,
+    openTimeDisplay: lang === 'en' ? openDisplayEn : openDisplayAr,
+    closeTimeDisplay: lang === 'en' ? closeDisplayEn : closeDisplayAr,
+    openDisplayAr,
+    closeDisplayAr,
+    openDisplayEn,
+    closeDisplayEn
   };
 }

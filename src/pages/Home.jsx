@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import Hero from '../components/Hero';
 import SignatureDishes from '../components/SignatureDishes';
 import CateringSection from '../components/CateringSection';
@@ -21,7 +21,7 @@ export default function Home({ websiteData, menuData }) {
 
   return (
     <>
-      <Hero websiteData={websiteData} />
+      <Hero websiteData={websiteData} menuData={menuData} />
       <PressQuote websiteData={websiteData} />
       <SignatureDishes menuData={menuData} />
       <CateringSection websiteData={websiteData} />

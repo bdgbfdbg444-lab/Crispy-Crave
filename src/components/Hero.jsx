@@ -7,13 +7,15 @@ import { ChevronDown, Utensils } from 'lucide-react';
 import Logo from './Logo';
 import { getHeroImageUrl, optimizeCloudinaryUrl } from '../utils/imageOptimizer';
 import { useCart } from '../context/CartContext';
+import StoreStatusBanner from './StoreStatusBanner';
 
-export default function Hero({ websiteData }) {
+export default function Hero({ websiteData, menuData }) {
   const { lang } = useLanguage();
   const { orderType, setIsOrderTypeModalOpen } = useCart();
   const navigate = useNavigate();
   const ref = useRef(null);
   const videoRef = useRef(null);
+  const [isClosed, setIsClosed] = useState(false);
 
   const bgMedia = websiteData?.heroMediaUrl;
   const isVideo = Boolean(bgMedia && (bgMedia.toLowerCase().endsWith('.mp4') || bgMedia.toLowerCase().endsWith('.webm') || bgMedia.toLowerCase().endsWith('.mov') || bgMedia.toLowerCase().endsWith('.avi')));
@@ -73,7 +75,7 @@ export default function Hero({ websiteData }) {
   const y = useTransform(scrollYProgress, [0, 1], ['0%', '50%']);
 
   return (
-    <section ref={ref} id="hero" className="relative w-full h-[100vh] overflow-hidden bg-black-primary text-text-light flex flex-col justify-center items-center">
+    <section ref={ref} id="hero" className="relative w-full min-h-[100svh] overflow-hidden bg-black-primary text-text-light flex flex-col justify-center items-center py-24 md:py-16">
       {/* Background Media with Parallax */}
       <motion.div style={{ y, x: '-50%', left: '50%', minWidth: '100%', height: '120%', top: '-10%' }} className="absolute z-0">
         {bgMedia && isVideo ? (
@@ -144,10 +146,23 @@ export default function Hero({ websiteData }) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.6 }}
-            className="text-sm md:text-xl lg:text-2xl text-text-light/90 mb-10 font-bold tracking-wide drop-shadow-lg whitespace-pre-line leading-relaxed"
+            className="text-sm md:text-xl lg:text-2xl text-text-light/90 mb-4 md:mb-6 font-bold tracking-wide drop-shadow-lg whitespace-pre-line leading-relaxed"
           >
             {subtitle}
           </motion.p>
+
+          {/* Store Status Announcement Banner */}
+          <motion.div 
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.7 }}
+            className="w-full"
+          >
+            <StoreStatusBanner 
+              initialStatus={menuData?.storeStatus} 
+              onStatusChange={(status) => setIsClosed(!status.isOpen)} 
+            />
+          </motion.div>
           
           {/* Action Buttons */}
           <motion.div 
@@ -159,7 +174,9 @@ export default function Hero({ websiteData }) {
             <button 
               type="button"
               onClick={() => {
-                if (!orderType) {
+                if (isClosed) {
+                  navigate('/menu');
+                } else if (!orderType) {
                   setIsOrderTypeModalOpen(true);
                 } else {
                   navigate('/menu');
@@ -168,7 +185,11 @@ export default function Hero({ websiteData }) {
               className="bg-brand-red hover:bg-brand-red-dark text-text-light font-bold py-4 px-12 rounded-lg shadow-lg hover:shadow-brand-red/40 transition-all duration-300 flex items-center justify-center gap-3 text-lg md:text-xl border border-brand-red-light/20 cursor-pointer"
             >
               <Utensils size={20} />
-              <span>{lang === 'en' ? 'Order Now' : 'اطلب الآن'}</span>
+              <span>
+                {isClosed 
+                  ? (lang === 'en' ? 'Explore Menu' : 'تصفح قائمة الطعام') 
+                  : (lang === 'en' ? 'Order Now' : 'اطلب الآن')}
+              </span>
             </button>
             
             <a 
