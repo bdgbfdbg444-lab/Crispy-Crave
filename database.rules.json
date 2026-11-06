@@ -228,6 +228,10 @@
         ".read": true,
         ".write": true
       }
+    },
+    "KitchenUpdates": {
+      ".read": true,
+      ".write": true
     }
   }
 }

@@ -295,7 +295,7 @@ export default function KdsPage() {
     return Object.values(map).sort((a, b) => b.count - a.count);
   }, [activeOrders]);
 
-  // Action: Mark as Ready (triggers customer phone buzzer!)
+  // Action: Mark as Ready (triggers customer phone buzzer & instant POS sync!)
   const handleMarkReady = async (order) => {
     try {
       const updates = {};
@@ -305,6 +305,12 @@ export default function KdsPage() {
       if (order.orderKey) {
         updates[`Orders/${order.orderKey}/Status`] = 'Ready';
       }
+      // Instant push notification queue for Desktop POS
+      updates[`KitchenUpdates/${order.id}`] = {
+        OrderNumber: order.id,
+        Status: 'Ready',
+        Timestamp: new Date().toISOString()
+      };
 
       await update(ref(db), updates);
       if (soundEnabled) playKitchenChime();
@@ -313,7 +319,7 @@ export default function KdsPage() {
     }
   };
 
-  // Action: Mark as Served / Completed
+  // Action: Mark as Served / Completed (instantly updates Desktop POS & completes order)
   const handleMarkServed = async (order) => {
     try {
       const updates = {};
@@ -323,6 +329,12 @@ export default function KdsPage() {
       if (order.orderKey) {
         updates[`Orders/${order.orderKey}/Status`] = 'Completed';
       }
+      // Instant push notification queue for Desktop POS
+      updates[`KitchenUpdates/${order.id}`] = {
+        OrderNumber: order.id,
+        Status: 'Completed',
+        Timestamp: new Date().toISOString()
+      };
 
       await update(ref(db), updates);
     } catch (e) {
