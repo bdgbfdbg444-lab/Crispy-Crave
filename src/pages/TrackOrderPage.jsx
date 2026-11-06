@@ -2,7 +2,8 @@ import { useLanguage } from '../context/LanguageContext';
 import React, { useState, useEffect } from 'react';
 import { visitorTracker } from '../services/visitorTracker';
 import { useParams, useNavigate } from 'react-router-dom';
-import { CheckCircle, AlertCircle, ArrowRight, Star, MessageCircle, Edit3, ShieldCheck, Lock, MapPin, Phone, User } from 'lucide-react';
+import { CheckCircle, AlertCircle, ArrowRight, Star, MessageCircle, Edit3, ShieldCheck, Lock, MapPin, Phone, User, Bell, Flame, Utensils } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { APP_CONFIG } from '../config/appConfig';
 import ReviewModal from '../components/ReviewModal';
 import { ref, onValue, off, set, update } from 'firebase/database';
@@ -11,6 +12,35 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 
 const FIREBASE_URL = 'https://crispy-c9702-default-rtdb.europe-west1.firebasedatabase.app';
+
+// Web Audio API Synth Pager Buzzer (Works on all mobile devices with 0 dependencies)
+function playPagerChimeSound() {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return null;
+    const ctx = new AudioContext();
+    
+    const playBeep = (freq, startTime, duration) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, startTime);
+      gain.gain.setValueAtTime(0.4, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + duration);
+    };
+
+    playBeep(784, ctx.currentTime, 0.25);
+    playBeep(1046.5, ctx.currentTime + 0.18, 0.4);
+    return ctx;
+  } catch (e) {
+    console.warn('Pager buzzer sound error:', e);
+    return null;
+  }
+}
 
 export default function TrackOrderPage({ menuData }) {
   const { lang } = useLanguage();
@@ -24,6 +54,9 @@ export default function TrackOrderPage({ menuData }) {
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [hasAutoOpenedReview, setHasAutoOpenedReview] = useState(false);
   const [hasFinishedReview, setHasFinishedReview] = useState(false);
+  const [lookupInput, setLookupInput] = useState('');
+  const [isPagerActive, setIsPagerActive] = useState(false);
+  const [hasDismissedPager, setHasDismissedPager] = useState(false);
 
   useEffect(() => {
     visitorTracker.setOrdering(true);
@@ -49,6 +82,53 @@ export default function TrackOrderPage({ menuData }) {
       }
     }
   }, [orderData?.Status, hasAutoOpenedReview, orderId]);
+
+  // Digital Pager Buzzer & Vibration Trigger when order is Ready
+  useEffect(() => {
+    const statusLower = (orderData?.Status || '').toLowerCase();
+    if (statusLower === 'ready' && !hasDismissedPager) {
+      setIsPagerActive(true);
+
+      // Play initial buzzer sound
+      playPagerChimeSound();
+
+      // Vibrate on Android
+      try {
+        if ('vibrate' in navigator) {
+          navigator.vibrate([600, 300, 600, 300, 600]);
+        }
+      } catch (e) {}
+
+      // Keep ringing and vibrating every 3.5 seconds until dismissed
+      const buzzInterval = setInterval(() => {
+        playPagerChimeSound();
+        try {
+          if ('vibrate' in navigator) {
+            navigator.vibrate([600, 300, 600, 300, 600]);
+          }
+        } catch (e) {}
+      }, 3500);
+
+      return () => {
+        clearInterval(buzzInterval);
+        try {
+          if ('vibrate' in navigator) navigator.vibrate(0);
+        } catch (e) {}
+      };
+    }
+  }, [orderData?.Status, hasDismissedPager]);
+
+  const handleDismissPager = () => {
+    setIsPagerActive(false);
+    setHasDismissedPager(true);
+    try {
+      if ('vibrate' in navigator) navigator.vibrate(0);
+    } catch (e) {}
+    // Automatically open review rating modal after receiving food!
+    setTimeout(() => {
+      setIsReviewModalOpen(true);
+    }, 450);
+  };
 
   useEffect(() => {
     const safeOrderId = (orderId || '').replace(/#/g, '').trim();
@@ -284,6 +364,50 @@ export default function TrackOrderPage({ menuData }) {
   // IDOR & Privacy Protection Guard (Thoghra 22)
   // -------------------------------------------------------------
   // If orderData is not found in database at all:
+  // If user opened /track without an orderId (e.g. from cashier QR code lookup)
+  if (!safeOrderId) {
+    return (
+      <div className="pt-28 min-h-screen bg-black-surface flex flex-col items-center justify-center p-6 text-center" dir={lang === 'en' ? 'ltr' : 'rtl'}>
+        <div className="w-full max-w-md bg-gradient-to-br from-[#181920] to-[#121318] border border-gray-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
+          <div className="w-16 h-16 rounded-2xl bg-brand-red/15 border border-brand-red/30 flex items-center justify-center mx-auto mb-5 shadow-[0_0_20px_rgba(230,57,70,0.3)]">
+            <Bell className="w-8 h-8 text-brand-red animate-pulse" />
+          </div>
+          <h2 className="text-2xl font-black text-white mb-2">
+            {lang === 'en' ? 'Digital Pager & Order Tracker' : 'البيجر الإلكتروني وتتبع الطلب'}
+          </h2>
+          <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+            {lang === 'en' 
+              ? 'Enter the order number printed on your cashier receipt to activate the pager alarm when your food is ready!'
+              : 'أدخل رقم الطلب المطبوع في إيصال الكاشير لتحويل هاتفك إلى بيجر ينبهك ويهتز أول ما أكلك يجهز!'}
+          </p>
+
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            if (lookupInput.trim()) {
+              navigate(`/track/${lookupInput.trim().replace(/#/g, '')}`);
+            }
+          }} className="space-y-4">
+            <input 
+              type="text"
+              placeholder={lang === 'en' ? 'e.g. 1045' : 'مثال: 1045'}
+              value={lookupInput}
+              onChange={(e) => setLookupInput(e.target.value)}
+              className="w-full py-4 text-center text-3xl font-black tracking-widest bg-black-primary border-2 border-brand-red/40 rounded-2xl text-white focus:outline-none focus:border-brand-red transition-all shadow-inner"
+              autoFocus
+            />
+            <button 
+              type="submit"
+              disabled={!lookupInput.trim()}
+              className="w-full py-4 bg-brand-red hover:bg-brand-red-dark disabled:opacity-50 text-white font-black text-lg rounded-xl transition-all shadow-lg shadow-brand-red/30 cursor-pointer"
+            >
+              {lang === 'en' ? 'Activate Pager 🔔' : 'تفعيل البيجر ومتابعة الطلب 🔔'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   if (!orderData) {
     localStorage.removeItem("activeOrderId");
     return (
@@ -723,6 +847,67 @@ export default function TrackOrderPage({ menuData }) {
           <span>{lang === 'en' ? 'Back to Menu' : 'العودة للمنيو'}</span>
         </button>
       </div>
+
+      {/* Fullscreen Digital Pager Modal when Order is Ready */}
+      <AnimatePresence>
+        {isPagerActive && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center"
+            dir={lang === 'en' ? 'ltr' : 'rtl'}
+          >
+            <motion.div
+              initial={{ scale: 0.8, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.8, y: 20 }}
+              className="w-full max-w-md bg-gradient-to-b from-[#22080d] via-[#160609] to-[#0c0305] border-2 border-brand-red rounded-3xl p-8 shadow-[0_0_60px_rgba(230,57,70,0.5)] flex flex-col items-center relative overflow-hidden"
+            >
+              {/* Pulsing beacon circles */}
+              <div className="absolute -top-24 -right-24 w-48 h-48 bg-brand-red/25 rounded-full blur-3xl pointer-events-none animate-pulse" />
+              <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-brand-red/25 rounded-full blur-3xl pointer-events-none animate-pulse" />
+
+              {/* Vibrating Bell Icon */}
+              <motion.div
+                animate={{ rotate: [-12, 12, -12, 12, 0] }}
+                transition={{ repeat: Infinity, duration: 0.7 }}
+                className="w-24 h-24 rounded-3xl bg-brand-red flex items-center justify-center text-white mb-6 shadow-[0_0_35px_#E63946]"
+              >
+                <Bell size={50} className="fill-current animate-bounce" />
+              </motion.div>
+
+              <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider mb-3">
+                {lang === 'en' ? 'Order Ready for Pickup' : 'الوجبة جاهزة وساخنة الآن! 🔥'}
+              </span>
+
+              <h2 className="text-3xl font-display font-black text-white mb-2">
+                {lang === 'en' ? `Order #${displayNum || safeOrderId}` : `طلبك رقم #${displayNum || safeOrderId}`}
+              </h2>
+
+              <p className="text-gray-300 text-base leading-relaxed mb-8 font-medium">
+                {orderData?.OrderType?.toLowerCase() === 'dinein' && orderData?.TableNumber
+                  ? (lang === 'en' ? `Ready for Table ${orderData.TableNumber}!` : `جاهز للتقديم على طاولة رقم ${orderData.TableNumber}!`)
+                  : (lang === 'en' ? 'Please proceed to the counter to collect your fresh order.' : 'يرجى التوجه إلى الكاونتر واستلام وجبتك الشهية.')}
+              </p>
+
+              {/* Big Red Dismiss & Receive Button */}
+              <button
+                type="button"
+                onClick={handleDismissPager}
+                className="w-full py-5 bg-gradient-to-r from-brand-red to-brand-red-dark hover:brightness-110 active:scale-95 text-white font-black text-xl rounded-2xl transition-all shadow-[0_0_30px_rgba(230,57,70,0.5)] flex items-center justify-center gap-3 cursor-pointer"
+              >
+                <CheckCircle size={26} />
+                <span>{lang === 'en' ? 'I Received My Order 👍' : 'استلمت الطلب 👍'}</span>
+              </button>
+
+              <p className="text-xs text-gray-400 mt-4">
+                {lang === 'en' ? 'Tap above to silence buzzer and rate your meal' : 'اضغط بالأعلى لإيقاف الرنين وتقييم وجبتك'}
+              </p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <ReviewModal 
         isOpen={isReviewModalOpen}

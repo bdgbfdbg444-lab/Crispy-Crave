@@ -28,6 +28,7 @@ const DriverPortal = React.lazy(() => import('./pages/DriverPortal'));
 const ReviewModal = React.lazy(() => import('./components/ReviewModal'));
 const GeoRestrictedPage = React.lazy(() => import('./pages/GeoRestrictedPage'));
 const VipCampaign = React.lazy(() => import('./pages/VipCampaign'));
+const KdsPage = React.lazy(() => import('./pages/KdsPage'));
 import { checkEgyptGeoAccess } from './utils/geoGuard';
 
 function AnimatedRoutes({ websiteData, menuData }) {
@@ -40,8 +41,10 @@ function AnimatedRoutes({ websiteData, menuData }) {
         <Route path="/checkout" element={<PageTransition><Suspense fallback={<LoadingScreen />}><CheckoutPage menuData={menuData} websiteData={websiteData} /></Suspense></PageTransition>} />
         <Route path="/our-story" element={<PageTransition><Suspense fallback={<LoadingScreen />}><OurStoryPage websiteData={websiteData} /></Suspense></PageTransition>} />
         <Route path="/account" element={<PageTransition><Suspense fallback={<LoadingScreen />}><MyAccountPage menuData={menuData} /></Suspense></PageTransition>} />
+        <Route path="/track" element={<PageTransition><Suspense fallback={<LoadingScreen />}><TrackOrderPage menuData={menuData} /></Suspense></PageTransition>} />
         <Route path="/track/:orderId" element={<PageTransition><Suspense fallback={<LoadingScreen />}><TrackOrderPage menuData={menuData} /></Suspense></PageTransition>} />
         <Route path="/driver" element={<PageTransition><Suspense fallback={<LoadingScreen />}><DriverPortal /></Suspense></PageTransition>} />
+        <Route path="/kds" element={<Suspense fallback={<LoadingScreen />}><KdsPage /></Suspense>} />
         <Route path="/vip" element={<Suspense fallback={<LoadingScreen />}><VipCampaign /></Suspense>} />
         <Route path="/box" element={<Suspense fallback={<LoadingScreen />}><VipCampaign /></Suspense>} />
         <Route path="/cowboy" element={<Suspense fallback={<LoadingScreen />}><VipCampaign /></Suspense>} />
@@ -52,10 +55,13 @@ function AnimatedRoutes({ websiteData, menuData }) {
 
 function MainAppShell({ websiteData, menuData, loading, lang, isReviewModalOpen, setIsReviewModalOpen, toastNotification, setToastNotification }) {
   const location = useLocation();
-  const isVipRoute = location.pathname === '/vip' || location.pathname === '/box' || location.pathname === '/cowboy';
+  const isIsolatedRoute = location.pathname === '/vip' || 
+                          location.pathname === '/box' || 
+                          location.pathname === '/cowboy' || 
+                          location.pathname === '/kds';
   const { cartItemsCount, setIsCartOpen, isCartOpen } = useCart();
 
-  if (isVipRoute) {
+  if (isIsolatedRoute) {
     return (
       <div className="min-h-screen bg-[#0B0B0C] text-white">
         {!loading && <AnimatedRoutes websiteData={websiteData} menuData={menuData} />}
