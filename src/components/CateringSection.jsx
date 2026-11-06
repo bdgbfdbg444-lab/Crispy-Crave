@@ -1203,6 +1203,7 @@ ${structuredTelegramNotes}`;
                                     onChange={handleCustomAddressDraftChange}
                                     zonesList={websiteData?.deliveryZones || []}
                                     lang={lang}
+                                    isCatering={true}
                                   />
                                 </React.Suspense>
                               </div>

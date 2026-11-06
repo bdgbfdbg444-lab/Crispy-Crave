@@ -32,7 +32,8 @@ export default function AddressMapPicker({
   onChange,
   zonesList = [],
   lang = 'ar',
-  disabled = false
+  disabled = false,
+  isCatering = false
 }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -66,7 +67,7 @@ export default function AddressMapPicker({
 
     searchDebounceRef.current = setTimeout(async () => {
       try {
-        const q = val.trim() + ' الإسكندرية';
+        const q = isCatering ? val.trim() : (val.trim() + ' الإسكندرية');
         const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&accept-language=ar&countrycodes=eg&limit=5`, {
           headers: { 'Accept-Language': 'ar' }
         });
@@ -137,7 +138,7 @@ export default function AddressMapPicker({
 
     // Check Alexandria bounds (Lat ~ 30.85 to 31.45, Lng ~ 29.50 to 30.40)
     const isInsideAlexandria = lat >= 30.85 && lat <= 31.45 && lng >= 29.50 && lng <= 30.40;
-    if (!isInsideAlexandria) {
+    if (!isInsideAlexandria && !isCatering) {
       setGpsError('⚠️ موقع الدبوس يقع خارج نطاق محافظة الإسكندرية ومناطق توصيل المطعم.');
     }
     // Tier 0: Direct Polygon Geofencing boundary check (highest precision - 100% authoritative)
@@ -165,6 +166,25 @@ export default function AddressMapPicker({
         neighborhoodName = addr.suburb || addr.neighbourhood || addr.quarter || addr.city_district || addr.district || '';
         setRawAreaName(neighborhoodName);
         
+        if (isCatering) {
+          const cateringZone = zoneDetected || neighborhoodName || (addr.suburb) || (addr.city) || (addr.town) || (addr.state) || (lang === 'en' ? 'Event Location' : 'موقع المناسبة المحدد');
+          setDetectedZoneName(cateringZone);
+          setIsOutOfZone(false);
+          setGpsError('');
+
+          const next = {
+            ...formData,
+            lat,
+            lng,
+            mapsUrl: `https://maps.google.com/?q=${lat},${lng}`,
+            street: streetName || formData.street,
+            zone: cateringZone,
+            isOutOfZone: false
+          };
+          updateParent(next);
+          return;
+        }
+
         // Build address search pool strictly from actual physical pin location (NOT the search query text!)
         const searchPool = [
           streetName,
@@ -319,7 +339,7 @@ export default function AddressMapPicker({
   
   // Render delivery zone polygons on map
   useEffect(() => {
-    if (!mapInstanceRef.current || !zonesList || zonesList.length === 0) return;
+    if (!mapInstanceRef.current || !zonesList || zonesList.length === 0 || isCatering) return;
     const map = mapInstanceRef.current;
     const layers = [];
 
@@ -500,7 +520,7 @@ export default function AddressMapPicker({
           </div>
         )}
 
-        {gpsError && (
+        {gpsError && !isCatering && (
           <div className="mt-2 p-2 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-xs font-semibold flex items-center gap-1.5">
             <AlertCircle size={14} className="shrink-0" />
             <span>{gpsError}</span>
@@ -514,18 +534,56 @@ export default function AddressMapPicker({
         <div>
           <div className="flex justify-between items-center mb-1.5">
             <label className="block text-xs font-bold text-text-light">
-              {lang === 'en' ? 'Delivery Zone (Auto-detected from Map) *' : 'منطقة التوصيل (تُحدد تلقائياً من الخريطة 📍) *'}
+              {isCatering
+                ? (lang === 'en' ? 'Event Area / City / Venue *' : 'منطقة أو مدينة المناسبة 📍 *')
+                : (lang === 'en' ? 'Delivery Zone (Auto-detected from Map) *' : 'منطقة التوصيل (تُحدد تلقائياً من الخريطة 📍) *')}
             </label>
-            <button 
-              type="button" 
-              onClick={() => setAllowManualOverride(!allowManualOverride)} 
-              className="text-[11px] text-text-muted hover:text-brand-red underline"
-            >
-              {allowManualOverride ? (lang === 'en' ? 'Cancel Manual Edit' : 'إلغاء التعديل اليدوي') : (lang === 'en' ? 'Manual Area Edit' : 'تعديل يدوي للمنطقة')}
-            </button>
+            {!isCatering && (
+              <button 
+                type="button" 
+                onClick={() => setAllowManualOverride(!allowManualOverride)} 
+                className="text-[11px] text-text-muted hover:text-brand-red underline"
+              >
+                {allowManualOverride ? (lang === 'en' ? 'Cancel Manual Edit' : 'إلغاء التعديل اليدوي') : (lang === 'en' ? 'Manual Area Edit' : 'تعديل يدوي للمنطقة')}
+              </button>
+            )}
           </div>
 
-          {allowManualOverride ? (
+          {isCatering ? (
+            <div className="space-y-2">
+              <input
+                type="text"
+                required
+                disabled={disabled}
+                placeholder={lang === 'en' ? 'e.g. Sidi Bishr, Smouha, North Coast, Borg El Arab...' : 'مثال: سيدي بشر، سموحة، الساحل الشمالي، برج العرب...'}
+                value={formData.zone}
+                onChange={(e) => {
+                  handleFieldChange('zone', e.target.value);
+                  setIsOutOfZone(false);
+                }}
+                className="w-full bg-black-surface border border-brand-red-dark/30 text-text-light p-2.5 rounded-xl font-bold text-sm focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red"
+              />
+              <div className="flex items-center justify-between bg-emerald-950/40 border border-emerald-500/40 px-3 py-2 rounded-xl">
+                <div className="flex items-center gap-2">
+                  <MapPin className="text-emerald-400 shrink-0" size={16} />
+                  <span className="text-emerald-300 font-bold text-xs truncate">
+                    {formData.zone || rawAreaName || (lang === 'en' ? 'Event Location Selected' : 'تم اختيار موقع المناسبة')}
+                  </span>
+                </div>
+                <span className="text-[10.5px] bg-emerald-500/20 text-emerald-300 px-2.5 py-0.5 rounded-full font-bold shrink-0">
+                  {lang === 'en' ? 'Venue Selected ✓' : 'موقع المناسبة المحدد ✓'}
+                </span>
+              </div>
+              <p className="text-[11.5px] text-amber-300/90 bg-amber-500/10 border border-amber-500/20 rounded-lg p-2.5 flex items-center gap-2 font-medium">
+                <Info size={15} className="shrink-0 text-amber-400" />
+                <span>
+                  {lang === 'en'
+                    ? 'All locations across Alexandria, North Coast, and beyond are welcomed. Our catering team will review the venue distance and coordinate logistics with you upon receiving the request.'
+                    : 'يمكنك اختيار أي مكان لمناسبتك؛ ستقوم إدارة الكيترينج بمراجعة موقع وتجهيزات التوصيل والتأكيد معكم هاتفياً فور استلام الطلب.'}
+                </span>
+              </p>
+            </div>
+          ) : allowManualOverride ? (
             <select
               required
               disabled={disabled}

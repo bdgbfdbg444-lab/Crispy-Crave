@@ -9,18 +9,41 @@ export default function SocialFeed({ websiteData }) {
   const { lang } = useLanguage();
   const instagramLink = websiteData?.instagramLink || "#";
 
+  const defaultArTitle = 'عيش التجربة معنا';
+  const defaultEnTitle = 'Live the Experience With Us';
+  const defaultArSubtitle = 'شاركونا أجمل اللحظات وعيشوا معنا متعة المأكولات المدخنة';
+  const defaultEnSubtitle = 'Follow us on Instagram and TikTok for the latest videos and offers';
+
   let socialData = {
-    title: lang === 'en' ? 'Live the Experience With Us' : 'عيش التجربة معنا',
-    subtitle: lang === 'en' ? 'Follow us on Instagram and TikTok for the latest videos and offers' : 'تابعنا على انستجرام وتيك توك لأحدث الفيديوهات والعروض',
+    title: lang === 'en' ? defaultEnTitle : defaultArTitle,
+    subtitle: lang === 'en' ? defaultEnSubtitle : defaultArSubtitle,
     items: []
   };
 
   if (websiteData && websiteData.socialFeedData) {
     try {
-      const parsed = JSON.parse(websiteData.socialFeedData);
+      const parsed = typeof websiteData.socialFeedData === 'string'
+        ? JSON.parse(websiteData.socialFeedData)
+        : websiteData.socialFeedData;
       if (parsed) {
-        socialData.title = lang === 'en' ? (parsed.titleEn || parsed.TitleEn || 'Live the Experience With Us') : (parsed.title || parsed.Title || socialData.title);
-        socialData.subtitle = lang === 'en' ? (parsed.subtitleEn || parsed.SubtitleEn || 'Follow us on Instagram and TikTok for the latest videos and offers') : (parsed.subtitle || parsed.Subtitle || socialData.subtitle);
+        if (lang === 'en') {
+          socialData.title = parsed.titleEn || parsed.TitleEn || parsed.title_en || defaultEnTitle;
+          socialData.subtitle = parsed.subtitleEn || parsed.SubtitleEn || parsed.subtitle_en || defaultEnSubtitle;
+        } else {
+          const rawArTitle = parsed.titleAr || parsed.TitleAr || parsed.title_ar || parsed.title || parsed.Title;
+          if (!rawArTitle || rawArTitle.trim().toLowerCase() === 'live the experience with us' || /^[\w\s.,!'-]+$/.test(rawArTitle.trim())) {
+            socialData.title = defaultArTitle;
+          } else {
+            socialData.title = rawArTitle;
+          }
+
+          const rawArSubtitle = parsed.subtitleAr || parsed.SubtitleAr || parsed.subtitle_ar || parsed.subtitle || parsed.Subtitle;
+          if (!rawArSubtitle || /^[\w\s.,!'-]+$/.test(rawArSubtitle.trim())) {
+            socialData.subtitle = defaultArSubtitle;
+          } else {
+            socialData.subtitle = rawArSubtitle;
+          }
+        }
         
         if (parsed.items || parsed.Items) {
           const rawItems = parsed.items || parsed.Items;
