@@ -15,6 +15,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReviewModal from '../components/ReviewModal';
 import imageCompression from 'browser-image-compression';
 import { sanitizeText } from '../utils/sanitizer';
+import { checkStoreOpenStatus } from '../utils/storeStatusUtils';
 import { EGYPT_PHONE_REGEX, sanitizeOrderNotes } from '../utils/validation';
 import { visitorTracker } from '../services/visitorTracker';
 import { getDeviceId, getClientIp, checkLocalDailyOtpLimit, recordLocalOtpAttempt, getLocalOtpInfo } from '../utils/deviceTracker';
@@ -142,11 +143,11 @@ export default function CheckoutPage({ menuData, websiteData }) {
       fetchStoreStatus();
   }, []);
 
-  const isStoreOpen = liveStoreStatus ? liveStoreStatus.isOpen !== false : (menuData?.storeStatus ? menuData.storeStatus.isOpen !== false : true);
+  const storeStatusEval = checkStoreOpenStatus(liveStoreStatus || menuData?.storeStatus, lang);
+  const isStoreOpen = storeStatusEval.isOpen;
   const storeClosedMessage = (lang === 'en' 
-      ? (liveStoreStatus?.closedMessageEn || menuData?.storeStatus?.closedMessageEn) 
-      : (liveStoreStatus?.closedMessage || menuData?.storeStatus?.closedMessage)) 
-      || (lang === 'en' ? 'The restaurant is currently closed and not receiving online orders.' : 'المطعم مغلق حالياً ولا يستقبل طلبات أونلاين مؤقتاً.');
+      ? (storeStatusEval.messageEn || 'The restaurant is currently closed.') 
+      : (storeStatusEval.message || 'المطعم مغلق حالياً ولا يستقبل طلبات أونلاين مؤقتاً.'));
 
   // Coupon State
   const [couponInput, setCouponInput] = useState('');
