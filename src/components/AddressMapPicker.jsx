@@ -158,7 +158,8 @@ export default function AddressMapPicker({
           addr.quarter,
           addr.city_district,
           addr.district,
-          data.display_name
+          data.display_name,
+          searchQuery
         ].filter(Boolean).join(' ');
 
         const normSearchPool = normalizeArabic(searchPool);
@@ -361,6 +362,14 @@ export default function AddressMapPicker({
               type="text"
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (searchResults.length > 0) {
+                    handleSelectSearchResult(searchResults[0]);
+                  }
+                }
+              }}
               placeholder={lang === 'en' ? '🔍 Search street, square, or landmark in Alexandria...' : '🔍 ابحث عن اسم الشارع، الميدان، أو المعلم في الإسكندرية...'}
               className="w-full bg-black-primary border border-brand-red-dark/40 text-text-light text-xs pr-9 pl-8 py-2.5 rounded-xl focus:outline-none focus:border-brand-red placeholder:text-text-muted/60 transition-all shadow-inner"
             />
@@ -475,7 +484,7 @@ export default function AddressMapPicker({
                   <div className="flex items-center gap-2">
                     <AlertCircle className="text-red-400 shrink-0" size={18} />
                     <span className="text-red-300 font-bold text-xs">
-                      {rawAreaName ? `{lang === 'en' ? 'Out of Delivery Zone' : 'خارج نطاق التوصيل'} (${rawAreaName})` : (lang === 'en' ? 'Move pin to select area' : 'حرك الدبوس لتحديد منطقتك')}
+                      {rawAreaName ? (lang === 'en' ? `Out of Delivery Zone (${rawAreaName})` : `خارج نطاق التوصيل (${rawAreaName})`) : (lang === 'en' ? 'Move pin to select area' : 'حرك الدبوس لتحديد منطقتك')}
                     </span>
                   </div>
                   <span className="text-[11px] bg-red-500/20 text-red-300 px-2 py-0.5 rounded font-bold">
