@@ -233,12 +233,18 @@
       ".write": true
     },
     "KdsPairingTokens": {
-      ".read": true,
-      ".write": true
+      ".read": false,
+      "$token": {
+        ".read": true,
+        ".write": true
+      }
     },
     "KdsAuthorizedDevices": {
-      ".read": true,
-      ".write": true
+      ".read": false,
+      "$deviceId": {
+        ".read": true,
+        ".write": true
+      }
     }
   }
 }
