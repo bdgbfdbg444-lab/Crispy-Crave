@@ -758,6 +758,15 @@ const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'vgk0saib';
         return; 
       }
 
+      if (!selectedZone || mapAddress?.isOutOfZone) {
+        const msg = lang === 'en' 
+          ? '⚠️ The selected delivery location is outside our delivery zones. Please choose a location within delivery coverage.' 
+          : '⚠️ موقع التوصيل المحدد يقع خارج نطاق التوصيل المتاح للمطعم. يرجى تحريك الدبوس لموقع داخل نطاق التوصيل.';
+        setErrorMessage(msg);
+        alert(msg);
+        return;
+      }
+
       // Strict Min Order Amount Check
       if (selectedZoneObj && selectedZoneObj.minOrderAmount > 0 && subtotal < selectedZoneObj.minOrderAmount) {
         const msg = `⚠️ قيمة الوجبات (${subtotal} ج.م) أقل من الحد الأدنى للطلب لمنطقة ${selectedZoneObj.name} (${selectedZoneObj.minOrderAmount} ج.م). يرجى إضافة المزيد من الأصناف للسلة.`;

@@ -140,6 +140,16 @@ export default function AddressMapPicker({
     if (!isInsideAlexandria) {
       setGpsError('⚠️ موقع الدبوس يقع خارج نطاق محافظة الإسكندرية ومناطق توصيل المطعم.');
     }
+    // Tier 0: Direct Polygon Geofencing boundary check (highest precision - 100% authoritative)
+    let zoneDetected = '';
+    for (const z of zonesList) {
+      const polyRaw = z.polygonCoordinatesJson || z.polygonCoordinates;
+      if (polyRaw && isPointInPolygon({ lat, lng }, polyRaw)) {
+        zoneDetected = z.name;
+        break;
+      }
+    }
+
     try {
       const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=ar`, {
         headers: { 'Accept-Language': 'ar' }
@@ -147,16 +157,15 @@ export default function AddressMapPicker({
       const data = await res.json();
       
       let streetName = '';
-      let zoneDetected = '';
-
       let neighborhoodName = '';
+
       if (data && data.address) {
         const addr = data.address;
         streetName = addr.road || addr.pedestrian || addr.street || '';
         neighborhoodName = addr.suburb || addr.neighbourhood || addr.quarter || addr.city_district || addr.district || '';
         setRawAreaName(neighborhoodName);
         
-        // Match against zonesList using ALEXANDRIA_DISTRICTS + subAreas + radius + searchPool
+        // Build address search pool strictly from actual physical pin location (NOT the search query text!)
         const searchPool = [
           streetName,
           addr.road,
@@ -165,57 +174,53 @@ export default function AddressMapPicker({
           addr.quarter,
           addr.city_district,
           addr.district,
-          data.display_name,
-          searchQuery
+          data.display_name
         ].filter(Boolean).join(' ');
 
         const normSearchPool = normalizeArabic(searchPool);
 
-        // Tier 0: Direct Polygon Geofencing boundary check (highest precision)
-        for (const z of zonesList) {
-          const polyRaw = z.polygonCoordinatesJson || z.polygonCoordinates;
-          if (polyRaw && isPointInPolygon({ lat, lng }, polyRaw)) {
-            zoneDetected = z.name;
-            break;
-          }
-        }
-
-        // Tier 1: Match by district knowledge base (subAreas & radius) if not matched by polygon
+        // Tier 1: Match by district knowledge base (subAreas & radius) ONLY for zones WITHOUT a custom polygon
         if (!zoneDetected) {
-        for (const z of zonesList) {
-          const normZName = normalizeArabic(z.name || '');
-          
-          const districtKey = Object.keys(ALEXANDRIA_DISTRICTS).find(k => {
-            const d = ALEXANDRIA_DISTRICTS[k];
-            return normalizeArabic(k) === normZName || d.aliases.some(a => normalizeArabic(a) === normZName);
-          });
+          for (const z of zonesList) {
+            // CRITICAL: Any zone that has a drawn polygon can ONLY be matched by Tier 0!
+            // If the pin is outside its polygon, it MUST NEVER match via district radius or subAreas!
+            if (z.polygonCoordinatesJson || z.polygonCoordinates) continue;
 
-          if (districtKey) {
-            const districtInfo = ALEXANDRIA_DISTRICTS[districtKey];
+            const normZName = normalizeArabic(z.name || '');
             
-            // 1. Check if any subArea matches the street or address pool
-            const hasSubAreaMatch = districtInfo.subAreas.some(sub => normSearchPool.includes(normalizeArabic(sub)));
-            if (hasSubAreaMatch) {
-              zoneDetected = z.name;
-              break;
-            }
+            const districtKey = Object.keys(ALEXANDRIA_DISTRICTS).find(k => {
+              const d = ALEXANDRIA_DISTRICTS[k];
+              return normalizeArabic(k) === normZName || d.aliases.some(a => normalizeArabic(a) === normZName);
+            });
 
-            // 2. Check if pin coordinates are within district radius
-            if (lat && lng && districtInfo.center) {
-              const dist = calculateDistanceKm(lat, lng, districtInfo.center.lat, districtInfo.center.lng);
-              if (dist <= districtInfo.radiusKm) {
+            if (districtKey) {
+              const districtInfo = ALEXANDRIA_DISTRICTS[districtKey];
+              
+              // 1. Check if any subArea matches the street or address pool
+              const hasSubAreaMatch = districtInfo.subAreas.some(sub => normSearchPool.includes(normalizeArabic(sub)));
+              if (hasSubAreaMatch) {
                 zoneDetected = z.name;
                 break;
+              }
+
+              // 2. Check if pin coordinates are within district radius
+              if (lat && lng && districtInfo.center) {
+                const dist = calculateDistanceKm(lat, lng, districtInfo.center.lat, districtInfo.center.lng);
+                if (dist <= districtInfo.radiusKm) {
+                  zoneDetected = z.name;
+                  break;
+                }
               }
             }
           }
         }
 
-        }
-
-        // Tier 2: Fallback to token text matching if not matched by district knowledge base
+        // Tier 2: Fallback to token text matching ONLY for zones WITHOUT a custom polygon
         if (!zoneDetected) {
           for (const z of zonesList) {
+            // CRITICAL: Skip polygon zones here too!
+            if (z.polygonCoordinatesJson || z.polygonCoordinates) continue;
+
             const normZoneName = normalizeArabic(z.name || '');
             const tokens = normZoneName.split(/\s+/).filter(t => t.length > 2);
             const matched = tokens.length > 0 && tokens.some(t => normSearchPool.includes(t));
