@@ -49,9 +49,8 @@
     "Orders": {
       ".read": true,
       "$orderId": {
-        ".read": false,
-        ".write": "auth != null && !data.exists() && newData.exists()",
-        ".validate": "newData.hasChildren(['items', 'orderDate', 'customerPhone', 'displayOrderId']) && newData.child('customerPhone').isString() && newData.child('orderDate').isString()"
+        ".read": true,
+        ".write": true
       }
     },
     "DriverUpdates": {
@@ -230,6 +229,14 @@
       }
     },
     "KitchenUpdates": {
+      ".read": true,
+      ".write": true
+    },
+    "KdsPairingTokens": {
+      ".read": true,
+      ".write": true
+    },
+    "KdsAuthorizedDevices": {
       ".read": true,
       ".write": true
     }
