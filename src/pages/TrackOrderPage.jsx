@@ -792,6 +792,38 @@ export default function TrackOrderPage({ menuData }) {
         )}
       </p>
 
+      {/* Vibration Diagnostic & Test Button */}
+      <div className="mb-6 flex flex-col items-center gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            try {
+              if (typeof navigator === 'undefined' || !('vibrate' in navigator)) {
+                alert('❌ متصفحك لا يدعم خاصية الاهتزاز (Web Vibration API).\n\nإذا كنت فتحت الرابط من داخل تطبيق واتساب، يرجى الضغط على الثلاث نقاط (⋮) بأعلى الشاشة واختيار "فتح في Chrome" لأن متصفح واتساب الداخلي يعطل الهزاز.');
+                return;
+              }
+              const res = navigator.vibrate([400, 150, 400, 150, 600]);
+              if (res) {
+                alert('✅ تم إرسال أمر الاهتزاز بنجاح للموبايل!\n\nإذا لم تشعر بالاهتزاز في يدك، تأكد من:\n1. إيقاف "وضع توفير البطارية (Battery Saver)".\n2. تشغيل "اهتزاز اللمس / Haptic Feedback" في إعدادات الصوت بهاتفك.\n3. التأكد من أن الهاتف ليس على الصامت التام.');
+              } else {
+                alert('⚠️ المتصفح رفض أمر الاهتزاز (res: false).\nيرجى التأكد من السماح بالاهتزاز في إعدادات متصفح كروم: الإعدادات > إعدادات المواقع > الاهتزاز.');
+              }
+            } catch (err) {
+              alert('خطأ: ' + err.message);
+            }
+          }}
+          className="px-4 py-2.5 bg-gray-900/90 hover:bg-gray-800 border border-orange-500/40 rounded-2xl text-xs font-bold text-orange-300 flex items-center gap-2 transition-all cursor-pointer shadow-lg active:scale-95"
+        >
+          <span>📳 اضغط هنا لاختبار اهتزاز الموبايل (Vibration Test)</span>
+        </button>
+
+        {typeof navigator !== 'undefined' && /WhatsApp|FBAN|FBAV|Instagram/i.test(navigator.userAgent) && (
+          <div className="max-w-xs p-2.5 bg-amber-950/40 border border-amber-500/40 rounded-xl text-[11px] text-amber-300 text-center leading-relaxed">
+            ⚠️ أنت تتصفح من داخل تطبيق واتساب. للحصول على الاهتزاز، اضغط على (⋮) بأعلى الشاشة واختر <strong>«فتح في المتصفح Chrome»</strong>.
+          </div>
+        )}
+      </div>
+
       {/* Handover Code (OTP) for Delivery (Thoghra 25 - Toggleable via Settings) */}
       {isHandoverEnabled && handoverCode && (orderType || '').toLowerCase() === 'delivery' && mappedStatus !== 'Completed' && mappedStatus !== 'Cancelled' && (
         <div className="w-full max-w-md bg-gradient-to-br from-black-primary via-black-surface to-brand-red/10 border-2 border-brand-red/40 rounded-3xl p-6 shadow-2xl mb-8 text-center relative overflow-hidden">
@@ -1159,6 +1191,18 @@ export default function TrackOrderPage({ menuData }) {
                   ? (lang === 'en' ? `Ready for Table ${orderData.TableNumber}!` : `جاهز للتقديم على طاولة رقم ${orderData.TableNumber}!`)
                   : (lang === 'en' ? 'Please proceed to the counter to collect your fresh order.' : 'يرجى التوجه إلى الكاونتر واستلام وجبتك الشهية.')}
               </p>
+
+              {/* Manual Vibration Trigger button inside pager */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  triggerPagerVibrate();
+                }}
+                className="mb-4 px-5 py-2.5 bg-brand-red/20 border border-brand-red/60 text-red-200 hover:text-white rounded-xl text-xs font-bold flex items-center gap-2 animate-pulse cursor-pointer shadow-md active:scale-95"
+              >
+                <span>📳 اضغط هنا للشعور بالفيبريشن فوراً</span>
+              </button>
 
               {/* Big Red Dismiss & Receive Button */}
               <button
