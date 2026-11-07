@@ -17,12 +17,15 @@ export default function ExperienceConsentModal() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
+    // Check if consent was already handled
     const consent = localStorage.getItem('bb_cookie_consent');
     if (consent) return;
 
+    // Do not show on isolated internal screens like KDS or Driver Portal
     const path = window.location.hash || window.location.pathname;
     if (path.includes('/kds') || path.includes('/driver')) return;
 
+    // Show after 1.2s delay
     const timer = setTimeout(() => {
       setIsVisible(true);
     }, 1200);
@@ -30,14 +33,14 @@ export default function ExperienceConsentModal() {
     return () => clearTimeout(timer);
   }, []);
 
-  const executeConsents = async (allowAudioAndGps = true, allowNotifications = true) => {
-    // 1. Unlock Audio
+  const executeConsents = (allowAudioAndGps = true, allowNotifications = true) => {
+    // 1. Audio Unlock (Synchronous in user gesture)
     if (allowAudioAndGps) {
       try {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         if (AudioCtx) {
           const ctx = new AudioCtx();
-          if (ctx.state === 'suspended') await ctx.resume();
+          if (ctx.state === 'suspended') ctx.resume();
           const buffer = ctx.createBuffer(1, 1, 22050);
           const source = ctx.createBufferSource();
           source.buffer = buffer;
@@ -47,38 +50,40 @@ export default function ExperienceConsentModal() {
       } catch (_) {}
     }
 
-    // 2. Notifications
-    if (allowNotifications && 'Notification' in window && Notification.permission === 'default') {
+    // 2. Notifications Permission (Non-blocking)
+    if (allowNotifications && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
       try {
-        await Notification.requestPermission();
+        Notification.requestPermission().catch(() => {});
       } catch (_) {}
     }
 
-    // 3. Geolocation
-    if (allowAudioAndGps && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          try {
-            localStorage.setItem('bb_last_known_lat', pos.coords.latitude.toString());
-            localStorage.setItem('bb_last_known_lng', pos.coords.longitude.toString());
-            window.dispatchEvent(new CustomEvent('BB_LOCATION_DETECTED', {
-              detail: { lat: pos.coords.latitude, lng: pos.coords.longitude }
-            }));
-          } catch (_) {}
-        },
-        () => {},
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
-      );
+    // 3. Geolocation Permission (Non-blocking)
+    if (allowAudioAndGps && typeof navigator !== 'undefined' && navigator.geolocation) {
+      try {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            try {
+              localStorage.setItem('bb_last_known_lat', pos.coords.latitude.toString());
+              localStorage.setItem('bb_last_known_lng', pos.coords.longitude.toString());
+              window.dispatchEvent(new CustomEvent('BB_LOCATION_DETECTED', {
+                detail: { lat: pos.coords.latitude, lng: pos.coords.longitude }
+              }));
+            } catch (_) {}
+          },
+          () => {},
+          { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+        );
+      } catch (_) {}
     }
   };
 
-  const handleAcceptAll = async () => {
-    await executeConsents(true, true);
+  const handleAcceptAll = () => {
     try {
       localStorage.setItem('bb_cookie_consent', 'accepted');
       localStorage.setItem('bb_consent_timestamp', Date.now().toString());
     } catch (_) {}
     setIsVisible(false);
+    executeConsents(true, true);
   };
 
   const handleRejectAll = () => {
@@ -89,13 +94,13 @@ export default function ExperienceConsentModal() {
     setIsVisible(false);
   };
 
-  const handleSavePreferences = async () => {
-    await executeConsents(prefs.location, prefs.notifications);
+  const handleSavePreferences = () => {
     try {
       localStorage.setItem('bb_cookie_consent', JSON.stringify(prefs));
       localStorage.setItem('bb_consent_timestamp', Date.now().toString());
     } catch (_) {}
     setIsVisible(false);
+    executeConsents(prefs.location, prefs.notifications);
   };
 
   if (!isVisible) return null;

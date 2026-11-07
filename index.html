@@ -9,11 +9,21 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="The Black Box" />
 
+    <!-- Immediate SPA Route Fallback: Automatically converts direct path into HashRouter route (e.g. /track/ORD-xxxx -> /#/track/ORD-xxxx) -->
+    <script>
+      (function() {
+        var p = window.location.pathname;
+        if (p && p !== '/' && !window.location.hash) {
+          window.location.replace('/#' + p + window.location.search);
+        }
+      })();
+    </script>
+
     <!-- SEO & Metadata -->
     <meta name="description" content="The Black Box - تجربة فريدة لألذ برجر وسماش على الفحم مع بريسكيت مدخن فاخر، وصفات مبتكرة وأعلى جودة في كل تفصيلة." />
-    <link rel="icon" type="image/png" href="./icons/icon-192.png" />
-    <link rel="apple-touch-icon" href="./icons/icon-192.png" />
-    <link rel="manifest" href="./manifest.json" />
+    <link rel="icon" type="image/png" href="/icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <link rel="manifest" href="/manifest.json" />
 
     <!-- Open Graph (Facebook / WhatsApp / Telegram) -->
     <meta property="og:type" content="website" />
