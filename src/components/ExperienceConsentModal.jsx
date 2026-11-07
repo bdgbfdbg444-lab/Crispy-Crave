@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
+import { X, Cookie } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 
 export default function ExperienceConsentModal() {
@@ -8,47 +8,36 @@ export default function ExperienceConsentModal() {
   const [isVisible, setIsVisible] = useState(false);
   const [showCustomize, setShowCustomize] = useState(false);
   
-  // Custom preferences
   const [prefs, setPrefs] = useState({
-    essential: true, // always true
-    analytics: true,
-    notifications: true,
+    essential: true,
     location: true,
+    notifications: true,
   });
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Check if consent was already handled
     const consent = localStorage.getItem('bb_cookie_consent');
-    if (consent) {
-      return;
-    }
+    if (consent) return;
 
-    // Do not show on isolated internal screens like KDS or Driver Portal
     const path = window.location.hash || window.location.pathname;
-    if (path.includes('/kds') || path.includes('/driver')) {
-      return;
-    }
+    if (path.includes('/kds') || path.includes('/driver')) return;
 
-    // Show after 1.5s delay
     const timer = setTimeout(() => {
       setIsVisible(true);
-    }, 1500);
+    }, 1200);
 
     return () => clearTimeout(timer);
   }, []);
 
   const executeConsents = async (allowAudioAndGps = true, allowNotifications = true) => {
-    // 1. Audio Unlock (Web Audio Context)
+    // 1. Unlock Audio
     if (allowAudioAndGps) {
       try {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         if (AudioCtx) {
           const ctx = new AudioCtx();
-          if (ctx.state === 'suspended') {
-            await ctx.resume();
-          }
+          if (ctx.state === 'suspended') await ctx.resume();
           const buffer = ctx.createBuffer(1, 1, 22050);
           const source = ctx.createBufferSource();
           source.buffer = buffer;
@@ -58,14 +47,14 @@ export default function ExperienceConsentModal() {
       } catch (_) {}
     }
 
-    // 2. Notifications Permission
+    // 2. Notifications
     if (allowNotifications && 'Notification' in window && Notification.permission === 'default') {
       try {
         await Notification.requestPermission();
       } catch (_) {}
     }
 
-    // 3. Geolocation Permission
+    // 3. Geolocation
     if (allowAudioAndGps && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -116,89 +105,89 @@ export default function ExperienceConsentModal() {
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ y: 80, opacity: 0 }}
+        initial={{ y: 50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 80, opacity: 0 }}
-        transition={{ type: 'spring', damping: 26, stiffness: 280 }}
+        exit={{ y: 50, opacity: 0 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         dir={isRtl ? 'rtl' : 'ltr'}
-        className="fixed bottom-20 sm:bottom-6 right-3 left-3 sm:left-auto sm:right-6 z-[9999] sm:max-w-[480px] w-auto bg-white text-gray-900 rounded-2xl p-5 sm:p-6 shadow-[0_20px_50px_rgba(0,0,0,0.35)] border border-gray-200"
+        className="fixed bottom-20 sm:bottom-6 right-3 left-3 sm:left-auto sm:right-6 z-[9999] sm:max-w-[420px] w-auto bg-[#141416]/95 border border-brand-red/30 text-white rounded-2xl p-4 sm:p-5 shadow-[0_15px_40px_rgba(0,0,0,0.85)] backdrop-blur-xl"
       >
-        {/* Header & Close Button */}
-        <div className="flex items-start justify-between gap-3 mb-2.5">
-          <h3 className="text-xl sm:text-2xl font-black text-gray-950 tracking-tight leading-snug">
-            {lang === 'en' ? 'We value your privacy' : 'نحن نهتم بخصوصيتك وتجربتك'}
-          </h3>
+        {/* Header & Close */}
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-brand-red/15 border border-brand-red/30 flex items-center justify-center shrink-0">
+              <Cookie className="w-4 h-4 text-brand-red" />
+            </div>
+            <h3 className="text-base sm:text-lg font-black text-white tracking-tight">
+              {lang === 'en' ? 'Cookies & Experience' : 'الكوكيز وتجربة الطلب'}
+            </h3>
+          </div>
+
           <button
             onClick={handleRejectAll}
             aria-label="Close"
-            className="p-1 text-gray-400 hover:text-gray-700 transition-colors shrink-0 -mt-1 -mr-1 cursor-pointer"
+            className="p-1 text-gray-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Body Text */}
-        <p className="text-gray-600 text-xs sm:text-[13px] leading-relaxed mb-5">
-          {lang === 'en' ? (
-            <>
-              We use cookies, location services (GPS), and alert technologies to enhance your browsing experience, ensure accurate delivery ETA, and notify you when your food is ready. By clicking &quot;Accept All&quot;, you consent to our use of cookies and experience features.
-            </>
-          ) : (
-            <>
-              نحن نستخدم ملفات تعريف الارتباط (Cookies) وخدمات الموقع الجغرافي (GPS) والتنبيهات لتحسين تجربة تصفحك، وحساب وقت التوصيل بدقة، وتنبيهك فور جاهزية وجبتك. بالضغط على «قبول الكل»، أنت توافق على استخدامنا لهذه التقنيات.
-            </>
-          )}
+        {/* Short & Concise Text */}
+        <p className="text-gray-300 text-xs sm:text-[13px] leading-relaxed mb-4">
+          {lang === 'en'
+            ? 'We use cookies and location to ensure fast delivery, save your cart, and alert you when your food is ready.'
+            : 'نستخدم ملفات الكوكيز والموقع لضمان دقة التوصيل، وحفظ سلتك، وتنبيهك فور جاهزية وجبتك.'}
         </p>
 
-        {/* Expandable Preferences (Customize Mode) */}
+        {/* Inline Preferences (Customize Mode) */}
         {showCustomize && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="space-y-2.5 mb-5 pt-3 border-t border-gray-100 text-xs"
+            className="space-y-2 mb-4 pt-3 border-t border-white/10 text-xs"
           >
-            <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50 border border-gray-100">
-              <span className="font-bold text-gray-800">
-                {lang === 'en' ? 'Essential & Cart Cookies' : 'الملفات الأساسية وحفظ السلة'}
+            <div className="flex items-center justify-between p-2 rounded-xl bg-white/[0.03] border border-white/5">
+              <span className="font-semibold text-gray-200">
+                {lang === 'en' ? 'Essential & Cart' : 'الملفات الأساسية وحفظ السلة'}
               </span>
-              <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded font-bold">
-                {lang === 'en' ? 'Required' : 'دائماً مفعل'}
+              <span className="text-[10px] bg-white/10 text-gray-300 px-2 py-0.5 rounded font-bold">
+                {lang === 'en' ? 'Required' : 'مفعل دائماً'}
               </span>
             </div>
 
-            <label className="flex items-center justify-between p-2 rounded-lg bg-gray-50 border border-gray-100 cursor-pointer">
-              <span className="font-semibold text-gray-800">
-                {lang === 'en' ? 'Live GPS Location' : 'الموقع الجغرافي (GPS) لحساب الدليفري'}
+            <label className="flex items-center justify-between p-2 rounded-xl bg-white/[0.03] border border-white/5 cursor-pointer hover:bg-white/[0.06] transition-colors">
+              <span className="font-semibold text-gray-200">
+                {lang === 'en' ? 'GPS Location (Delivery)' : 'الموقع (GPS) لحساب الدليفري'}
               </span>
               <input
                 type="checkbox"
                 checked={prefs.location}
                 onChange={(e) => setPrefs({ ...prefs, location: e.target.checked })}
-                className="w-4 h-4 accent-black rounded cursor-pointer"
+                className="w-4 h-4 accent-brand-red rounded cursor-pointer"
               />
             </label>
 
-            <label className="flex items-center justify-between p-2 rounded-lg bg-gray-50 border border-gray-100 cursor-pointer">
-              <span className="font-semibold text-gray-800">
-                {lang === 'en' ? 'Order Alerts & Audio Chime' : 'تنبيهات الشاشة ورنين البيجر'}
+            <label className="flex items-center justify-between p-2 rounded-xl bg-white/[0.03] border border-white/5 cursor-pointer hover:bg-white/[0.06] transition-colors">
+              <span className="font-semibold text-gray-200">
+                {lang === 'en' ? 'Order Alerts & Chime' : 'تنبيهات الشاشة ورنين البيجر'}
               </span>
               <input
                 type="checkbox"
                 checked={prefs.notifications}
                 onChange={(e) => setPrefs({ ...prefs, notifications: e.target.checked })}
-                className="w-4 h-4 accent-black rounded cursor-pointer"
+                className="w-4 h-4 accent-brand-red rounded cursor-pointer"
               />
             </label>
           </motion.div>
         )}
 
-        {/* Buttons Row (Matching Image 3) */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+        {/* Buttons Row (Matching The Black Box Dark Theme) */}
+        <div className="flex items-center gap-2">
           {showCustomize ? (
             <button
               onClick={handleSavePreferences}
-              className="flex-1 py-2.5 px-4 bg-gray-950 hover:bg-black text-white text-xs sm:text-sm font-bold rounded-lg transition-colors cursor-pointer text-center"
+              className="flex-1 py-2.5 px-4 bg-brand-red hover:bg-brand-red-dark text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-brand-red/25 cursor-pointer text-center active:scale-95"
             >
               {lang === 'en' ? 'Save Preferences' : 'حفظ التفضيلات'}
             </button>
@@ -206,21 +195,21 @@ export default function ExperienceConsentModal() {
             <>
               <button
                 onClick={() => setShowCustomize(true)}
-                className="flex-1 py-2.5 px-3.5 bg-white hover:bg-gray-50 text-gray-900 border-2 border-gray-950 text-xs sm:text-sm font-bold rounded-lg transition-colors cursor-pointer text-center"
+                className="flex-1 py-2 px-3 bg-white/5 hover:bg-white/10 text-gray-300 border border-white/15 text-xs font-bold rounded-xl transition-all cursor-pointer text-center"
               >
                 {lang === 'en' ? 'Customize' : 'تخصيص'}
               </button>
 
               <button
                 onClick={handleRejectAll}
-                className="flex-1 py-2.5 px-3.5 bg-white hover:bg-gray-50 text-gray-900 border-2 border-gray-950 text-xs sm:text-sm font-bold rounded-lg transition-colors cursor-pointer text-center"
+                className="flex-1 py-2 px-3 bg-white/5 hover:bg-white/10 text-gray-300 border border-white/15 text-xs font-bold rounded-xl transition-all cursor-pointer text-center"
               >
-                {lang === 'en' ? 'Reject All' : 'رفض الكل'}
+                {lang === 'en' ? 'Reject All' : 'رفض'}
               </button>
 
               <button
                 onClick={handleAcceptAll}
-                className="flex-1 py-2.5 px-3.5 bg-gray-950 hover:bg-black text-white text-xs sm:text-sm font-bold rounded-lg transition-colors cursor-pointer text-center shadow-md"
+                className="flex-1 py-2 px-3 bg-brand-red hover:bg-brand-red-dark text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-brand-red/30 cursor-pointer text-center active:scale-95"
               >
                 {lang === 'en' ? 'Accept All' : 'قبول الكل'}
               </button>
