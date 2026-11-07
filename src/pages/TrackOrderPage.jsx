@@ -572,6 +572,39 @@ export default function TrackOrderPage({ menuData }) {
               {lang === 'en' ? 'Activate Pager 🔔' : 'تفعيل البيجر ومتابعة الطلب 🔔'}
             </button>
           </form>
+
+          {/* Test Vibration Directly on Lookup Screen */}
+          <div className="mt-5 pt-4 border-t border-gray-800/80 flex flex-col items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  playPagerChimeSound();
+                  if (typeof navigator === 'undefined' || !('vibrate' in navigator)) {
+                    alert('❌ متصفحك لا يدعم خاصية الاهتزاز (Web Vibration API).\n\nإذا كنت داخل تطبيق واتساب، يرجى الضغط على الثلاث نقاط (⋮) بأعلى الشاشة واختيار "فتح في Chrome".');
+                    return;
+                  }
+                  const res = navigator.vibrate([400, 150, 400, 150, 600]);
+                  if (res) {
+                    alert('✅ تم إرسال أمر الاهتزاز بنجاح للهاتف مع الرنين!\n\nإذا لم يهتز الهاتف في يدك:\n1. تأكد من إيقاف "وضع توفير البطارية (Battery Saver)".\n2. تأكد من تشغيل "اهتزاز اللمس / Haptic Feedback" في إعدادات الصوت بهاتفك.');
+                  } else {
+                    alert('⚠️ المتصفح رفض أمر الاهتزاز (res: false).\nيرجى فتح الصفحة في متصفح كروم الأصلي والتأكد من إذن الاهتزاز.');
+                  }
+                } catch (err) {
+                  alert('خطأ: ' + err.message);
+                }
+              }}
+              className="w-full py-3 bg-gradient-to-r from-orange-600/20 to-amber-600/20 hover:from-orange-600/30 hover:to-amber-600/30 border border-orange-500/50 rounded-xl text-xs sm:text-sm font-bold text-orange-300 flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg active:scale-95"
+            >
+              <span>📳 اضغط هنا لتجربة واختبار الاهتزاز والرنين</span>
+            </button>
+
+            {typeof navigator !== 'undefined' && /WhatsApp|FBAN|FBAV|Instagram/i.test(navigator.userAgent) && (
+              <div className="p-2 bg-amber-950/40 border border-amber-500/40 rounded-xl text-[11px] text-amber-300 text-center leading-relaxed">
+                ⚠️ أنت تتصفح من داخل تطبيق واتساب. اضغط على (⋮) بأعلى الشاشة واختر <strong>«فتح في المتصفح Chrome»</strong>.
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
