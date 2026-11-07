@@ -62,19 +62,22 @@ function getCandidateOrderKeys(rawId) {
   return Array.from(set);
 }
 
-// Web Audio API Synth Pager Buzzer (Works on all mobile devices with 0 dependencies)
+// Web Audio API Continuous Loud Restaurant Pager Buzzer
 function playPagerChimeSound() {
   try {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     if (!AudioContext) return null;
     const ctx = new AudioContext();
+    if (ctx.state === 'suspended') ctx.resume();
+
+    const now = ctx.currentTime;
     
-    const playBeep = (freq, startTime, duration) => {
+    const playPulse = (freq, startTime, duration, type = 'square') => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.type = 'triangle';
+      osc.type = type;
       osc.frequency.setValueAtTime(freq, startTime);
-      gain.gain.setValueAtTime(0.4, startTime);
+      gain.gain.setValueAtTime(0.75, startTime);
       gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
       osc.connect(gain);
       gain.connect(ctx.destination);
@@ -82,8 +85,11 @@ function playPagerChimeSound() {
       osc.stop(startTime + duration);
     };
 
-    playBeep(784, ctx.currentTime, 0.25);
-    playBeep(1046.5, ctx.currentTime + 0.18, 0.4);
+    // Fast, crisp 4-pulse restaurant pager alarm: Beep-Beep-Beep-BEEEEEP!
+    playPulse(988, now, 0.12, 'square');
+    playPulse(1318, now + 0.14, 0.12, 'square');
+    playPulse(1568, now + 0.28, 0.14, 'square');
+    playPulse(1975, now + 0.44, 0.26, 'triangle');
     return ctx;
   } catch (e) {
     console.warn('Pager buzzer sound error:', e);
@@ -132,38 +138,36 @@ export default function TrackOrderPage({ menuData }) {
     }
   }, [orderData?.Status, hasAutoOpenedReview, orderId]);
 
-  // Robust Pager Vibration Helper for Android mobile devices
+  // Fast, Penetrating Pager Vibration (Synchronized with Chime)
   const triggerPagerVibrate = () => {
     try {
       if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-        // Multi-frequency pulse pattern for maximum haptic feedback
-        const didVibrate = navigator.vibrate([400, 150, 400, 150, 600]);
+        // Fast, tactile triple-buzz matching the 4 beeps
+        const didVibrate = navigator.vibrate([180, 80, 180, 80, 300]);
         if (!didVibrate) {
-          navigator.vibrate(600);
+          navigator.vibrate(500);
         }
       }
     } catch (e) {
-      console.warn('Vibration API error or blocked by browser policy:', e);
+      try { navigator.vibrate(500); } catch {}
     }
   };
 
-  // Digital Pager Buzzer & Vibration Trigger when order is Ready
+  // Digital Pager Buzzer & Vibration Trigger when order is Ready (Continuous Alarm)
   useEffect(() => {
     const statusLower = (orderData?.Status || '').toLowerCase();
     if (statusLower === 'ready' && !hasDismissedPager) {
       setIsPagerActive(true);
 
-      // Play initial buzzer sound
+      // Immediate first chime & vibration
       playPagerChimeSound();
-
-      // Trigger vibration
       triggerPagerVibrate();
 
-      // Keep ringing and vibrating every 3.5 seconds until dismissed
+      // Urgent continuous loop every 1150ms (virtually continuous alarm like hardware pager)
       const buzzInterval = setInterval(() => {
         playPagerChimeSound();
         triggerPagerVibrate();
-      }, 3500);
+      }, 1150);
 
       return () => {
         clearInterval(buzzInterval);
@@ -186,7 +190,7 @@ export default function TrackOrderPage({ menuData }) {
     }, 450);
   };
 
-  // Unlock Web Audio on first touch/click
+  // Unlock Web Audio & Prime Vibration on first touch/click
   useEffect(() => {
     const unlockAudio = () => {
       try {
@@ -194,6 +198,11 @@ export default function TrackOrderPage({ menuData }) {
         if (AudioCtx) {
           const ctx = new AudioCtx();
           if (ctx.state === 'suspended') ctx.resume();
+        }
+      } catch (e) {}
+      try {
+        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+          navigator.vibrate(10); // Prime vibration permission on touch
         }
       } catch (e) {}
       window.removeEventListener('click', unlockAudio);
