@@ -62,7 +62,7 @@ function getCandidateOrderKeys(rawId) {
   return Array.from(set);
 }
 
-// Web Audio API Continuous Loud Restaurant Pager Buzzer
+// Web Audio API Ultra-Loud Restaurant Pager Alarm (Compressor + Dual Harmonic Oscillators)
 function playPagerChimeSound() {
   try {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -71,25 +71,54 @@ function playPagerChimeSound() {
     if (ctx.state === 'suspended') ctx.resume();
 
     const now = ctx.currentTime;
-    
-    const playPulse = (freq, startTime, duration, type = 'square') => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = type;
-      osc.frequency.setValueAtTime(freq, startTime);
-      gain.gain.setValueAtTime(0.75, startTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(startTime);
-      osc.stop(startTime + duration);
+
+    // Dynamics Compressor to maximize perceived loudness without digital distortion
+    const compressor = ctx.createDynamicsCompressor();
+    compressor.threshold.setValueAtTime(-18, now);
+    compressor.knee.setValueAtTime(25, now);
+    compressor.ratio.setValueAtTime(14, now);
+    compressor.attack.setValueAtTime(0.002, now);
+    compressor.release.setValueAtTime(0.2, now);
+    compressor.connect(ctx.destination);
+
+    // Master Volume at maximum ceiling
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(1.0, now);
+    masterGain.connect(compressor);
+
+    // Dual-Oscillator piercing pulse: Primary square wave + Harmonic sawtooth wave
+    const playLoudBeep = (freq, startTime, duration) => {
+      // Primary Oscillator (Piercing square wave)
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'square';
+      osc1.frequency.setValueAtTime(freq, startTime);
+      gain1.gain.setValueAtTime(0.85, startTime);
+      gain1.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+      osc1.connect(gain1);
+      gain1.connect(masterGain);
+      osc1.start(startTime);
+      osc1.stop(startTime + duration);
+
+      // Harmonic Oscillator (Octave overtone for maximum acoustic projection)
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sawtooth';
+      osc2.frequency.setValueAtTime(freq * 1.5, startTime);
+      gain2.gain.setValueAtTime(0.45, startTime);
+      gain2.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+      osc2.connect(gain2);
+      gain2.connect(masterGain);
+      osc2.start(startTime);
+      osc2.stop(startTime + duration);
     };
 
-    // Fast, crisp 4-pulse restaurant pager alarm: Beep-Beep-Beep-BEEEEEP!
-    playPulse(988, now, 0.12, 'square');
-    playPulse(1318, now + 0.14, 0.12, 'square');
-    playPulse(1568, now + 0.28, 0.14, 'square');
-    playPulse(1975, now + 0.44, 0.26, 'triangle');
+    // Ultra-sharp, penetrating kitchen buzzer pattern: BEEP - BEEP - BEEP - WEE-BEEP!
+    playLoudBeep(1046.5, now, 0.12);         // C6
+    playLoudBeep(1318.5, now + 0.13, 0.12);    // E6
+    playLoudBeep(1568.0, now + 0.26, 0.14);    // G6
+    playLoudBeep(2093.0, now + 0.42, 0.26);    // C7
+
     return ctx;
   } catch (e) {
     console.warn('Pager buzzer sound error:', e);
@@ -138,42 +167,70 @@ export default function TrackOrderPage({ menuData }) {
     }
   }, [orderData?.Status, hasAutoOpenedReview, orderId]);
 
-  // Fast, Penetrating Pager Vibration (Synchronized with Chime)
-  const triggerPagerVibrate = () => {
+  // System Lock Screen & Outside Notification Trigger
+  const triggerSystemNotification = async () => {
     try {
-      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-        // Fast, tactile triple-buzz matching the 4 beeps
-        const didVibrate = navigator.vibrate([180, 80, 180, 80, 300]);
-        if (!didVibrate) {
-          navigator.vibrate(500);
+      if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+      const title = `🔔 وجبتك جاهزة وساخنة الآن! (طلب #${displayNum || safeOrderId})`;
+      const options = {
+        body: 'طازجة من المطبخ! يرجى التوجه إلى الكاونتر واستلام وجبتك فوراً 🔥',
+        icon: '/icons/icon-192.png',
+        badge: '/icons/icon-192.png',
+        tag: 'order-ready-alarm',
+        renotify: true,
+        requireInteraction: true,
+        silent: false
+      };
+
+      if ('serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.ready.catch(() => null);
+        if (reg && reg.showNotification) {
+          await reg.showNotification(title, options);
+          return;
         }
       }
+
+      new Notification(title, options);
     } catch (e) {
-      try { navigator.vibrate(500); } catch {}
+      console.warn('System notification error:', e);
     }
   };
 
-  // Digital Pager Buzzer & Vibration Trigger when order is Ready (Continuous Alarm)
+  // Notification Permission State
+  const [notifPermission, setNotifPermission] = useState(() => {
+    return typeof Notification !== 'undefined' ? Notification.permission : 'default';
+  });
+
+  const requestNotificationPermission = async () => {
+    try {
+      if (typeof Notification !== 'undefined') {
+        const perm = await Notification.requestPermission();
+        setNotifPermission(perm);
+        return perm;
+      }
+    } catch (e) {
+      console.warn('Notification permission error:', e);
+    }
+    return 'default';
+  };
+
+  // Digital Pager Buzzer Trigger when order is Ready (Ultra-Loud Continuous Alarm + System Notification)
   useEffect(() => {
     const statusLower = (orderData?.Status || '').toLowerCase();
     if (statusLower === 'ready' && !hasDismissedPager) {
       setIsPagerActive(true);
 
-      // Immediate first chime & vibration
+      // 1. Immediate Loud Chime & System Notification on phone screen
       playPagerChimeSound();
-      triggerPagerVibrate();
+      triggerSystemNotification();
 
-      // Urgent continuous loop every 1150ms (virtually continuous alarm like hardware pager)
+      // 2. Continuous Ringing Alarm every 1150ms without pause
       const buzzInterval = setInterval(() => {
         playPagerChimeSound();
-        triggerPagerVibrate();
       }, 1150);
 
       return () => {
         clearInterval(buzzInterval);
-        try {
-          if ('vibrate' in navigator) navigator.vibrate(0);
-        } catch (e) {}
       };
     }
   }, [orderData?.Status, hasDismissedPager]);
@@ -181,16 +238,13 @@ export default function TrackOrderPage({ menuData }) {
   const handleDismissPager = () => {
     setIsPagerActive(false);
     setHasDismissedPager(true);
-    try {
-      if ('vibrate' in navigator) navigator.vibrate(0);
-    } catch (e) {}
     // Automatically open review rating modal after receiving food!
     setTimeout(() => {
       setIsReviewModalOpen(true);
     }, 450);
   };
 
-  // Unlock Web Audio & Prime Vibration on first touch/click
+  // Unlock Web Audio on first touch/click
   useEffect(() => {
     const unlockAudio = () => {
       try {
@@ -198,11 +252,6 @@ export default function TrackOrderPage({ menuData }) {
         if (AudioCtx) {
           const ctx = new AudioCtx();
           if (ctx.state === 'suspended') ctx.resume();
-        }
-      } catch (e) {}
-      try {
-        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-          navigator.vibrate(10); // Prime vibration permission on touch
         }
       } catch (e) {}
       window.removeEventListener('click', unlockAudio);
@@ -547,11 +596,17 @@ export default function TrackOrderPage({ menuData }) {
           <p className="text-gray-400 text-sm mb-6 leading-relaxed">
             {lang === 'en' 
               ? 'Enter the order number printed on your cashier receipt to activate the pager alarm when your food is ready!'
-              : 'أدخل رقم الطلب المطبوع في إيصال الكاشير لتحويل هاتفك إلى بيجر ينبهك ويهتز أول ما أكلك يجهز!'}
+              : 'أدخل رقم الطلب المطبوع في إيصال الكاشير لتحويل هاتفك إلى بيجر ينبهك بصوت قوي وإشعار شاشة أول ما أكلك يجهز!'}
           </p>
 
-          <form onSubmit={(e) => {
+          <form onSubmit={async (e) => {
             e.preventDefault();
+            if ('Notification' in window && Notification.permission === 'default') {
+              try {
+                const res = await Notification.requestPermission();
+                setNotificationPerm(res);
+              } catch (_) {}
+            }
             if (lookupInput.trim()) {
               navigate(`/track/${lookupInput.trim().replace(/#/g, '')}`);
             }
@@ -573,35 +628,21 @@ export default function TrackOrderPage({ menuData }) {
             </button>
           </form>
 
-          {/* Test Vibration Directly on Lookup Screen */}
+          {/* Notification Permission Card on Lookup Screen */}
           <div className="mt-5 pt-4 border-t border-gray-800/80 flex flex-col items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                try {
-                  playPagerChimeSound();
-                  if (typeof navigator === 'undefined' || !('vibrate' in navigator)) {
-                    alert('❌ متصفحك لا يدعم خاصية الاهتزاز (Web Vibration API).\n\nإذا كنت داخل تطبيق واتساب، يرجى الضغط على الثلاث نقاط (⋮) بأعلى الشاشة واختيار "فتح في Chrome".');
-                    return;
-                  }
-                  const res = navigator.vibrate([400, 150, 400, 150, 600]);
-                  if (res) {
-                    alert('✅ تم إرسال أمر الاهتزاز بنجاح للهاتف مع الرنين!\n\nإذا لم يهتز الهاتف في يدك:\n1. تأكد من إيقاف "وضع توفير البطارية (Battery Saver)".\n2. تأكد من تشغيل "اهتزاز اللمس / Haptic Feedback" في إعدادات الصوت بهاتفك.');
-                  } else {
-                    alert('⚠️ المتصفح رفض أمر الاهتزاز (res: false).\nيرجى فتح الصفحة في متصفح كروم الأصلي والتأكد من إذن الاهتزاز.');
-                  }
-                } catch (err) {
-                  alert('خطأ: ' + err.message);
-                }
-              }}
-              className="w-full py-3 bg-gradient-to-r from-orange-600/20 to-amber-600/20 hover:from-orange-600/30 hover:to-amber-600/30 border border-orange-500/50 rounded-xl text-xs sm:text-sm font-bold text-orange-300 flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg active:scale-95"
-            >
-              <span>📳 اضغط هنا لتجربة واختبار الاهتزاز والرنين</span>
-            </button>
-
-            {typeof navigator !== 'undefined' && /WhatsApp|FBAN|FBAV|Instagram/i.test(navigator.userAgent) && (
-              <div className="p-2 bg-amber-950/40 border border-amber-500/40 rounded-xl text-[11px] text-amber-300 text-center leading-relaxed">
-                ⚠️ أنت تتصفح من داخل تطبيق واتساب. اضغط على (⋮) بأعلى الشاشة واختر <strong>«فتح في المتصفح Chrome»</strong>.
+            {notifPermission !== 'granted' ? (
+              <button
+                type="button"
+                onClick={requestNotificationPermission}
+                className="w-full py-3 bg-gradient-to-r from-brand-red/20 to-orange-600/20 hover:from-brand-red/30 hover:to-orange-600/30 border border-brand-red/50 rounded-xl text-xs sm:text-sm font-bold text-red-200 flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg active:scale-95 animate-pulse"
+              >
+                <Bell size={16} className="text-brand-red" />
+                <span>تفعيل إشعار على الشاشة فور جاهزية الوجبة 🔔</span>
+              </button>
+            ) : (
+              <div className="w-full py-2 bg-emerald-950/30 border border-emerald-500/30 rounded-xl text-xs font-bold text-emerald-400 flex items-center justify-center gap-1.5">
+                <CheckCircle size={14} />
+                <span>الإشعار الخارجي على شاشة الهاتف مفعل ✓</span>
               </div>
             )}
           </div>
@@ -825,37 +866,27 @@ export default function TrackOrderPage({ menuData }) {
         )}
       </p>
 
-      {/* Vibration Diagnostic & Test Button */}
-      <div className="mb-6 flex flex-col items-center gap-2">
-        <button
-          type="button"
-          onClick={() => {
-            try {
-              if (typeof navigator === 'undefined' || !('vibrate' in navigator)) {
-                alert('❌ متصفحك لا يدعم خاصية الاهتزاز (Web Vibration API).\n\nإذا كنت فتحت الرابط من داخل تطبيق واتساب، يرجى الضغط على الثلاث نقاط (⋮) بأعلى الشاشة واختيار "فتح في Chrome" لأن متصفح واتساب الداخلي يعطل الهزاز.');
-                return;
-              }
-              const res = navigator.vibrate([400, 150, 400, 150, 600]);
-              if (res) {
-                alert('✅ تم إرسال أمر الاهتزاز بنجاح للموبايل!\n\nإذا لم تشعر بالاهتزاز في يدك، تأكد من:\n1. إيقاف "وضع توفير البطارية (Battery Saver)".\n2. تشغيل "اهتزاز اللمس / Haptic Feedback" في إعدادات الصوت بهاتفك.\n3. التأكد من أن الهاتف ليس على الصامت التام.');
-              } else {
-                alert('⚠️ المتصفح رفض أمر الاهتزاز (res: false).\nيرجى التأكد من السماح بالاهتزاز في إعدادات متصفح كروم: الإعدادات > إعدادات المواقع > الاهتزاز.');
-              }
-            } catch (err) {
-              alert('خطأ: ' + err.message);
-            }
-          }}
-          className="px-4 py-2.5 bg-gray-900/90 hover:bg-gray-800 border border-orange-500/40 rounded-2xl text-xs font-bold text-orange-300 flex items-center gap-2 transition-all cursor-pointer shadow-lg active:scale-95"
-        >
-          <span>📳 اضغط هنا لاختبار اهتزاز الموبايل (Vibration Test)</span>
-        </button>
-
-        {typeof navigator !== 'undefined' && /WhatsApp|FBAN|FBAV|Instagram/i.test(navigator.userAgent) && (
-          <div className="max-w-xs p-2.5 bg-amber-950/40 border border-amber-500/40 rounded-xl text-[11px] text-amber-300 text-center leading-relaxed">
-            ⚠️ أنت تتصفح من داخل تطبيق واتساب. للحصول على الاهتزاز، اضغط على (⋮) بأعلى الشاشة واختر <strong>«فتح في المتصفح Chrome»</strong>.
-          </div>
-        )}
-      </div>
+      {/* System Notification Banner on Track Page */}
+      {notifPermission !== 'granted' ? (
+        <div className="w-full max-w-md p-3.5 bg-gradient-to-r from-brand-red/20 via-orange-950/20 to-black-surface border border-brand-red/40 rounded-2xl mb-6 text-center flex flex-col items-center gap-2">
+          <p className="text-xs text-gray-200 font-bold flex items-center gap-1.5">
+            <Bell size={16} className="text-brand-red animate-bounce" />
+            <span>احصل على إشعار مباشر على شاشة هاتفك أول ما الأوردر يجهز!</span>
+          </p>
+          <button
+            type="button"
+            onClick={requestNotificationPermission}
+            className="px-5 py-2 bg-brand-red hover:bg-brand-red-dark text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer active:scale-95"
+          >
+            تفعيل الإشعار الخارجي على الشاشة 🔔
+          </button>
+        </div>
+      ) : (
+        <div className="mb-6 px-3.5 py-1.5 bg-emerald-950/30 border border-emerald-500/30 rounded-xl text-[11px] font-bold text-emerald-400 flex items-center gap-1.5">
+          <CheckCircle size={13} />
+          <span>الإشعار الخارجي على شاشة الهاتف مفعل ✓</span>
+        </div>
+      )}
 
       {/* Handover Code (OTP) for Delivery (Thoghra 25 - Toggleable via Settings) */}
       {isHandoverEnabled && handoverCode && (orderType || '').toLowerCase() === 'delivery' && mappedStatus !== 'Completed' && mappedStatus !== 'Cancelled' && (
@@ -1191,8 +1222,6 @@ export default function TrackOrderPage({ menuData }) {
             dir={lang === 'en' ? 'ltr' : 'rtl'}
           >
             <motion.div
-              onPointerDown={triggerPagerVibrate}
-              onTouchStart={triggerPagerVibrate}
               initial={{ scale: 0.8, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.8, y: 20 }}
@@ -1225,17 +1254,7 @@ export default function TrackOrderPage({ menuData }) {
                   : (lang === 'en' ? 'Please proceed to the counter to collect your fresh order.' : 'يرجى التوجه إلى الكاونتر واستلام وجبتك الشهية.')}
               </p>
 
-              {/* Manual Vibration Trigger button inside pager */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  triggerPagerVibrate();
-                }}
-                className="mb-4 px-5 py-2.5 bg-brand-red/20 border border-brand-red/60 text-red-200 hover:text-white rounded-xl text-xs font-bold flex items-center gap-2 animate-pulse cursor-pointer shadow-md active:scale-95"
-              >
-                <span>📳 اضغط هنا للشعور بالفيبريشن فوراً</span>
-              </button>
+
 
               {/* Big Red Dismiss & Receive Button */}
               <button

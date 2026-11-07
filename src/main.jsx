@@ -16,6 +16,13 @@ window.addEventListener('vite:preloadError', (event) => {
   window.location.reload();
 });
 
+// Register Service Worker for System Notifications
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
 // Initialize real-time visitor tracking
 initGlobalMonitoring();
 visitorTracker.init();
