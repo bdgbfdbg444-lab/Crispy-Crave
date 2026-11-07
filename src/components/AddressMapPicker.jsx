@@ -284,8 +284,10 @@ export default function AddressMapPicker({
     if (!mapContainerRef.current) return;
     if (mapInstanceRef.current) return; // already initialized
 
-    const initialLat = formData.lat || 31.2001;
-    const initialLng = formData.lng || 29.9187;
+    const savedLat = typeof window !== 'undefined' ? parseFloat(localStorage.getItem('bb_last_known_lat')) : null;
+    const savedLng = typeof window !== 'undefined' ? parseFloat(localStorage.getItem('bb_last_known_lng')) : null;
+    const initialLat = formData.lat || (!isNaN(savedLat) && savedLat ? savedLat : 31.2001);
+    const initialLng = formData.lng || (!isNaN(savedLng) && savedLng ? savedLng : 29.9187);
 
     const map = L.map(mapContainerRef.current, {
       center: [initialLat, initialLng],

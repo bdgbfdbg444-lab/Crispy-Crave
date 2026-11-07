@@ -15,6 +15,7 @@ import PromoPopup from './components/PromoPopup';
 import OrderTypeModal from './components/OrderTypeModal';
 import GroupOrderModal from './components/Cart/GroupOrderModal';
 import PwaInstallPrompt from './components/PwaInstallPrompt';
+import ExperienceConsentModal from './components/ExperienceConsentModal';
 
 // Code Splitting for Pages
 const Home = React.lazy(() => import('./pages/Home'));
@@ -140,6 +141,7 @@ function MainAppShell({ websiteData, menuData, loading, lang, isReviewModalOpen,
       <CartSidebar websiteData={websiteData} menuData={menuData} />
       <MobileBottomNav />
       <PwaInstallPrompt />
+      <ExperienceConsentModal />
     </div>
   );
 }
