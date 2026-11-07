@@ -2,7 +2,7 @@ import { useLanguage } from '../context/LanguageContext';
 import React, { useState, useEffect } from 'react';
 import { visitorTracker } from '../services/visitorTracker';
 import { useParams, useNavigate } from 'react-router-dom';
-import { CheckCircle, AlertCircle, ArrowRight, Star, MessageCircle, Edit3, ShieldCheck, Lock, MapPin, Phone, User, Bell, Flame, Utensils } from 'lucide-react';
+import { CheckCircle, Clock, AlertCircle, ArrowRight, Star, MessageCircle, Edit3, ShieldCheck, Lock, MapPin, Phone, User, Bell, Flame, Utensils } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { APP_CONFIG } from '../config/appConfig';
 import ReviewModal from '../components/ReviewModal';
@@ -824,32 +824,41 @@ export default function TrackOrderPage({ menuData }) {
 
         {/* Estimated Arrival / Ready Time Clock */}
         {(() => {
-          const targetDeliveryTime = orderData?.TargetDeliveryTime || orderData?.targetDeliveryTime || orderDetails?.targetDeliveryTime;
-          const targetMinutes = Number(orderData?.TargetDeliveryMinutes || orderData?.targetDeliveryMinutes || orderDetails?.targetDeliveryMinutes || 40);
-          const rawDate = orderData?.CreatedAt || orderData?.OrderDate || orderDetails?.orderDate;
-          const orderDateObj = rawDate ? new Date(rawDate) : new Date();
-          const targetDate = targetDeliveryTime ? new Date(targetDeliveryTime) : new Date(orderDateObj.getTime() + targetMinutes * 60000);
-          const remainingMinutes = Math.max(0, Math.round((targetDate.getTime() - Date.now()) / 60000));
-          const formattedClock = targetDate.toLocaleTimeString(lang === 'ar' ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' });
+          try {
+            if (mappedStatus === 'Completed' || mappedStatus === 'Cancelled') return null;
 
-          if (mappedStatus === 'Completed' || mappedStatus === 'Cancelled') return null;
+            const targetDeliveryTime = orderData?.TargetDeliveryTime || orderData?.targetDeliveryTime || orderDetails?.targetDeliveryTime;
+            const targetMinutes = Number(orderData?.TargetDeliveryMinutes || orderData?.targetDeliveryMinutes || orderDetails?.targetDeliveryMinutes || 40);
+            const rawDate = orderData?.CreatedAt || orderData?.OrderDate || orderDetails?.orderDate;
+            let orderDateObj = rawDate ? new Date(rawDate) : new Date();
+            if (isNaN(orderDateObj.getTime())) orderDateObj = new Date();
 
-          return (
-            <div className="mb-6 p-4 bg-gradient-to-r from-orange-950/40 via-amber-950/20 to-black/40 border border-orange-500/40 rounded-2xl text-center">
-              <div className="flex items-center justify-center gap-1.5 text-orange-400 font-bold text-xs mb-1">
-                <Clock size={16} className="animate-pulse" />
-                <span>{(orderType || '').toLowerCase() === 'delivery' ? (lang === 'en' ? 'Estimated Delivery Time' : 'الموعد المتوقع لوصول الوجبة') : (lang === 'en' ? 'Estimated Kitchen Ready Time' : 'الموعد المتوقع لجاهزية الطلب')}</span>
+            let targetDate = targetDeliveryTime ? new Date(targetDeliveryTime) : new Date(orderDateObj.getTime() + targetMinutes * 60000);
+            if (isNaN(targetDate.getTime())) return null;
+
+            const remainingMinutes = Math.max(0, Math.round((targetDate.getTime() - Date.now()) / 60000));
+            const formattedClock = targetDate.toLocaleTimeString(lang === 'ar' ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' });
+
+            return (
+              <div className="mb-6 p-4 bg-gradient-to-r from-orange-950/40 via-amber-950/20 to-black/40 border border-orange-500/40 rounded-2xl text-center">
+                <div className="flex items-center justify-center gap-1.5 text-orange-400 font-bold text-xs mb-1">
+                  <Clock size={16} className="animate-pulse" />
+                  <span>{(orderType || '').toLowerCase() === 'delivery' ? (lang === 'en' ? 'Estimated Delivery Time' : 'الموعد المتوقع لوصول الوجبة') : (lang === 'en' ? 'Estimated Kitchen Ready Time' : 'الموعد المتوقع لجاهزية الطلب')}</span>
+                </div>
+                <div className="text-2xl font-black text-orange-200 font-mono tracking-wide my-0.5">
+                  {formattedClock}
+                </div>
+                <p className="text-[11px] text-gray-400">
+                  {remainingMinutes > 0
+                    ? (lang === 'en' ? `Approximately ~${remainingMinutes} minutes remaining` : `متبقي حوالي ~${remainingMinutes} دقيقة`)
+                    : (lang === 'en' ? 'Any moment now!' : 'في أي لحظة الآن! 🛵')}
+                </p>
               </div>
-              <div className="text-2xl font-black text-orange-200 font-mono tracking-wide my-0.5">
-                {formattedClock}
-              </div>
-              <p className="text-[11px] text-gray-400">
-                {remainingMinutes > 0
-                  ? (lang === 'en' ? `Approximately ~${remainingMinutes} minutes remaining` : `متبقي حوالي ~${remainingMinutes} دقيقة`)
-                  : (lang === 'en' ? 'Any moment now!' : 'في أي لحظة الآن! 🛵')}
-              </p>
-            </div>
-          );
+            );
+          } catch(err) {
+            console.warn('ETA clock render suppressed:', err);
+            return null;
+          }
         })()}
 
           {mappedStatus === 'OutForDelivery' && isOwner && orderData?.DriverName && (
