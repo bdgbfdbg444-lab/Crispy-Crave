@@ -132,6 +132,21 @@ export default function TrackOrderPage({ menuData }) {
     }
   }, [orderData?.Status, hasAutoOpenedReview, orderId]);
 
+  // Robust Pager Vibration Helper for Android mobile devices
+  const triggerPagerVibrate = () => {
+    try {
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        // Multi-frequency pulse pattern for maximum haptic feedback
+        const didVibrate = navigator.vibrate([400, 150, 400, 150, 600]);
+        if (!didVibrate) {
+          navigator.vibrate(600);
+        }
+      }
+    } catch (e) {
+      console.warn('Vibration API error or blocked by browser policy:', e);
+    }
+  };
+
   // Digital Pager Buzzer & Vibration Trigger when order is Ready
   useEffect(() => {
     const statusLower = (orderData?.Status || '').toLowerCase();
@@ -141,21 +156,13 @@ export default function TrackOrderPage({ menuData }) {
       // Play initial buzzer sound
       playPagerChimeSound();
 
-      // Vibrate on Android
-      try {
-        if ('vibrate' in navigator) {
-          navigator.vibrate([600, 300, 600, 300, 600]);
-        }
-      } catch (e) {}
+      // Trigger vibration
+      triggerPagerVibrate();
 
       // Keep ringing and vibrating every 3.5 seconds until dismissed
       const buzzInterval = setInterval(() => {
         playPagerChimeSound();
-        try {
-          if ('vibrate' in navigator) {
-            navigator.vibrate([600, 300, 600, 300, 600]);
-          }
-        } catch (e) {}
+        triggerPagerVibrate();
       }, 3500);
 
       return () => {
@@ -1110,6 +1117,8 @@ export default function TrackOrderPage({ menuData }) {
             dir={lang === 'en' ? 'ltr' : 'rtl'}
           >
             <motion.div
+              onPointerDown={triggerPagerVibrate}
+              onTouchStart={triggerPagerVibrate}
               initial={{ scale: 0.8, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.8, y: 20 }}
